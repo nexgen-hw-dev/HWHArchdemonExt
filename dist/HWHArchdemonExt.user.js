@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.30-alpha
+// @version          0.31-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -88,6 +88,18 @@
   var NX_PET_ID_THRESHOLD = 4400;
   var NX_TIMER_SEARCH_MAX_TRIES = 1e3;
   var NX_TIMER_SEARCH_GRID = 30;
+  var NX_TIMER_SEARCH_BUDGET_MS = 6e4;
+  var NX_PACE = {
+    afterBattle: [670, 870],
+    talismanPick: [600, 870],
+    stallOpen: [35, 70],
+    stallAll: [70, 170],
+    firstAction: [330, 600],
+    betweenActions: [230, 600],
+    beforeBattle: [530, 1e3],
+    chapterEnter: [400, 530],
+    autoBattle: [1200, 2e3]
+  };
   var NX_SAVE_KEYS = {
     chapter: "savedChapterForArchdemonNew",
     team: "savedTeamForArchdemonNew",
@@ -118,8 +130,6 @@
   var NX_POINT1_MAX_REFRESHES = 30;
   var NX_RANDOM_LOT_FRAGMENTS = 2;
   var NX_BATTLE_TIMER_RANGE = { min: 1.3, max: 25 };
-  var NX_COINS_POLL_STEP_MS = 1e3;
-  var NX_COINS_POLL_TRIES = 12;
   var NX_LOG_CASH = `КАССА[${GM_info.script.version}]`;
   var NX_LOG_BATTLE = `БОЙ[${GM_info.script.version}]`;
 
@@ -252,6 +262,54 @@
     return { ok: false, reason: I18N("NX_REASON_STOPPED") };
   }
 
+  // src/units.js
+  var live2 = null;
+  function setOwnedFragments(fragments) {
+    const next = {};
+    for (const [id, amount] of Object.entries(fragments ?? {})) {
+      if (Number(amount) !== 0) next[id] = amount;
+    }
+    if (!live2) {
+      live2 = next;
+      return;
+    }
+    for (const key of Object.keys(live2)) delete live2[key];
+    Object.assign(live2, next);
+  }
+  function clearOwnedFragments() {
+    live2 = null;
+  }
+  async function readOwnedUnits() {
+    if (!live2) {
+      const info = await Caller.send("invasion_getInfo");
+      setOwnedFragments(info?.fragments);
+    }
+    const byAmount = Object.keys(live2).map(Number).filter((id) => Number(live2[id]) > 0).sort((a, b) => Number(live2[b]) - Number(live2[a]));
+    const heroIds = byAmount.filter((id) => id < NX_PET_ID_THRESHOLD);
+    return {
+      fragments: live2,
+      heroIds,
+      bestFive: heroIds.slice(0, NX_TEAM_SIZE),
+      pets: byAmount.filter((id) => id > NX_PET_ID_THRESHOLD)
+    };
+  }
+
+  // src/wallet.js
+  var wallet = { value: 0 };
+  var STALL_COIN = 1080;
+  function coinsOf(reward) {
+    return Number(reward?.coin?.[STALL_COIN] ?? 0);
+  }
+  function walletAddReward(reward) {
+    const amount = coinsOf(reward);
+    wallet.value += amount;
+    return amount;
+  }
+  async function walletLoad() {
+    wallet.value = await Caller.send("inventoryGet").then((e) => Number(e.coin[STALL_COIN] ?? 0));
+    return wallet.value;
+  }
+
   // src/battle.js
   var PointTimerSearch = class extends (WinFixBattle ?? class {
   }) {
@@ -263,13 +321,18 @@
       this.pending = [];
       this.depth = 0;
     }
-    /** Следующий слой таймеров: на первом все узлы сетки, дальше только новые середины */
+    /**
+     * Следующий слой таймеров: на первом все узлы сетки, дальше только новые середины.
+     * К каждому узлу малый случайный сдвиг в пределах четверти шага: покрытие сетки то же,
+     * а одни и те же точные числа не повторяются из боя в бой
+     */
     addLayer() {
       const parts = NX_TIMER_SEARCH_GRID * 2 ** this.depth;
       const step = (this.maxTimer - this.minTimer) / parts;
       const first = this.depth === 0;
       for (let i = first ? 0 : 1; i <= parts; i += first ? 1 : 2) {
-        this.pending.push(this.minTimer + i * step);
+        const timer = this.minTimer + i * step + (Math.random() - 0.5) * step * 0.5;
+        this.pending.push(Math.min(this.maxTimer, Math.max(this.minTimer, timer)));
       }
       this.depth++;
     }
@@ -284,28 +347,60 @@
       archdemonNewProgress(I18N("NX_TIMER_SEARCH", { count: this.count, max: this.maxCount }), "timer");
     }
   };
+  async function waitBattleTime(startedAt, improvedTimer = 0) {
+    const seconds = Number(improvedTimer);
+    let until;
+    if (Number.isFinite(seconds) && seconds > 0) {
+      until = startedAt + seconds * 1e3;
+    } else {
+      const [min, max] = NX_PACE.autoBattle;
+      until = startedAt + min + Math.random() * (max - min);
+    }
+    const left = until - Date.now();
+    if (left > 0) await new Promise((e) => setTimeout(e, left));
+  }
+  async function sendBattleEnd(missionId, outcome) {
+    const call = new Caller([
+      { name: "invasion_bossEnd", args: { id: missionId, result: outcome.result, progress: outcome.progress } },
+      { name: "invasion_getInfo", args: {} }
+    ]);
+    setIsCancalBattle(false);
+    try {
+      await call.send();
+    } finally {
+      setIsCancalBattle(true);
+    }
+    const end = call.result("invasion_bossEnd");
+    const info = call.result("invasion_getInfo");
+    const reward = walletAddReward(end?.reward);
+    if (reward) console.log(`${NX_LOG_CASH} +${reward} награда за бой, монет ${wallet.value}`);
+    if (info?.fragments) setOwnedFragments(info.fragments);
+    const invalid = Boolean(end?.result?.afterInvalid || call.sideResult("invasion_bossEnd")?.afterInvalid);
+    if (invalid) console.error("Сервер не принял результат боя: afterInvalid", end);
+    return { info, invalid };
+  }
   async function fightPoint(missionId, chapterId, heroes, pet, favor) {
     try {
       const battle = await Caller.send({
         name: "invasion_bossStart",
         args: { id: missionId, chapterId, heroes, pet, favor }
       });
+      const startedAt = Date.now();
       let outcome = await Calc(battle);
+      let improvedTimer = 0;
       if (!outcome.result.win) {
         const search = new PointTimerSearch(battle, NX_BATTLE_TIMER_RANGE);
-        const found = await search.start(battle.endTime, NX_TIMER_SEARCH_MAX_TRIES);
+        const found = await search.start(startedAt + NX_TIMER_SEARCH_BUDGET_MS, NX_TIMER_SEARCH_MAX_TRIES);
         if (found.result?.win) {
           outcome = { ...outcome, result: found.result, progress: found.progress };
+          improvedTimer = found.battleTimer ?? outcome.battleTimer;
         }
       }
-      await Caller.send({
-        name: "invasion_bossEnd",
-        args: { id: missionId, result: outcome.result, progress: outcome.progress }
-      });
-      return false;
+      await waitBattleTime(startedAt, improvedTimer);
+      return { error: false, ...await sendBattleEnd(missionId, outcome) };
     } catch (e) {
       console.error(e);
-      return true;
+      return { error: true };
     }
   }
   async function loseBattleOnPurpose(missionId, chapterId, heroes) {
@@ -314,18 +409,12 @@
         name: "invasion_bossStart",
         args: { id: missionId, chapterId, heroes, favor: {} }
       });
+      const startedAt = Date.now();
       const outcome = await Calc(battle);
-      setIsCancalBattle?.(false);
-      try {
-        await Caller.send({
-          name: "invasion_bossEnd",
-          args: { id: missionId, result: outcome.result, progress: outcome.progress }
-        });
-      } finally {
-        setIsCancalBattle?.(true);
-      }
+      await waitBattleTime(startedAt);
+      const end = await sendBattleEnd(missionId, outcome);
       console.log("Слив обычным автобоем, расчёт вернул", JSON.stringify(outcome.result));
-      return outcome.result?.win === true;
+      return { calcSaysWin: outcome.result?.win === true, ...end };
     } catch (e) {
       console.error(e);
       return null;
@@ -458,25 +547,6 @@
     return [...new Set(ids)];
   }
 
-  // src/units.js
-  async function readOwnedUnits() {
-    const info = await Caller.send("invasion_getInfo");
-    const fragments = {};
-    for (const [id, amount] of Object.entries(info?.fragments ?? {})) {
-      if (Number(amount) !== 0) {
-        fragments[id] = amount;
-      }
-    }
-    const byAmount = Object.keys(fragments).map(Number).sort((a, b) => Number(fragments[b]) - Number(fragments[a]));
-    const heroIds = byAmount.filter((id) => id < NX_PET_ID_THRESHOLD);
-    return {
-      fragments,
-      heroIds,
-      bestFive: heroIds.slice(0, NX_TEAM_SIZE),
-      pets: byAmount.filter((id) => id > NX_PET_ID_THRESHOLD)
-    };
-  }
-
   // src/collect.js
   function carryPackReady(setup, fragments) {
     const mainReady = setup.carryHeroes.every((id) => Number(fragments[id] ?? 0) > 0);
@@ -528,7 +598,9 @@
       const list = [...state.heroesLeft, ...state.petsLeft].map(unitName).join(", ");
       return { ok: false, reason: I18N("NX_REASON_NOT_COLLECTED", { list }) };
     }
-    const coins = await Caller.send("inventoryGet").then((e) => e.coin[1080]);
+    const coins = await Caller.send("inventoryGet").then((e) => Number(e.coin[1080] ?? 0));
+    if (coins !== wallet.value) console.warn(`${NX_LOG_CASH} свой счёт ${wallet.value}, у игры ${coins}, разница ${coins - wallet.value}`);
+    wallet.value = coins;
     const percent = coinsToPercent(coins);
     if (setup.talismanId === NX_WEALTH_TALISMAN_ID && setup.minCoins != null && coins < setup.minCoins) {
       return { ok: false, reason: I18N("NX_REASON_MIN_COINS", { coins, percent, min: setup.minCoins }) };
@@ -553,6 +625,19 @@
     return 0;
   }
 
+  // src/pace.js
+  function pause(range) {
+    const [min, max] = range;
+    return new Promise((e) => setTimeout(e, min + Math.random() * (max - min)));
+  }
+  var actionsInVisit = 0;
+  function newStallVisit() {
+    actionsInVisit = 0;
+  }
+  function beforeStallAction() {
+    return pause(actionsInVisit++ === 0 ? NX_PACE.firstAction : NX_PACE.betweenActions);
+  }
+
   // src/ledger.js
   var archdemonNewLedger = {};
   function ledgerReset(startCoins) {
@@ -571,22 +656,6 @@
     const mine = entries.reduce((sum, e) => sum + e[1], 0);
     const fromPoints = Number(finalCoins) - sessionState.startCoins - mine;
     return { entries, mine, fromPoints, start: sessionState.startCoins, final: Number(finalCoins) };
-  }
-  async function settledCoins(label) {
-    let last = await Caller.send("inventoryGet").then((e) => e.coin[1080]);
-    for (let step = 1; step <= NX_COINS_POLL_TRIES; step++) {
-      await new Promise((e) => setTimeout(e, NX_COINS_POLL_STEP_MS));
-      const now = await Caller.send("inventoryGet").then((e) => e.coin[1080]);
-      if (now === last) {
-        if (step > 1) {
-          console.log(`${NX_LOG_CASH} баланс устаканился за ${step} проверок${label ? ", " + label : ""}`);
-        }
-        return now;
-      }
-      last = now;
-    }
-    console.log(`${NX_LOG_CASH} баланс так и не устаканился${label ? ", " + label : ""}, беру ${last}`);
-    return last;
   }
 
   // src/prices.js
@@ -617,6 +686,32 @@
     return cost > 0 && base > 0 && cost < base;
   }
 
+  // src/talismans.js
+  function offeredTalismans(answer) {
+    const ids = Array.isArray(answer?.talismanIds) ? answer.talismanIds : Object.values(answer ?? {});
+    return ids.map(Number).filter((id) => Number.isFinite(id) && id > 0 && id !== NX_SALE_TALISMAN_ID);
+  }
+  async function chooseTalisman(setup, offered, takenRolls) {
+    const rollIndex = takenRolls.length;
+    const wanted = Number(setup.talismanIds?.[rollIndex] ?? 0);
+    const pick = wanted ? offered.find((id) => id === wanted) : offered[0];
+    console.log(
+      "Талисманы на выбор",
+      JSON.stringify(offered),
+      "выдача",
+      rollIndex + 1,
+      "нужен",
+      wanted || "любой",
+      "берём",
+      pick ?? "ничего"
+    );
+    if (!pick) return I18N("NX_REASON_NO_TALISMAN");
+    await Caller.send({ name: "invasion_selectTalisman", args: { talismanId: pick } });
+    takenRolls.push(pick);
+    archdemonNewProgress(I18N("NX_TALISMAN_TAKEN", { name: cheats.translate(`LIB_TALISMAN_NAME_${pick}`) }));
+    return null;
+  }
+
   // src/stall.js
   function stallShopId() {
     const bound = Object.values(lib.data.shop).filter((shop) => shop.requirements?.invasion?.id === sessionState.eventId);
@@ -626,15 +721,42 @@
     );
     return heroChapter ? heroChapter.settings.stallShopId : false;
   }
+  async function openStallVisit(shopId, onTalismans) {
+    newStallVisit();
+    if (sessionState.stopped) return { reason: I18N("NX_REASON_STOPPED") };
+    const offered = offeredTalismans(await Caller.send("invasion_rollTalismans"));
+    if (offered.length > 0) {
+      await pause(NX_PACE.stallAll);
+      await Caller.send("shopGetAll");
+      await pause(NX_PACE.talismanPick);
+      if (sessionState.stopped) return { reason: I18N("NX_REASON_STOPPED") };
+      const reason = onTalismans ? await onTalismans(offered) : I18N("NX_REASON_NO_TALISMAN");
+      if (reason) return { reason };
+      await pause(NX_PACE.stallOpen);
+      return { slots: await getStall(shopId) };
+    }
+    await pause(NX_PACE.stallOpen);
+    const slots = await getStall(shopId);
+    await pause(NX_PACE.stallAll);
+    await Caller.send("shopGetAll");
+    return { slots };
+  }
+  async function getStall(shopId) {
+    const answer = await Caller.send({ name: "shopGet", args: { shopId } });
+    const bonus = walletAddReward(answer?.bonusReward);
+    if (bonus) console.log(`${NX_LOG_CASH} +${bonus} бонус за открытие лавки, монет ${wallet.value}`);
+    return Object.values(answer?.slots ?? {});
+  }
   async function refreshStall(shopId, coins) {
     try {
+      await beforeStallAction();
       const answer = await Caller.send({ name: "shopRefresh", args: { shopId } });
       coins.value -= NX_STALL_REFRESH_COST;
       console.log(`${NX_LOG_CASH} обновили лавку, монет ${coins.value}`);
       return Object.values(answer.slots);
     } catch (e) {
       console.error(e);
-      coins.value = await Caller.send("inventoryGet").then((e2) => e2.coin[1080]);
+      coins.value = await walletLoad();
       return null;
     }
   }
@@ -645,12 +767,12 @@
     const petReward = slot.reward?.invasionFragmentPet ?? {};
     const neededIds = [];
     let useful = 0;
-    let heroTotal = 0;
+    let resale = 0;
     for (const [id, amount] of Object.entries(heroReward)) {
       const heroId = Number(id);
       const have = Number(fragments[heroId] ?? 0);
       const count = Number(amount);
-      heroTotal += count;
+      if (keepAmountFor(setup, heroId, carryOnly !== false) === 0) resale += count * fragmentSellPrice("hero");
       let need = 0;
       if (carryOnly === "rank") {
         need = carryRankNeedFor(setup, fragments, heroId);
@@ -674,9 +796,28 @@
       }
     }
     const cost = Number(slot.cost?.coin?.[1080] ?? 0);
-    const resale = Math.max(0, heroTotal - useful) * fragmentSellPrice("hero");
     const effectiveCost = cost - resale;
     return { cost, useful, effectiveCost, neededIds, price: useful > 0 ? effectiveCost / useful : Infinity };
+  }
+  async function buySlot(shopId, slot) {
+    await beforeStallAction();
+    return await Caller.send({ name: "shopBuy", args: { shopId, slot: slot.id, cost: slot.cost, reward: {} } });
+  }
+  async function pinSlot(shopId, slot) {
+    await beforeStallAction();
+    await Caller.send({ name: "shop_pinSlot", args: { shopId, slotId: slot.id } });
+    slot.pinned = true;
+  }
+  async function unpinSlot(shopId, slot) {
+    await beforeStallAction();
+    await Caller.send({ name: "shop_unpinSlot", args: { shopId, slotId: slot.id } });
+    slot.pinned = false;
+  }
+  async function sellWhole(fragments, unitId, amount) {
+    await beforeStallAction();
+    const answer = await Caller.send({ name: "invasion_fragmentSell", args: { fragmentId: unitId, amount } });
+    fragments[unitId] = 0;
+    return coinsOf(answer);
   }
   function usefulSlots(shopSlots, setup, fragments, carryOnly, waitPetDiscount = false) {
     const result = [];
@@ -720,18 +861,22 @@
       if (sessionState.stopped) break;
       if (candidate.slot.pinned) continue;
       if (!candidate.neededIds.some((id) => id < NX_PET_ID_THRESHOLD)) continue;
-      await Caller.send({ name: "shop_pinSlot", args: { shopId, slotId: candidate.slot.id } });
-      candidate.slot.pinned = true;
+      await pinSlot(shopId, candidate.slot);
       console.log(`Закрепили перед обновлением слот ${candidate.slot.id}`);
     }
     if (withPets) await pinDiscountedPets(shopId, shopSlots, fragments);
   }
-  async function buyForArchdemonNew(setup, attempt, { discountPets = false, minCoins = null } = {}) {
+  async function buyForArchdemonNew(setup, attempt, { discountPets = false, minCoins = null, shopSlots: openedSlots = null, onTalismans = null } = {}) {
     const shopId = stallShopId();
-    if (!shopId) return { coins: 0 };
+    if (!shopId) return { coins: wallet.value };
+    let shopSlots = openedSlots;
+    if (!shopSlots) {
+      const visit = await openStallVisit(shopId, onTalismans);
+      if (visit.reason) return { coins: wallet.value, reason: visit.reason };
+      shopSlots = visit.slots;
+    }
     const fragments = (await readOwnedUnits()).fragments;
-    const coins = { value: await Caller.send("inventoryGet").then((e) => e.coin[1080]) };
-    let shopSlots = null;
+    const coins = wallet;
     let tick = 0;
     let guard = 0;
     let petDeposit = discountPets;
@@ -762,9 +907,6 @@
         "shopping"
       );
       tick++;
-      if (!shopSlots) {
-        shopSlots = await Caller.send({ name: "shopGet", args: { shopId } }).then((e) => Object.values(e.slots));
-      }
       const bought = await buySlotsForArchdemonNew(shopId, coins, shopSlots, setup, fragments, discountPets);
       if (bought) {
         await sellUnneededFragments(setup, fragments, false, coins);
@@ -803,7 +945,7 @@
         if (!setup.petsToCollect.includes(unitId)) resale += have * petPrice;
         continue;
       }
-      resale += Math.max(0, have - keepAmountFor(setup, unitId, false)) * heroPrice;
+      if (keepAmountFor(setup, unitId, false) === 0) resale += have * heroPrice;
     }
     return resale;
   }
@@ -817,7 +959,7 @@
         if (collectedState(setup, fragments).done) break;
         const best = pickBestSlot(shopSlots, setup, fragments, coins, false, waitPetDiscount);
         if (!best) break;
-        await Caller.send({ name: "shopBuy", args: { shopId, slot: best.slot.id } });
+        await buySlot(shopId, best.slot);
         coins.value -= best.cost;
         ledgerAdd("основной пак", -best.cost);
         best.slot.bought = true;
@@ -829,50 +971,45 @@
       }
     } catch (e) {
       console.error(e);
-      coins.value = await Caller.send("inventoryGet").then((e2) => e2.coin[1080]);
+      coins.value = await walletLoad();
     }
     return bought;
   }
-  async function sellUnneededFragments(setup, fragments, keepCarry, coins = null) {
+  async function sellUnneededFragments(setup, fragments, keepCarry, coins = wallet) {
     let sold = 0;
+    let income = 0;
     for (const [id, count] of Object.entries(fragments)) {
       if (sessionState.stopped) break;
       const fragmentId = Number(id);
       const have = Number(count);
       if (have <= 0) continue;
       if (fragmentId >= NX_PET_ID_THRESHOLD) continue;
-      const keep = keepAmountFor(setup, fragmentId, keepCarry);
-      const excess = have - keep;
-      if (excess <= 0) continue;
-      await Caller.send({ name: "invasion_fragmentSell", args: { fragmentId, amount: excess } });
-      fragments[fragmentId] = keep;
-      sold += excess;
-      console.log(`Продали ${excess} фрагментов ${fragmentId}`);
+      if (keepAmountFor(setup, fragmentId, keepCarry) > 0) continue;
+      income += await sellWhole(fragments, fragmentId, have);
+      sold += have;
+      console.log(`Продали героя ${fragmentId} целиком, фрагментов ${have}`);
     }
-    if (sold > 0 && coins) {
-      const before = coins.value;
-      coins.value = await Caller.send("inventoryGet").then((e) => e.coin[1080]);
-      ledgerAdd("продажи", coins.value - before);
-      console.log(`${NX_LOG_CASH} +${coins.value - before} продажа ${sold} фрагментов, остаток ${coins.value}`);
+    if (sold > 0) {
+      coins.value += income;
+      ledgerAdd("продажи", income);
+      console.log(`${NX_LOG_CASH} +${income} продажа ${sold} фрагментов, остаток ${coins.value}`);
     }
     return sold;
   }
-  async function sellExtraPets(setup, fragments, coins = null) {
+  async function sellExtraPets(setup, fragments, coins = wallet) {
     const extra = Object.entries(fragments).map(([id, count]) => [Number(id), Number(count)]).filter(([id, count]) => id >= NX_PET_ID_THRESHOLD && count > 0 && !setup.petsToCollect.includes(id));
     if (extra.length === 0) return 0;
-    const before = await Caller.send("inventoryGet").then((e) => e.coin[1080]);
     let sold = 0;
+    let income = 0;
     for (const [petId, count] of extra) {
       if (sessionState.stopped) break;
-      await Caller.send({ name: "invasion_fragmentSell", args: { fragmentId: petId, amount: count } });
-      fragments[petId] = 0;
+      income += await sellWhole(fragments, petId, count);
       sold += count;
       console.log(`Продали лишнего питомца ${petId}`);
     }
-    const after = await Caller.send("inventoryGet").then((e) => e.coin[1080]);
-    ledgerAdd("продажа питомцев", after - before);
-    if (coins) coins.value = after;
-    console.log(`${NX_LOG_CASH} +${after - before} продажа ${sold} питомцев, остаток ${after}`);
+    coins.value += income;
+    ledgerAdd("продажа питомцев", income);
+    console.log(`${NX_LOG_CASH} +${income} продажа ${sold} питомцев, остаток ${coins.value}`);
     return sold;
   }
   async function buyCarryHeroes(shopId, coins, shopSlots, setup, fragments) {
@@ -883,7 +1020,7 @@
       if (carryPackReady(setup, fragments)) break;
       const best = pickBestSlot(shopSlots, setup, fragments, coins, true);
       if (!best) break;
-      await Caller.send({ name: "shopBuy", args: { shopId, slot: best.slot.id } });
+      await buySlot(shopId, best.slot);
       coins.value -= best.cost;
       ledgerAdd("проходные", -best.cost);
       best.slot.bought = true;
@@ -900,7 +1037,7 @@
       if (sessionState.stopped) break;
       const best = pickBestSlot(shopSlots, setup, fragments, coins, "rank");
       if (!best) break;
-      await Caller.send({ name: "shopBuy", args: { shopId, slot: best.slot.id } });
+      await buySlot(shopId, best.slot);
       coins.value -= best.cost;
       ledgerAdd("проходные до ранга", -best.cost);
       best.slot.bought = true;
@@ -920,12 +1057,15 @@
       if (!heroes[heroId]) continue;
       const cost = Number(slot.cost?.coin?.[1080] ?? 0);
       if (!cost || coins.value < cost) continue;
-      const others = Object.entries(heroes).reduce((sum, [id, amount]) => sum + (Number(id) === heroId ? 0 : Number(amount)), 0);
+      const others = Object.entries(heroes).reduce(
+        (sum, [id, amount]) => sum + (Number(id) === heroId || keepAmountFor(setup, Number(id), true) > 0 ? 0 : Number(amount)),
+        0
+      );
       const effective = cost - others * fragmentSellPrice("hero");
       if (!best || effective < best.effective) best = { slot, cost, effective };
     }
     if (!best) return false;
-    await Caller.send({ name: "shopBuy", args: { shopId, slot: best.slot.id } });
+    await buySlot(shopId, best.slot);
     coins.value -= best.cost;
     best.slot.bought = true;
     applyReward(fragments, best.slot.reward);
@@ -933,17 +1073,20 @@
     console.log(`${NX_LOG_CASH} -${best.cost} герой для слива ${heroId}, чистая ${best.effective}, остаток ${coins.value}`);
     return true;
   }
-  async function buyCheapLots(shopId, coins, shopSlots, fragments) {
+  async function buyCheapLots(shopId, coins, shopSlots, setup, fragments) {
     for (const slot of shopSlots) {
       if (sessionState.stopped) break;
       if (slot.bought) continue;
       const heroes = slot.reward?.invasionFragmentHero;
       if (!heroes || slot.reward?.invasionFragmentPet) continue;
-      const count = Object.values(heroes).reduce((sum, amount) => sum + Number(amount), 0);
+      const count = Object.entries(heroes).reduce(
+        (sum, [id, amount]) => sum + (keepAmountFor(setup, Number(id), true) > 0 ? 0 : Number(amount)),
+        0
+      );
       const resale = count * fragmentSellPrice("hero");
       const cost = Number(slot.cost?.coin?.[1080] ?? 0);
       if (!cost || cost >= resale || coins.value < cost) continue;
-      await Caller.send({ name: "shopBuy", args: { shopId, slot: slot.id } });
+      await buySlot(shopId, slot);
       coins.value -= cost;
       slot.bought = true;
       applyReward(fragments, slot.reward);
@@ -966,7 +1109,7 @@
         continue;
       }
       if (coins.value < cost) continue;
-      const result = await Caller.send({ name: "shopBuy", args: { shopId, slot: slot.id } });
+      const result = await buySlot(shopId, slot);
       coins.value -= cost;
       slot.bought = true;
       bought++;
@@ -999,8 +1142,7 @@
       if (!reward) continue;
       const useful = Object.keys(reward).map(Number).some((id) => stillShort(id, pledged));
       if (!useful) {
-        await Caller.send({ name: "shop_unpinSlot", args: { shopId, slotId: slot.id } });
-        slot.pinned = false;
+        await unpinSlot(shopId, slot);
         console.log(`Сняли лишний закреп со слота ${slot.id}`);
         continue;
       }
@@ -1012,8 +1154,7 @@
       const reward = slot.reward?.invasionFragmentHero;
       if (!reward) continue;
       if (!Object.keys(reward).map(Number).some((id) => stillShort(id, pledged))) continue;
-      await Caller.send({ name: "shop_pinSlot", args: { shopId, slotId: slot.id } });
-      slot.pinned = true;
+      await pinSlot(shopId, slot);
       addPledge(pledged, reward);
       console.log(`Закрепили слот ${slot.id}`);
     }
@@ -1028,12 +1169,11 @@
       const pets = petsOf(slot);
       if (pets.every((id) => Number(fragments[id] ?? 0) > 0 || pledged.has(id))) continue;
       try {
-        await Caller.send({ name: "shop_pinSlot", args: { shopId, slotId: slot.id } });
+        await pinSlot(shopId, slot);
       } catch (e) {
         console.error(e);
         return;
       }
-      slot.pinned = true;
       pets.forEach((id) => pledged.add(id));
       console.log(`Закрепили питомца со скидкой ${pets.join("+")}, слот ${slot.id}`);
     }
@@ -1048,7 +1188,7 @@
       if (Object.keys(pets).every((id) => Number(fragments[Number(id)] ?? 0) > 0)) continue;
       const cost = Number(slot.cost?.coin?.[1080] ?? 0);
       if (coins.value < cost) continue;
-      await Caller.send({ name: "shopBuy", args: { shopId, slot: slot.id } });
+      await buySlot(shopId, slot);
       coins.value -= cost;
       slot.bought = true;
       applyReward(fragments, slot.reward);
@@ -1060,51 +1200,6 @@
       );
     }
     return bought;
-  }
-  async function stallVisit(setup, label) {
-    const shopId = stallShopId();
-    if (!shopId) return;
-    try {
-      const fragments = (await readOwnedUnits()).fragments;
-      const coins = { value: await Caller.send("inventoryGet").then((e) => e.coin[1080]) };
-      const shopSlots = await Caller.send({ name: "shopGet", args: { shopId } }).then((e) => Object.values(e.slots));
-      console.log(`${NX_LOG_CASH} зашли в лавку после ${label}, монет на входе ${coins.value}`);
-      await buyCheapLots(shopId, coins, shopSlots, fragments);
-      await sellUnneededFragments(setup, fragments, true, coins);
-      await pinWantedSlots(shopId, shopSlots, setup, fragments);
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  // src/talismans.js
-  function offeredTalismans(answer) {
-    const ids = Array.isArray(answer?.talismanIds) ? answer.talismanIds : Object.values(answer ?? {});
-    return ids.map(Number).filter((id) => Number.isFinite(id) && id > 0 && id !== NX_SALE_TALISMAN_ID);
-  }
-  async function takeTalisman(wantedId) {
-    const offered = offeredTalismans(await Caller.send("invasion_rollTalismans"));
-    if (offered.length === 0) return 0;
-    const pick = wantedId ? offered.find((id) => id === wantedId) : offered[0];
-    console.log("Талисманы на выбор", JSON.stringify(offered), "нужен", wantedId || "любой", "берём", pick ?? "ничего");
-    if (!pick) return false;
-    await Caller.send({ name: "invasion_selectTalisman", args: { talismanId: pick } });
-    archdemonNewProgress(I18N("NX_TALISMAN_TAKEN", { name: cheats.translate(`LIB_TALISMAN_NAME_${pick}`) }));
-    await new Promise((e) => setTimeout(e, 2e3));
-    return true;
-  }
-  async function takeTalismanBeforePoint(setup, nextPoint, takenRolls) {
-    const rollIndex = getTalismanRollBosses(setup.chapterId).indexOf(nextPoint);
-    if (rollIndex < 0 || takenRolls.has(rollIndex)) return null;
-    takenRolls.add(rollIndex);
-    const wanted = Number(setup.talismanIds?.[rollIndex] ?? 0);
-    const bought = await takeTalisman(wanted);
-    if (bought === 0) {
-      console.warn(`Перед боем ${nextPoint} выдачи талисмана не оказалось`);
-      return null;
-    }
-    if (bought === false) return { ok: false, reason: I18N("NX_REASON_NO_TALISMAN") };
-    return null;
   }
 
   // src/runDefault.js
@@ -1119,22 +1214,28 @@
       console.error(e);
       return { fatal: true };
     }
+    setOwnedFragments(chapterInfo.invasion.fragments);
+    await walletLoad();
     const actions = Object.values(chapterInfo.invasion.actions);
     const lastMission = actions[actions.length - 1];
     const lastMissionId = lastMission.payload.id;
     let missionId = actions[0].payload.id;
     let missionNumber = 1;
     let lives = chapterInfo.invasion.lives;
-    const takenRolls = /* @__PURE__ */ new Set();
+    const takenRolls = [];
+    await pause(NX_PACE.chapterEnter);
     while (lives > 0) {
       if (sessionState.stopped) return { ok: false, reason: I18N("NX_REASON_STOPPED") };
-      await buyForArchdemonNew(setup, attempt);
+      const shopping = await buyForArchdemonNew(setup, attempt, {
+        onTalismans: (offered) => chooseTalisman(setup, offered, takenRolls)
+      });
+      if (shopping.reason) return { ok: false, reason: shopping.reason };
       if (sessionState.stopped) return { ok: false, reason: I18N("NX_REASON_STOPPED") };
       if (missionId === lastMissionId) {
         return await checkArchdemonNewConditions(setup);
       }
       archdemonNewProgress(I18N("NX_MISSION", { attempt, missionNumber }));
-      await new Promise((e) => setTimeout(e, 2e3));
+      await pause(NX_PACE.beforeBattle);
       const have = await readOwnedUnits();
       let heroes = have.bestFive;
       if (setup.heroes.every((id) => have.heroIds.includes(id))) {
@@ -1152,9 +1253,10 @@
           petsFavor[heroId] = petId;
         }
       }
-      const error = await fightPoint(missionId, setup.chapterId, heroes, pet, petsFavor);
-      if (error) return { fatal: true };
-      const info = await Caller.send("invasion_getInfo");
+      const fight = await fightPoint(missionId, setup.chapterId, heroes, pet, petsFavor);
+      if (fight.error || !fight.info) return { fatal: true };
+      if (fight.invalid) return { fatal: true, message: I18N("NX_ERR_RESULT_INVALID") };
+      const info = fight.info;
       lives = info.lives;
       if (sessionState.stopped) return { ok: false, reason: I18N("NX_REASON_STOPPED") };
       if (lives === 0) return { ok: false, reason: I18N("NX_REASON_NO_LIVES") };
@@ -1163,27 +1265,33 @@
       if (nextMissionIndex === -1) return { ok: false, reason: I18N("NX_REASON_NO_MISSIONS") };
       missionId = missions[nextMissionIndex].payload.id;
       missionNumber = nextMissionIndex + 1;
-      const talismanFail = await takeTalismanBeforePoint(setup, missionNumber, takenRolls);
-      if (talismanFail) return talismanFail;
+      await pause(NX_PACE.afterBattle);
     }
     return { ok: false, reason: I18N("NX_REASON_NO_LIVES") };
   }
 
   // src/runWealth.js
-  async function wealthShopPhase(setup, point, attempt) {
+  async function wealthShopPhase(setup, point, attempt, { sacrificePoint = 0, takenRolls = [] } = {}) {
     const shopId = stallShopId();
     if (!shopId) return { fatal: true };
     try {
-      let fragments = (await readOwnedUnits()).fragments;
-      const coins = { value: await Caller.send("inventoryGet").then((e) => e.coin[1080]) };
-      let shopSlots = await Caller.send({ name: "shopGet", args: { shopId } }).then((e) => Object.values(e.slots));
+      const opened = await openStallVisit(shopId, (offered) => chooseTalisman(setup, offered, takenRolls));
+      if (opened.reason) return { reason: opened.reason };
+      let shopSlots = opened.slots;
+      const coins = wallet;
+      const coinsOnEntry = coins.value;
+      const fragments = (await readOwnedUnits()).fragments;
       archdemonNewProgress(I18N("NX_WEALTH_SHOP", { attempt, point, coins: coins.value }));
       if (point !== 1) {
         await buyCarryRanks(shopId, coins, shopSlots, setup, fragments);
-        await buyCheapLots(shopId, coins, shopSlots, fragments);
+        await buyCheapLots(shopId, coins, shopSlots, setup, fragments);
         await sellUnneededFragments(setup, fragments, true, coins);
         await pinWantedSlots(shopId, shopSlots, setup, fragments);
-        return {};
+        if (point === sacrificePoint) {
+          const found = await ensureSacrificeHero(setup, attempt, { shopId, coins, shopSlots, fragments });
+          if (found.fatal || found.reason) return found;
+        }
+        return { coins: coins.value, coinsOnEntry };
       }
       const missingMain = () => setup.carryHeroes.filter((id) => Number(fragments[id] ?? 0) <= 0);
       const needExtra = () => (setup.carryExtraHeroes ?? []).length > 0 && !carryExtraOwned(setup, fragments);
@@ -1197,11 +1305,10 @@
         const passStartCoins = coins.value;
         await buyCarryHeroes(shopId, coins, shopSlots, setup, fragments);
         if (carryPackReady(setup, fragments)) await buyCarryRanks(shopId, coins, shopSlots, setup, fragments);
-        await buyCheapLots(shopId, coins, shopSlots, fragments);
+        await buyCheapLots(shopId, coins, shopSlots, setup, fragments);
         const random = await buyAllRandomLots(shopId, coins, shopSlots, fragments, setup.buyAnyRandomLots === true);
         await sellUnneededFragments(setup, fragments, true, coins);
         await pinWantedSlots(shopId, shopSlots, setup, fragments);
-        fragments = (await readOwnedUnits()).fragments;
         console.log(
           `${NX_LOG_CASH} ИТОГ круга ${refreshes + 1}: было ${passStartCoins}, стало ${coins.value}, разница ${coins.value - passStartCoins}, неизвестных взято ${random.bought}, из них дешевле ${randomLotResale()}: ${random.cheap}`
         );
@@ -1247,21 +1354,18 @@
         };
       }
       console.log(`Точка 1: проходные собраны, обновлений потрачено ${refreshes}`);
-      return {};
+      return { coins: coins.value, coinsOnEntry };
     } catch (e) {
       console.error(e);
       return { fatal: true };
     }
   }
-  async function ensureSacrificeHero(setup, attempt) {
+  async function ensureSacrificeHero(setup, attempt, visit) {
     const heroId = sacrificeHeroOf(setup);
-    const fragments = (await readOwnedUnits()).fragments;
+    const { shopId, coins, fragments } = visit;
     if (!heroId || Number(fragments[heroId] ?? 0) > 0) return {};
-    const shopId = stallShopId();
-    if (!shopId) return { fatal: true };
+    let shopSlots = visit.shopSlots;
     try {
-      const coins = { value: await Caller.send("inventoryGet").then((e) => e.coin[1080]) };
-      let shopSlots = await Caller.send({ name: "shopGet", args: { shopId } }).then((e) => Object.values(e.slots));
       const limit = Number(setup.sacrificeRefreshes ?? 0);
       let refreshes = 0;
       for (; ; ) {
@@ -1288,18 +1392,16 @@
       return { fatal: true };
     }
   }
-  async function wealthFinalShopping(setup, attempt) {
+  async function wealthFinalShopping(setup, attempt, shopSlots) {
     try {
       const fragments = (await readOwnedUnits()).fragments;
       archdemonNewProgress(I18N("NX_WEALTH_FINAL", { attempt }));
       await sellUnneededFragments(setup, fragments, false);
-      const shopping = await buyForArchdemonNew(setup, attempt, { discountPets: true, minCoins: setup.minCoins ?? null });
+      const shopping = await buyForArchdemonNew(setup, attempt, { discountPets: true, minCoins: setup.minCoins ?? null, shopSlots });
       if (shopping.reason) return { reason: shopping.reason };
-      const afterBuy = (await readOwnedUnits()).fragments;
-      await sellUnneededFragments(setup, afterBuy, false);
-      await sellExtraPets(setup, afterBuy);
-      const coinsLeft = await Caller.send("inventoryGet").then((e) => e.coin[1080]);
-      console.log(`Финальная закупка закончена, монет осталось ${coinsLeft}`);
+      await sellUnneededFragments(setup, fragments, false);
+      await sellExtraPets(setup, fragments);
+      console.log(`Финальная закупка закончена, монет осталось ${wallet.value}`);
       return {};
     } catch (e) {
       console.error(e);
@@ -1330,23 +1432,15 @@
     }
     return { heroes, pet, favor };
   }
-  async function showAfterBossReport(setup, attempt) {
-    let coins = 0;
+  async function showAfterBossReport(setup, attempt, slots) {
+    const coins = wallet.value;
+    console.log(`${NX_LOG_CASH} баланс, отчёт перед Архидемоном: ${coins}`);
     const pinnedLines = [];
-    try {
-      coins = await settledCoins("отчёт перед Архидемоном");
-      const shopId = stallShopId();
-      if (shopId) {
-        const slots = await Caller.send({ name: "shopGet", args: { shopId } }).then((e) => Object.values(e.slots));
-        for (const slot of slots) {
-          if (!slot.pinned) continue;
-          const ids = Object.keys(slot.reward?.invasionFragmentHero ?? {}).map(Number);
-          const cost = slot.cost?.coin?.[1080] ?? "?";
-          pinnedLines.push(`${ids.map(unitName).join(" + ")} — ${cost}`);
-        }
-      }
-    } catch (e) {
-      console.error(e);
+    for (const slot of slots ?? []) {
+      if (!slot.pinned) continue;
+      const ids = Object.keys(slot.reward?.invasionFragmentHero ?? {}).map(Number);
+      const cost = slot.cost?.coin?.[1080] ?? "?";
+      pinnedLines.push(`${ids.map(unitName).join(" + ")} — ${cost}`);
     }
     const fragments = (await readOwnedUnits()).fragments;
     const heroLines = setup.heroes.map(
@@ -1372,7 +1466,7 @@
       { msg: I18N("NX_CONTINUE"), result: "continue", color: "green" },
       { msg: I18N("NX_HALT"), result: "halt", isCancel: true, color: "red" }
     ]);
-    return answer === "continue" ? "continue" : "halt";
+    return { decision: answer === "continue" ? "continue" : "halt" };
   }
   async function runArchdemonNewChapterWealth(setup, attempt) {
     archdemonNewProgress(I18N("NX_ENTERING", { attempt }));
@@ -1381,33 +1475,31 @@
     let chapterInfo;
     try {
       chapterInfo = await Caller.send({ name: "invasion_setActiveChapter", args: { chapterId: setup.chapterId } });
+      setOwnedFragments(chapterInfo.invasion.fragments);
+      await walletLoad();
     } catch (e) {
       console.error(e);
       return { fatal: true };
     }
     const actions = Object.values(chapterInfo.invasion.actions);
     let lives = chapterInfo.invasion.lives;
-    const takenRolls = /* @__PURE__ */ new Set();
-    ledgerReset(await Caller.send("inventoryGet").then((e) => e.coin[1080]));
+    const takenRolls = [];
+    ledgerReset(wallet.value);
     console.log(
       `${NX_LOG_CASH} СТАРТ захода ${attempt}: ${sessionState.startCoins} монет, жизней ${lives}, сборка расширения ${GM_info.script.version}`
     );
     const lastPoint = actions.length - 1;
     const sacrificePoint = lastPoint;
+    await pause(NX_PACE.chapterEnter);
+    let visit = await wealthShopPhase(setup, 1, attempt, { sacrificePoint, takenRolls });
+    if (visit.fatal) return { fatal: true };
+    if (visit.reason) return { ok: false, reason: visit.reason };
     for (let point = 1; point <= lastPoint; point++) {
       if (sessionState.stopped) return archdemonNewStoppedResult();
       const action = actions[point - 1];
       if (!action) return { ok: false, reason: I18N("NX_REASON_NO_MISSIONS") };
       const missionId = action.payload.id;
-      const shopOutcome = await wealthShopPhase(setup, point, attempt);
-      if (shopOutcome.fatal) return { fatal: true };
-      if (shopOutcome.reason) return { ok: false, reason: shopOutcome.reason };
-      if (sessionState.stopped) return archdemonNewStoppedResult();
       if (point === sacrificePoint) {
-        const found = await ensureSacrificeHero(setup, attempt);
-        if (found.fatal) return { fatal: true };
-        if (found.reason) return { ok: false, reason: found.reason };
-        if (sessionState.stopped) return archdemonNewStoppedResult();
         const ownedHeroes = (await readOwnedUnits()).heroIds;
         const sacrificeTeam = setup.sacrificeHeroes.filter((id) => ownedHeroes.includes(id));
         if (sacrificeTeam.length === 0) {
@@ -1424,16 +1516,13 @@
           archdemonNewProgress(
             I18N("NX_SACRIFICE", { attempt, number, total: NX_SACRIFICE_LOSSES })
           );
-          await new Promise((e) => setTimeout(e, 2e3));
-          const coinsBeforeLoss = await Caller.send("inventoryGet").then((e) => e.coin[1080]);
-          const calcSaysWin = await loseBattleOnPurpose(missionId, setup.chapterId, sacrificeTeam);
-          if (calcSaysWin === null) return { fatal: true };
-          await stallVisit(setup, `слива ${number}`);
-          const coinsAfterLoss = await settledCoins(`слив ${number}`);
-          console.log(
-            `${NX_LOG_CASH} слив ${number}: было ${coinsBeforeLoss}, стало ${coinsAfterLoss}, прирост ${coinsAfterLoss - coinsBeforeLoss}`
-          );
-          const afterLoss = await Caller.send("invasion_getInfo");
+          await pause(NX_PACE.beforeBattle);
+          const coinsBeforeLoss = visit.coins;
+          const loss = await loseBattleOnPurpose(missionId, setup.chapterId, sacrificeTeam);
+          if (!loss?.info) return { fatal: true };
+          if (loss.invalid) return { fatal: true, message: I18N("NX_ERR_RESULT_INVALID") };
+          const calcSaysWin = loss.calcSaysWin;
+          const afterLoss = loss.info;
           lives = afterLoss.lives;
           const pointState = Object.values(afterLoss.actions).find((e) => e.payload.id === missionId);
           const pointTaken = pointState ? Number(pointState.payload.wins ?? 0) > 0 : false;
@@ -1444,29 +1533,25 @@
             return { ok: false, reason: I18N("NX_REASON_SACRIFICE_WON") };
           }
           if (lives === 0) return { ok: false, reason: I18N("NX_REASON_NO_LIVES") };
+          await pause(NX_PACE.afterBattle);
+          visit = await wealthShopPhase(setup, point, attempt, { sacrificePoint, takenRolls });
+          if (visit.fatal) return { fatal: true };
+          if (visit.reason) return { ok: false, reason: visit.reason };
+          console.log(
+            `${NX_LOG_CASH} слив ${number}: было ${coinsBeforeLoss}, на входе в лавку ${visit.coinsOnEntry}, прирост ${visit.coinsOnEntry - coinsBeforeLoss}`
+          );
         }
       }
       archdemonNewProgress(I18N("NX_MISSION", { attempt, missionNumber: point }));
-      await new Promise((e) => setTimeout(e, 2e3));
+      await pause(NX_PACE.beforeBattle);
       const team = await buildCarryTeam(setup);
-      const fragmentsOwned = (await readOwnedUnits()).fragments;
-      const coinsBeforePoint = await Caller.send("inventoryGet").then((e) => e.coin[1080]);
-      const error = await fightPoint(missionId, setup.chapterId, team.heroes, team.pet, team.favor);
-      if (error) return { fatal: true };
-      const info = await Caller.send("invasion_getInfo");
+      const fragmentsOwned = { ...(await readOwnedUnits()).fragments };
+      const coinsBeforePoint = visit.coins;
+      const fight = await fightPoint(missionId, setup.chapterId, team.heroes, team.pet, team.favor);
+      if (fight.error || !fight.info) return { fatal: true };
+      if (fight.invalid) return { fatal: true, message: I18N("NX_ERR_RESULT_INVALID") };
+      const info = fight.info;
       lives = info.lives;
-      const pointNow = Object.values(info.actions).find((e) => e.payload.id === missionId);
-      if (pointNow && Number(pointNow.payload.wins ?? 0) > 0) {
-        const talismanFail = await takeTalismanBeforePoint(setup, point + 1, takenRolls);
-        if (talismanFail) return talismanFail;
-      }
-      await stallVisit(setup, `точки ${point}`);
-      const coinsAfterPoint = await settledCoins(`точка ${point}`);
-      console.log(
-        `${NX_LOG_CASH} точка ${point}: было ${coinsBeforePoint}, стало ${coinsAfterPoint}, прирост ${coinsAfterPoint - coinsBeforePoint}`
-      );
-      if (sessionState.stopped) return archdemonNewStoppedResult();
-      if (lives === 0) return { ok: false, reason: I18N("NX_REASON_NO_LIVES") };
       const passed = Object.values(info.actions).find((e) => e.payload.id === missionId);
       console.log(`Точка ${point}, состояние от сервера:`, JSON.stringify(passed?.payload ?? null));
       if (passed && Number(passed.payload.wins ?? 0) === 0) {
@@ -1480,15 +1565,38 @@
         );
         return { ok: false, reason: I18N("NX_REASON_POINT_LOST", { point }) };
       }
+      if (lives === 0) return { ok: false, reason: I18N("NX_REASON_NO_LIVES") };
+      if (sessionState.stopped) return archdemonNewStoppedResult();
+      if (point < lastPoint) {
+        await pause(NX_PACE.afterBattle);
+        visit = await wealthShopPhase(setup, point + 1, attempt, { sacrificePoint, takenRolls });
+        if (visit.fatal) return { fatal: true };
+        if (visit.reason) return { ok: false, reason: visit.reason };
+        console.log(
+          `${NX_LOG_CASH} точка ${point}: было ${coinsBeforePoint}, на входе в лавку ${visit.coinsOnEntry}, прирост ${visit.coinsOnEntry - coinsBeforePoint}`
+        );
+      }
     }
+    await pause(NX_PACE.afterBattle);
+    if (sessionState.stopped) return archdemonNewStoppedResult();
+    const shopId = stallShopId();
+    if (!shopId) return { fatal: true };
+    let finalVisit;
+    try {
+      finalVisit = await openStallVisit(shopId, (offered) => chooseTalisman(setup, offered, takenRolls));
+    } catch (e) {
+      console.error(e);
+      return { fatal: true };
+    }
+    if (finalVisit.reason) return { ok: false, reason: finalVisit.reason };
     if (setup.pauseAfterBoss) {
-      const decision = await showAfterBossReport(setup, attempt);
-      if (decision !== "continue") {
+      const report = await showAfterBossReport(setup, attempt, finalVisit.slots);
+      if (report.decision !== "continue") {
         archdemonNewStop();
         return { ok: false, halted: true, reason: I18N("NX_REASON_STOPPED") };
       }
     }
-    const finalOutcome = await wealthFinalShopping(setup, attempt);
+    const finalOutcome = await wealthFinalShopping(setup, attempt, finalVisit.slots);
     if (finalOutcome.fatal) return { fatal: true };
     if (finalOutcome.reason) return { ok: false, reason: finalOutcome.reason };
     if (sessionState.stopped) return archdemonNewStoppedResult();
@@ -1508,6 +1616,7 @@
     try {
       return await runLoopAttempts(setup);
     } finally {
+      clearOwnedFragments();
       runLogClose();
     }
   }
@@ -1531,7 +1640,7 @@
       }
       if (outcome.fatal) {
         setProgress("", true);
-        await popup.confirm(I18N("NX_FAILED"));
+        await popup.confirm(outcome.message ?? I18N("NX_FAILED"));
         return returnToMenu();
       }
       if (outcome.ok) {
@@ -1544,10 +1653,11 @@
       runLogFail(I18N("NX_RETRY", { attempt, reason: outcome.reason }));
       lastFailure = { attempt, reason: outcome.reason };
       await new Promise((e) => setTimeout(e, 2500));
+      if (sessionState.stopped) break;
       try {
         await Caller.send("invasion_resetChapter");
-        const pause = NX_RUN_PAUSE_MIN_SECONDS + Math.random() * (NX_RUN_PAUSE_MAX_SECONDS - NX_RUN_PAUSE_MIN_SECONDS);
-        const goOn = await runLogCountdown(pause);
+        const pause2 = NX_RUN_PAUSE_MIN_SECONDS + Math.random() * (NX_RUN_PAUSE_MAX_SECONDS - NX_RUN_PAUSE_MIN_SECONDS);
+        const goOn = await runLogCountdown(pause2);
         if (!goOn) break;
       } catch (e) {
         console.error(e);
@@ -3092,6 +3202,10 @@
 
   // src/start.js
   async function attackArchdemonNew() {
+    if (typeof setIsCancalBattle !== "function") {
+      await popup.confirm(I18N("NX_ERR_HELPER_OLD"));
+      return returnToMenu();
+    }
     const relicId = Object.values(lib.data.invasion.list).find((e) => e.id == sessionState.eventId)?.settings?.relicId;
     const relic = (await Caller.send("workshop_getInfo")).relics.find((e) => e.id == relicId);
     const relicLevel = Number(relic?.level ?? 0);
@@ -3280,6 +3394,8 @@
       NX_ERR_TALISMAN_DUP: "The same talisman cannot be taken on both points: the worn one is not offered again",
       NX_ERR_NO_FREE_ABYSS: "This event has no free Abyss chapter",
       NX_ERR_PAID_CHAPTER: "Entering this chapter now costs Abyss Seals. The run is stopped, nothing is spent",
+      NX_ERR_HELPER_OLD: "This HeroWarsHelper version is too old for the add-on: update the helper",
+      NX_ERR_RESULT_INVALID: "The game server did not accept a battle result and counted an auto-battle instead. The run is stopped",
       NX_WEALTH_ONLY_NOTE: "Wealth strategy settings appear when the Talisman of Wealth is picked for point 1",
       NX_BLOCK_RANDOM_ANY: "Buy unknown cards at any price",
       NX_BLOCK_RANDOM_ANY_HINT: "Unchecked: only when cheaper than {price}, then resale pays them back. Checked: always, in case needed heroes are inside",
@@ -3409,6 +3525,8 @@
       NX_ERR_TALISMAN_DUP: "Один и тот же талисман на обе точки не взять: надетый второй раз не предлагают",
       NX_ERR_NO_FREE_ABYSS: "В этом событии нет бесплатной главы Бездны",
       NX_ERR_PAID_CHAPTER: "Вход в эту главу теперь стоит Печатей Бездны. Прогон остановлен, ничего не потрачено",
+      NX_ERR_HELPER_OLD: "Эта версия HeroWarsHelper слишком старая для дополнения: обновите помощника",
+      NX_ERR_RESULT_INVALID: "Сервер игры не принял результат боя и засчитал автобой. Прогон остановлен",
       NX_WEALTH_ONLY_NOTE: "Настройки стратегии богатства появятся, если на первой точке выбрать Талисман богатства",
       NX_BLOCK_RANDOM_ANY: "Скупать неизвестные карты по любой цене",
       NX_BLOCK_RANDOM_ANY_HINT: "Без галки: только дешевле {price}, тогда их окупает продажа. С галкой: всегда, вдруг там нужные герои",
