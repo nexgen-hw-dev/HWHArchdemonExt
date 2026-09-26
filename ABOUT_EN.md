@@ -9,7 +9,7 @@ If a run does not work out, it resets the chapter and tries again.
 - **The goal is picked like in the game** — with a “Gather the team” window: up to five heroes
   with ranks 80/100/130, patrons, the main pet and two talismans.
 - **Regular run** — buys the team before every point.
-- **Run with the Talisman of Capital** — goes with cheap carry heroes, saves coins and buys
+- **Run with the Talisman of Wealth** — goes with cheap carry heroes, saves coins and buys
   the main team at the very end:
   - needed heroes are pinned in the shop along the way and bought in the final shopping,
     so coins are not spent early and go into the talisman bonus;
@@ -32,6 +32,6 @@ The item appears in the helper menu: **Others → Adventure (Arch)**.
 <summary>Show</summary>
 
 <a href="docs/img/setup.png"><img src="docs/img/setup.png" width="420" alt="Setup window"></a>
-<a href="docs/img/wealth.png"><img src="docs/img/wealth.png" width="420" alt="Talisman of Capital run settings"></a>
+<a href="docs/img/wealth.png"><img src="docs/img/wealth.png" width="420" alt="Talisman of Wealth run settings"></a>
 
 </details>
