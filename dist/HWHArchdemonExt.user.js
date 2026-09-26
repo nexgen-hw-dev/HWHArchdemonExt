@@ -309,6 +309,14 @@
     wallet.value = await Caller.send("inventoryGet").then((e) => Number(e.coin[STALL_COIN] ?? 0));
     return wallet.value;
   }
+  async function walletOnChapterEntry(chapterInfo, afterReset) {
+    const start = chapterInfo?.reward?.coin?.[STALL_COIN];
+    if (afterReset && start !== void 0) {
+      wallet.value = Number(start);
+      return wallet.value;
+    }
+    return await walletLoad();
+  }
 
   // src/battle.js
   var PointTimerSearch = class extends (WinFixBattle ?? class {
@@ -598,9 +606,7 @@
       const list = [...state.heroesLeft, ...state.petsLeft].map(unitName).join(", ");
       return { ok: false, reason: I18N("NX_REASON_NOT_COLLECTED", { list }) };
     }
-    const coins = await Caller.send("inventoryGet").then((e) => Number(e.coin[1080] ?? 0));
-    if (coins !== wallet.value) console.warn(`${NX_LOG_CASH} свой счёт ${wallet.value}, у игры ${coins}, разница ${coins - wallet.value}`);
-    wallet.value = coins;
+    const coins = wallet.value;
     const percent = coinsToPercent(coins);
     if (setup.talismanId === NX_WEALTH_TALISMAN_ID && setup.minCoins != null && coins < setup.minCoins) {
       return { ok: false, reason: I18N("NX_REASON_MIN_COINS", { coins, percent, min: setup.minCoins }) };
@@ -803,6 +809,9 @@
     await beforeStallAction();
     return await Caller.send({ name: "shopBuy", args: { shopId, slot: slot.id, cost: slot.cost, reward: {} } });
   }
+  function lotUnits(slot) {
+    return [...Object.keys(slot.reward?.invasionFragmentHero ?? {}), ...Object.keys(slot.reward?.invasionFragmentPet ?? {})].join("+");
+  }
   async function pinSlot(shopId, slot) {
     await beforeStallAction();
     await Caller.send({ name: "shop_pinSlot", args: { shopId, slotId: slot.id } });
@@ -966,7 +975,7 @@
         bought = true;
         applyReward(fragments, best.slot.reward);
         console.log(
-          `${NX_LOG_CASH} -${best.cost} основной пак ${Object.keys(best.slot.reward?.invasionFragmentHero ?? {}).join("+")}, полезных ${best.useful}, чистая ${best.effectiveCost}, остаток ${coins.value}` + (best.isSoleSource ? ", единственный источник" : "")
+          `${NX_LOG_CASH} -${best.cost} основной пак ${lotUnits(best.slot)}, полезных ${best.useful}, чистая ${best.effectiveCost}, остаток ${coins.value}` + (best.isSoleSource ? ", единственный источник" : "")
         );
       }
     } catch (e) {
@@ -1215,7 +1224,7 @@
       return { fatal: true };
     }
     setOwnedFragments(chapterInfo.invasion.fragments);
-    await walletLoad();
+    await walletOnChapterEntry(chapterInfo, attempt > 1);
     const actions = Object.values(chapterInfo.invasion.actions);
     const lastMission = actions[actions.length - 1];
     const lastMissionId = lastMission.payload.id;
@@ -1476,7 +1485,7 @@
     try {
       chapterInfo = await Caller.send({ name: "invasion_setActiveChapter", args: { chapterId: setup.chapterId } });
       setOwnedFragments(chapterInfo.invasion.fragments);
-      await walletLoad();
+      await walletOnChapterEntry(chapterInfo, attempt > 1);
     } catch (e) {
       console.error(e);
       return { fatal: true };
