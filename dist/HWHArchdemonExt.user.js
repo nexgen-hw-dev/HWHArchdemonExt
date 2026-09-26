@@ -3,11 +3,12 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.29-alpha
+// @version          0.30-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
 // @author           NexGen
+// @license          Copyright NexGen
 // @match            https://www.hero-wars.com/*
 // @match            https://www.hero-wars.cn/*
 // @match            https://apps-1701433570146040.apps.fbsbx.com/*
