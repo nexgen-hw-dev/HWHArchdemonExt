@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.31-alpha
+// @version          0.32-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -382,6 +382,8 @@
     const info = call.result("invasion_getInfo");
     const reward = walletAddReward(end?.reward);
     if (reward) console.log(`${NX_LOG_CASH} +${reward} награда за бой, монет ${wallet.value}`);
+    const lives = walletAddReward(end?.exchangeLivesReward);
+    if (lives) console.log(`${NX_LOG_CASH} +${lives} обмен жизней, монет ${wallet.value}`);
     if (info?.fragments) setOwnedFragments(info.fragments);
     const invalid = Boolean(end?.result?.afterInvalid || call.sideResult("invasion_bossEnd")?.afterInvalid);
     if (invalid) console.error("Сервер не принял результат боя: afterInvalid", end);
