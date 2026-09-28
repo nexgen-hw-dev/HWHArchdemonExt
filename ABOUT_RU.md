@@ -23,7 +23,7 @@
 
 ## Установка
 
-Нужен HeroWarsHelper. Импортируйте `HWHArchdemonExt.user.js` в Tampermonkey после него.
+Нужен HeroWarsHelper 2.459 или новее: со старым помощником прогон срывается. Импортируйте `HWHArchdemonExt.user.js` в Tampermonkey после него.
 Пункт появится в меню помощника: «Разное» → «Приключение (Arch)».
 
 ## Скриншоты

@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.34-alpha
+// @version          0.35-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -24,6 +24,31 @@
   var { popup, confShow, setProgress, I18N, countdownTimer, getSaveVal, setSaveVal, addExtentionName, setIsCancalBattle } = funcs;
   var { i18nLangData, othersPopupButtons } = data;
   var { WinFixBattle } = classes;
+  var helperVersion = typeof scriptInfo !== "undefined" ? String(scriptInfo?.version ?? "?") : "?";
+  function missingHelperApi() {
+    const has = {
+      popup: typeof popup?.confirm === "function",
+      confShow: typeof confShow === "function",
+      setProgress: typeof setProgress === "function",
+      I18N: typeof I18N === "function",
+      countdownTimer: typeof countdownTimer === "function",
+      getSaveVal: typeof getSaveVal === "function",
+      setSaveVal: typeof setSaveVal === "function",
+      addExtentionName: typeof addExtentionName === "function",
+      setIsCancalBattle: typeof setIsCancalBattle === "function",
+      i18nLangData: Boolean(i18nLangData?.en && i18nLangData?.ru),
+      othersPopupButtons: Array.isArray(othersPopupButtons),
+      WinFixBattle: typeof WinFixBattle === "function",
+      "Caller.result": typeof Caller === "function" && typeof Caller.send === "function" && typeof Caller.prototype?.send === "function" && typeof Caller.prototype?.result === "function" && typeof Caller.prototype?.sideResult === "function",
+      Calc: typeof Calc === "function",
+      lib: typeof lib !== "undefined" && Boolean(lib?.data),
+      "cheats.refreshGame": typeof cheats !== "undefined" && typeof cheats?.refreshGame === "function" && typeof cheats?.translate === "function"
+    };
+    return Object.keys(has).filter((name2) => !has[name2]);
+  }
+  function syncGame() {
+    Promise.resolve().then(() => cheats.refreshGame()).catch((e) => console.error(e));
+  }
 
   // src/state.js
   var sessionState = {
@@ -1747,6 +1772,7 @@
       if (getChapterSealCost(setup.chapterId) > 0) {
         setProgress("", true);
         await popup.confirm(I18N("NX_ERR_PAID_CHAPTER"));
+        syncGame();
         return returnToMenu();
       }
       runLogStartAttempt(attempt, lastFailure);
@@ -1754,18 +1780,19 @@
       if (outcome.halted) {
         setProgress("", true);
         await popup.confirm(I18N("NX_HALTED_SYNC"));
-        cheats.refreshGame();
+        syncGame();
         return;
       }
       if (outcome.fatal) {
         setProgress("", true);
         await popup.confirm(outcome.message ?? I18N("NX_FAILED"));
+        syncGame();
         return returnToMenu();
       }
       if (outcome.ok) {
         setProgress("", true);
         await popup.confirm(I18N("NX_READY", { attempt, coins: outcome.coins, percent: outcome.percent }));
-        cheats.refreshGame();
+        syncGame();
         return;
       }
       if (sessionState.stopped) break;
@@ -1782,11 +1809,13 @@
         console.error(e);
         setProgress("", true);
         await popup.confirm(I18N("NX_FAILED"));
+        syncGame();
         return returnToMenu();
       }
     }
     setProgress("", true);
     await popup.confirm(I18N("NX_STOPPED", { attempt }));
+    syncGame();
     return returnToMenu();
   }
 
@@ -3321,8 +3350,9 @@
 
   // src/start.js
   async function attackArchdemonNew() {
-    if (typeof setIsCancalBattle !== "function") {
-      await popup.confirm(I18N("NX_ERR_HELPER_OLD"));
+    const missing = missingHelperApi();
+    if (missing.length) {
+      await popup.confirm(I18N("NX_ERR_HELPER_OLD", { version: helperVersion, list: missing.join(", ") }));
       return returnToMenu();
     }
     const relicId = Object.values(lib.data.invasion.list).find((e) => e.id == sessionState.eventId)?.settings?.relicId;
@@ -3421,6 +3451,7 @@
       console.error(e);
       setProgress("", true);
       await popup.confirm(I18N("NX_FAILED"));
+      syncGame();
     }
   }
   function returnToMenu() {
@@ -3513,7 +3544,7 @@
       NX_ERR_TALISMAN_DUP: "The same talisman cannot be taken on both points: the worn one is not offered again",
       NX_ERR_NO_FREE_ABYSS: "This event has no free Abyss chapter",
       NX_ERR_PAID_CHAPTER: "Entering this chapter now costs Abyss Seals. The run is stopped, nothing is spent",
-      NX_ERR_HELPER_OLD: "This HeroWarsHelper version is too old for the add-on: update the helper",
+      NX_ERR_HELPER_OLD: "HeroWarsHelper {version} is too old for the add-on, missing: {list}. Update the helper: the add-on works with 2.459 and newer",
       NX_ERR_RESULT_INVALID: "The game server did not accept a battle result and counted an auto-battle instead. The run is stopped",
       NX_WEALTH_ONLY_NOTE: "Wealth strategy settings appear when the Talisman of Wealth is picked for point 1",
       NX_BLOCK_RANDOM_ANY: "Buy unknown cards at any price",
@@ -3645,7 +3676,7 @@
       NX_ERR_TALISMAN_DUP: "Один и тот же талисман на обе точки не взять: надетый второй раз не предлагают",
       NX_ERR_NO_FREE_ABYSS: "В этом событии нет бесплатной главы Бездны",
       NX_ERR_PAID_CHAPTER: "Вход в эту главу теперь стоит Печатей Бездны. Прогон остановлен, ничего не потрачено",
-      NX_ERR_HELPER_OLD: "Эта версия HeroWarsHelper слишком старая для дополнения: обновите помощника",
+      NX_ERR_HELPER_OLD: "HeroWarsHelper {version} слишком старый для дополнения, нет: {list}. Обновите помощника: дополнение работает с 2.459 и новее",
       NX_ERR_RESULT_INVALID: "Сервер игры не принял результат боя и засчитал автобой. Прогон остановлен",
       NX_WEALTH_ONLY_NOTE: "Настройки стратегии богатства появятся, если на первой точке выбрать Талисман богатства",
       NX_BLOCK_RANDOM_ANY: "Скупать неизвестные карты по любой цене",
@@ -3699,6 +3730,8 @@
   if (!hwhFound) {
     console.log("%cHWHArchdemonExt: HeroWarsHelper не найден, дополнение не запущено", "color: red");
   } else {
+    const missing = missingHelperApi();
+    if (missing.length) console.log(`%cHWHArchdemonExt: HeroWarsHelper ${helperVersion} слишком старый, нет: ${missing.join(", ")}`, "color: red");
     addExtentionName(GM_info.script.name, GM_info.script.version, GM_info.script.author);
     registerTexts();
     addMenuEntry();

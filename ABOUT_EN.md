@@ -23,7 +23,7 @@ If a run does not work out, it resets the chapter and tries again.
 
 ## Install
 
-HeroWarsHelper is required. Import `HWHArchdemonExt.user.js` into Tampermonkey after it.
+HeroWarsHelper 2.459 or newer is required: with an older helper the run breaks down. Import `HWHArchdemonExt.user.js` into Tampermonkey after it.
 The item appears in the helper menu: **Others → Adventure (Arch)**.
 
 ## Screenshots
