@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.37-alpha
+// @version          0.38-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -46,8 +46,36 @@
     };
     return Object.keys(has).filter((name2) => !has[name2]);
   }
+  function syncWithoutPopup() {
+    const classes2 = typeof selfGame !== "undefined" ? selfGame : null;
+    const Manager = classes2?.["game.model.user.NextDayUpdatedManager"];
+    const Popups = classes2?.["game.mediator.gui.popup.GamePopupManager"];
+    const manager = Manager?.instance;
+    const proto = Manager?.prototype;
+    if (!manager || !proto || !Popups) return false;
+    const popupSource = Object.values(proto).filter((fn) => typeof fn === "function").map(String).find((source) => source.includes("UI_POPUP_MESSAGE_DAY_RESET"));
+    if (!popupSource) return false;
+    const close = /^function\s*\(\)\s*\{\s*[\w$]+\.([\w$]+)\(\)/.exec(popupSource)?.[1];
+    const buttons = [...new Set([...popupSource.matchAll(/\(this,this\.([\w$]+)\)/g)].map((m) => m[1]))];
+    if (!close || typeof Popups[close] !== "function") return false;
+    if (buttons.length !== 1 || typeof proto[buttons[0]] !== "function") return false;
+    Popups[close]();
+    manager[buttons[0]]();
+    return true;
+  }
   function syncGame() {
+    let silent = false;
+    try {
+      silent = syncWithoutPopup();
+    } catch (e) {
+      console.error(e);
+    }
+    if (silent) {
+      Promise.resolve().then(() => cheats.refreshInventory?.()).catch((e) => console.error(e));
+      return true;
+    }
     Promise.resolve().then(() => cheats.refreshGame()).catch((e) => console.error(e));
+    return false;
   }
 
   // src/state.js
@@ -206,7 +234,7 @@
     const root = document.createElement("div");
     root.id = NX_RUN_LOG_ID;
     root.setAttribute("style", PANEL_STYLE);
-    root.innerHTML = `<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><div data-part="title" style="flex: 1; font-size: 15px; color: #ffd88a;"></div><button data-part="stop" type="button" style="${STOP_STYLE}"></button></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div>`;
+    root.innerHTML = `<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><div data-part="title" style="flex: 1; font-size: 15px; color: #ffd88a;"></div><button data-part="stop" type="button" style="${STOP_STYLE}"></button></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #130502;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div>`;
     document.body.append(root);
     const part = (name2) => root.querySelector(`[data-part="${name2}"]`);
     box = { root, title: part("title"), last: part("last"), list: part("list"), footer: part("footer"), stop: part("stop") };
@@ -1782,6 +1810,9 @@
   }
 
   // src/loop.js
+  function syncAndReturnToMenu() {
+    if (syncGame()) returnToMenu();
+  }
   async function runArchdemonNewChapter(setup, attempt) {
     if (setup.talismanId === NX_WEALTH_TALISMAN_ID) {
       return await runArchdemonNewChapterWealth(setup, attempt);
@@ -1808,7 +1839,7 @@
       if (getChapterSealCost(setup.chapterId) > 0) {
         setProgress("", true);
         await popup.confirm(I18N("NX_ERR_PAID_CHAPTER"));
-        syncGame();
+        syncAndReturnToMenu();
         return;
       }
       runLogStartAttempt(attempt, lastFailure);
@@ -1822,7 +1853,7 @@
       if (outcome.fatal) {
         setProgress("", true);
         await popup.confirm(outcome.message ?? I18N("NX_FAILED"));
-        syncGame();
+        syncAndReturnToMenu();
         return;
       }
       if (outcome.ok) {
@@ -1845,13 +1876,13 @@
         console.error(e);
         setProgress("", true);
         await popup.confirm(I18N("NX_FAILED"));
-        syncGame();
+        syncAndReturnToMenu();
         return;
       }
     }
     setProgress("", true);
     await popup.confirm(I18N("NX_STOPPED", { attempt }));
-    syncGame();
+    syncAndReturnToMenu();
   }
 
   // src/frames.js
@@ -2567,7 +2598,7 @@
 #${PICKER_ID} .nxT { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 #${PICKER_ID} .nxBox { cursor: pointer; }
 #${PICKER_ID} .nxNoHit { pointer-events: none; }
-#${PICKER_ID} .nxList { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #ce9767 transparent; }
+#${PICKER_ID} .nxList { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #c49359 #130502; }
 #${PICKER_ID} .nxItem .nxHover { opacity: 0; }
 #${PICKER_ID} .nxItem:hover .nxHover { opacity: 1; }
 #${PICKER_ID} .nxItem:hover .nxIdle { opacity: 0; }
