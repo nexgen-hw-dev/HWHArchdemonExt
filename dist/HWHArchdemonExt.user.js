@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.36-alpha
+// @version          0.37-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -1809,7 +1809,7 @@
         setProgress("", true);
         await popup.confirm(I18N("NX_ERR_PAID_CHAPTER"));
         syncGame();
-        return returnToMenu();
+        return;
       }
       runLogStartAttempt(attempt, lastFailure);
       const outcome = await runArchdemonNewChapter(setup, attempt);
@@ -1823,7 +1823,7 @@
         setProgress("", true);
         await popup.confirm(outcome.message ?? I18N("NX_FAILED"));
         syncGame();
-        return returnToMenu();
+        return;
       }
       if (outcome.ok) {
         setProgress("", true);
@@ -1846,13 +1846,12 @@
         setProgress("", true);
         await popup.confirm(I18N("NX_FAILED"));
         syncGame();
-        return returnToMenu();
+        return;
       }
     }
     setProgress("", true);
     await popup.confirm(I18N("NX_STOPPED", { attempt }));
     syncGame();
-    return returnToMenu();
   }
 
   // src/frames.js
