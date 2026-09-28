@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.32-alpha
+// @version          0.33-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -599,7 +599,8 @@
     for (const heroId of setup.heroes) {
       short += Math.max(0, Number(setup.targets[heroId] ?? 0) - Number(fragments[heroId] ?? 0));
     }
-    return short <= 1;
+    const petsLeft = setup.petsToCollect.filter((petId) => Number(fragments[petId] ?? 0) <= 0).length;
+    return short <= 1 && petsLeft <= 1;
   }
   async function checkArchdemonNewConditions(setup) {
     const fragments = (await readOwnedUnits()).fragments;
@@ -850,13 +851,13 @@
     }
     return sources;
   }
-  function pickBestSlot(shopSlots, setup, fragments, coins, carryOnly, waitPetDiscount = false) {
+  function pickBestSlot(shopSlots, setup, fragments, coins, carryOnly, waitPetDiscount = false, cheapestFirst = false) {
     const candidates = usefulSlots(shopSlots, setup, fragments, carryOnly, waitPetDiscount);
     if (candidates.length === 0) return null;
     const sources = countSources(candidates);
     const affordable = candidates.filter((e) => coins.value >= e.cost);
     if (affordable.length === 0) return null;
-    const soleSource = affordable.filter((e) => e.neededIds.some((id) => sources[id] === 1));
+    const soleSource = cheapestFirst ? [] : affordable.filter((e) => e.neededIds.some((id) => sources[id] === 1));
     const pool = soleSource.length > 0 ? soleSource : affordable;
     let best = null;
     for (const candidate of pool) {
@@ -866,16 +867,13 @@
     if (best) best.isSoleSource = soleSource.includes(best);
     return best;
   }
-  async function pinNeededBeforeRefresh(shopId, shopSlots, setup, fragments, withPets = false) {
-    const candidates = usefulSlots(shopSlots, setup, fragments, false);
-    for (const candidate of candidates) {
+  async function releasePins(shopId, shopSlots) {
+    for (const slot of shopSlots) {
       if (sessionState.stopped) break;
-      if (candidate.slot.pinned) continue;
-      if (!candidate.neededIds.some((id) => id < NX_PET_ID_THRESHOLD)) continue;
-      await pinSlot(shopId, candidate.slot);
-      console.log(`Закрепили перед обновлением слот ${candidate.slot.id}`);
+      if (!slot.pinned || slot.bought) continue;
+      await unpinSlot(shopId, slot);
+      console.log(`Сняли закреп с ${lotUnits(slot)}, слот ${slot.id}: закупка без закрепов`);
     }
-    if (withPets) await pinDiscountedPets(shopId, shopSlots, fragments);
   }
   async function buyForArchdemonNew(setup, attempt, { discountPets = false, minCoins = null, shopSlots: openedSlots = null, onTalismans = null } = {}) {
     const shopId = stallShopId();
@@ -891,6 +889,7 @@
     let tick = 0;
     let guard = 0;
     let petDeposit = discountPets;
+    let pinsReleased = false;
     while (guard < 300) {
       guard++;
       if (sessionState.stopped) break;
@@ -933,7 +932,10 @@
         }
       }
       if (coins.value >= NX_MIN_LOT_COST + NX_STALL_REFRESH_COST) {
-        await pinNeededBeforeRefresh(shopId, shopSlots, setup, fragments, petDeposit);
+        if (!pinsReleased) {
+          await releasePins(shopId, shopSlots);
+          pinsReleased = true;
+        }
         const beforeRefresh = coins.value;
         shopSlots = await refreshStall(shopId, coins);
         ledgerAdd("обновления лавки", coins.value - beforeRefresh);
@@ -968,7 +970,7 @@
         guard++;
         if (sessionState.stopped) break;
         if (collectedState(setup, fragments).done) break;
-        const best = pickBestSlot(shopSlots, setup, fragments, coins, false, waitPetDiscount);
+        const best = pickBestSlot(shopSlots, setup, fragments, coins, false, waitPetDiscount, true);
         if (!best) break;
         await buySlot(shopId, best.slot);
         coins.value -= best.cost;
@@ -1133,60 +1135,89 @@
     }
     return { bought, cheap };
   }
-  async function pinWantedSlots(shopId, shopSlots, setup, fragments) {
-    const stillShort = (heroId, pledged2) => {
-      const carryTarget = setup.carryHeroes?.includes(heroId) ? Number(setup.carryTargets?.[heroId] ?? 1) : 0;
-      const need = Math.max(Number(setup.targets[heroId] ?? 0), sacrificeNeedFor(setup, {}, heroId), carryTarget);
-      if (!need) return false;
-      return Number(fragments[heroId] ?? 0) + Number(pledged2[heroId] ?? 0) < need;
-    };
-    const addPledge = (pledged2, reward) => {
-      for (const [id, amount] of Object.entries(reward)) {
-        pledged2[Number(id)] = (pledged2[Number(id)] ?? 0) + Number(amount);
-      }
-    };
-    const pledged = {};
-    for (const slot of shopSlots) {
-      if (sessionState.stopped) break;
-      if (!slot.pinned || slot.bought) continue;
-      const reward = slot.reward?.invasionFragmentHero;
-      if (!reward) continue;
-      const useful = Object.keys(reward).map(Number).some((id) => stillShort(id, pledged));
-      if (!useful) {
-        await unpinSlot(shopId, slot);
-        console.log(`Сняли лишний закреп со слота ${slot.id}`);
-        continue;
-      }
-      addPledge(pledged, reward);
-    }
-    for (const slot of shopSlots) {
-      if (sessionState.stopped) break;
-      if (slot.bought || slot.pinned) continue;
-      const reward = slot.reward?.invasionFragmentHero;
-      if (!reward) continue;
-      if (!Object.keys(reward).map(Number).some((id) => stillShort(id, pledged))) continue;
-      await pinSlot(shopId, slot);
-      addPledge(pledged, reward);
-      console.log(`Закрепили слот ${slot.id}`);
-    }
-    await pinDiscountedPets(shopId, shopSlots, fragments);
+  function preFinalNeed(setup, fragments, heroId) {
+    const carryTarget = setup.carryHeroes?.includes(heroId) ? Number(setup.carryTargets?.[heroId] ?? 1) : 0;
+    const need = Math.max(Number(setup.targets[heroId] ?? 0), sacrificeNeedFor(setup, {}, heroId), carryTarget);
+    return Math.max(0, need - Number(fragments[heroId] ?? 0));
   }
-  async function pinDiscountedPets(shopId, shopSlots, fragments) {
-    const petsOf = (slot) => Object.keys(slot.reward?.invasionFragmentPet ?? {}).map(Number);
-    const pledged = new Set(shopSlots.filter((slot) => slot.pinned && !slot.bought).flatMap(petsOf));
+  function planStallPins(shopSlots, setup, fragments) {
+    const remaining = {};
+    const candidates = [];
     for (const slot of shopSlots) {
-      if (sessionState.stopped) break;
-      if (slot.bought || slot.pinned || !isDiscountedPetSlot(slot, shopId)) continue;
+      if (slot.bought || slot.reward?.invasionFragmentHeroRand) continue;
+      const heroes = slot.reward?.invasionFragmentHero;
+      if (!heroes) continue;
+      const ids = Object.keys(heroes).map(Number);
+      for (const id of ids) if (remaining[id] === void 0) remaining[id] = preFinalNeed(setup, fragments, id);
+      if (ids.some((id) => remaining[id] > 0)) candidates.push(slot);
+    }
+    const heroPrice = fragmentSellPrice("hero");
+    const score = (slot) => {
+      let useful = 0;
+      let resale = 0;
+      for (const [id, amount] of Object.entries(slot.reward.invasionFragmentHero)) {
+        const heroId = Number(id);
+        const count = Number(amount);
+        const part = Math.min(count, remaining[heroId] ?? 0);
+        useful += part;
+        if (keepAmountFor(setup, heroId, false) === 0) resale += (count - part) * heroPrice;
+      }
+      const cost = Number(slot.cost?.coin?.[1080] ?? 0);
+      return { useful, cost, price: useful > 0 ? (cost - resale) / useful : Infinity };
+    };
+    const chosen = [];
+    for (; ; ) {
+      let best = null;
+      for (const slot of candidates) {
+        if (chosen.includes(slot)) continue;
+        const value = score(slot);
+        if (value.useful <= 0) continue;
+        const rank = value.useful >= 2 ? 0 : 1;
+        const better = !best || rank < best.rank || rank === best.rank && (value.price < best.price || value.price === best.price && (value.cost < best.cost || value.cost === best.cost && slot.pinned && !best.slot.pinned));
+        if (better) best = { slot, rank, ...value };
+      }
+      if (!best) break;
+      chosen.push(best.slot);
+      for (const [id, amount] of Object.entries(best.slot.reward.invasionFragmentHero)) {
+        const heroId = Number(id);
+        remaining[heroId] = Math.max(0, (remaining[heroId] ?? 0) - Number(amount));
+      }
+    }
+    return chosen;
+  }
+  async function applyStallPins(shopId, shopSlots, setup, fragments) {
+    const keep = new Set(planStallPins(shopSlots, setup, fragments));
+    const petsOf = (slot) => Object.keys(slot.reward?.invasionFragmentPet ?? {}).map(Number);
+    const neededPet = (id) => setup.petsToCollect.includes(id) && !(Number(fragments[id] ?? 0) > 0);
+    for (const slot of shopSlots) {
+      if (sessionState.stopped) return;
+      if (!slot.pinned || slot.bought) continue;
       const pets = petsOf(slot);
-      if (pets.every((id) => Number(fragments[id] ?? 0) > 0 || pledged.has(id))) continue;
+      const isPetSlot = pets.length > 0 && !slot.reward?.invasionFragmentHero;
+      if (isPetSlot ? pets.some(neededPet) : keep.has(slot)) continue;
+      await unpinSlot(shopId, slot);
+      console.log(`Сняли закреп с ${lotUnits(slot)}, слот ${slot.id}: ${isPetSlot ? "питомец не нужен" : "не нужен или есть дешевле"}`);
+    }
+    for (const slot of keep) {
+      if (sessionState.stopped) return;
+      if (slot.pinned) continue;
+      await pinSlot(shopId, slot);
+      console.log(`Закрепили ${lotUnits(slot)} за ${slot.cost?.coin?.[1080]}, слот ${slot.id}`);
+    }
+    const pledgedPets = new Set(shopSlots.filter((slot) => slot.pinned && !slot.bought).flatMap(petsOf));
+    for (const slot of shopSlots) {
+      if (sessionState.stopped) return;
+      if (slot.bought || slot.pinned || !isDiscountedPetSlot(slot, shopId)) continue;
+      const pets = petsOf(slot).filter((id) => neededPet(id) && !pledgedPets.has(id));
+      if (pets.length === 0) continue;
       try {
         await pinSlot(shopId, slot);
       } catch (e) {
         console.error(e);
         return;
       }
-      pets.forEach((id) => pledged.add(id));
-      console.log(`Закрепили питомца со скидкой ${pets.join("+")}, слот ${slot.id}`);
+      pets.forEach((id) => pledgedPets.add(id));
+      console.log(`Закрепили нужного питомца со скидкой ${pets.join("+")}, слот ${slot.id}`);
     }
   }
   async function buyDiscountedPets(shopId, coins, shopSlots, fragments) {
@@ -1297,7 +1328,7 @@
         await buyCarryRanks(shopId, coins, shopSlots, setup, fragments);
         await buyCheapLots(shopId, coins, shopSlots, setup, fragments);
         await sellUnneededFragments(setup, fragments, true, coins);
-        await pinWantedSlots(shopId, shopSlots, setup, fragments);
+        await applyStallPins(shopId, shopSlots, setup, fragments);
         if (point === sacrificePoint) {
           const found = await ensureSacrificeHero(setup, attempt, { shopId, coins, shopSlots, fragments });
           if (found.fatal || found.reason) return found;
@@ -1319,7 +1350,7 @@
         await buyCheapLots(shopId, coins, shopSlots, setup, fragments);
         const random = await buyAllRandomLots(shopId, coins, shopSlots, fragments, setup.buyAnyRandomLots === true);
         await sellUnneededFragments(setup, fragments, true, coins);
-        await pinWantedSlots(shopId, shopSlots, setup, fragments);
+        await applyStallPins(shopId, shopSlots, setup, fragments);
         console.log(
           `${NX_LOG_CASH} ИТОГ круга ${refreshes + 1}: было ${passStartCoins}, стало ${coins.value}, разница ${coins.value - passStartCoins}, неизвестных взято ${random.bought}, из них дешевле ${randomLotResale()}: ${random.cheap}`
         );
@@ -1389,7 +1420,7 @@
         if (refreshes >= limit || coins.value < NX_STALL_REFRESH_COST + NX_MIN_LOT_COST) break;
         refreshes++;
         archdemonNewProgress(I18N("NX_SACRIFICE_REFRESH", { attempt, refreshes, max: limit }));
-        await pinNeededBeforeRefresh(shopId, shopSlots, setup, fragments, true);
+        await applyStallPins(shopId, shopSlots, setup, fragments);
         const beforeRefresh = coins.value;
         const refreshed = await refreshStall(shopId, coins);
         ledgerAdd("обновления лавки", coins.value - beforeRefresh);
