@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.33-alpha
+// @version          0.34-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -32,7 +32,12 @@
     /** Остановка по клику доступна на любом этапе, флаг общий на весь цикл */
     stopped: false,
     /** Монеты на старте захода, от них считается бухгалтерия */
-    startCoins: 0
+    startCoins: 0,
+    /**
+     * С какого таймера начинать поиск проигрыша для слива, по составу: «44» → 10.5. Живёт только в пределах
+     * прогона — от «Старт» до успеха или остановки: игрок может поднять усиление, и старое станет неверным
+     */
+    lossStart: {}
   };
 
   // src/abyss.js
@@ -89,6 +94,11 @@
   var NX_TIMER_SEARCH_MAX_TRIES = 1e3;
   var NX_TIMER_SEARCH_GRID = 30;
   var NX_TIMER_SEARCH_BUDGET_MS = 6e4;
+  var NX_LOSS_TIMER_RANGE = { min: 1.3, max: 25 };
+  var NX_LOSS_TIMER_STEP = 0.5;
+  var NX_LOSS_SEARCH_BUDGET_MS = 2e4;
+  var NX_LOSS_SEARCH_MAX_TRIES = 200;
+  var NX_LOSS_MEMORY_BACKOFF = 5;
   var NX_PACE = {
     afterBattle: [670, 870],
     talismanPick: [600, 870],
@@ -355,6 +365,51 @@
       archdemonNewProgress(I18N("NX_TIMER_SEARCH", { count: this.count, max: this.maxCount }), "timer");
     }
   };
+  function lossTimerQueue(start, range = NX_LOSS_TIMER_RANGE, step = NX_LOSS_TIMER_STEP) {
+    const from = Math.min(range.max, Math.max(range.min, Number(start) || range.min));
+    const jitter = (t, i) => i === 0 ? t : Math.min(range.max, Math.max(range.min, t + (Math.random() - 0.5) * step * 0.5));
+    const up = [];
+    for (let t = from; t <= range.max + 1e-9; t += step) up.push(t);
+    const down = [];
+    for (let t = range.min; t < from - 1e-9; t += step) down.push(t);
+    return [...up, ...down].map(jitter);
+  }
+  function nextLossStart(found, range = NX_LOSS_TIMER_RANGE) {
+    return Math.max(range.min, Number(found) - NX_LOSS_MEMORY_BACKOFF);
+  }
+  var LossTimerSearch = class extends (WinFixBattle ?? class {
+  }) {
+    constructor(battle, start, range = NX_LOSS_TIMER_RANGE) {
+      super(battle);
+      this.isGetTimer = false;
+      this.minTimer = range.min;
+      this.maxTimer = range.max;
+      this.pending = lossTimerQueue(start, range);
+    }
+    randTimer() {
+      if (this.pending.length === 0) this.exhausted = true;
+      return this.pending.length ? this.pending.shift() : this.maxTimer;
+    }
+    checkResult() {
+      if (this.count > 1 && this.lastBattleResult && !this.lastBattleResult.win) {
+        this.bestResult = {
+          count: this.count,
+          timer: this.lastTimer,
+          value: 0,
+          result: structuredClone(this.lastBattleResult),
+          progress: structuredClone(this.lastBattleProgress),
+          battleTimer: this.lastResult.battleTimer
+        };
+      }
+    }
+    isEndLoop() {
+      const found = Boolean(this.bestResult?.result) && this.bestResult.result.win === false;
+      return found || this.exhausted || this.count >= this.maxCount || this.endTime < Date.now();
+    }
+    showResult() {
+      archdemonNewProgress(I18N("NX_LOSS_SEARCH", { count: this.count, max: this.maxCount }), "timer");
+    }
+  };
   async function waitBattleTime(startedAt, improvedTimer = 0) {
     const seconds = Number(improvedTimer);
     let until;
@@ -413,18 +468,36 @@
       return { error: true };
     }
   }
-  async function loseBattleOnPurpose(missionId, chapterId, heroes) {
+  async function loseBattleOnPurpose(missionId, chapterId, heroes, lossStart = NX_LOSS_TIMER_RANGE.min) {
     try {
       const battle = await Caller.send({
         name: "invasion_bossStart",
         args: { id: missionId, chapterId, heroes, favor: {} }
       });
       const startedAt = Date.now();
-      const outcome = await Calc(battle);
-      await waitBattleTime(startedAt);
+      let outcome = await Calc(battle);
+      let improvedTimer = 0;
+      let lossTimer = null;
+      if (outcome.result?.win) {
+        const searchStart = Date.now();
+        const search = new LossTimerSearch(battle, lossStart);
+        const found = await search.start(searchStart + NX_LOSS_SEARCH_BUDGET_MS, NX_LOSS_SEARCH_MAX_TRIES);
+        const tries = found.maxCount ?? search.count ?? 0;
+        if (found.result && found.result.win === false) {
+          outcome = { ...outcome, result: found.result, progress: found.progress };
+          improvedTimer = found.battleTimer ?? outcome.battleTimer;
+          lossTimer = found.timer;
+          console.log(
+            `Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, бой ${improvedTimer} с, перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`
+          );
+        } else {
+          console.log(`Слив: проигрыша не нашлось за ${tries} расчётов и ${Date.now() - searchStart} мс, уходит обычный автобой`);
+        }
+      }
+      await waitBattleTime(startedAt, improvedTimer);
       const end = await sendBattleEnd(missionId, outcome);
-      console.log("Слив обычным автобоем, расчёт вернул", JSON.stringify(outcome.result));
-      return { calcSaysWin: outcome.result?.win === true, ...end };
+      console.log("Слив, расчёт вернул", JSON.stringify(outcome.result));
+      return { calcSaysWin: outcome.result?.win === true, lossTimer, ...end };
     } catch (e) {
       console.error(e);
       return null;
@@ -1560,7 +1633,9 @@
           );
           await pause(NX_PACE.beforeBattle);
           const coinsBeforeLoss = visit.coins;
-          const loss = await loseBattleOnPurpose(missionId, setup.chapterId, sacrificeTeam);
+          const teamKey = sacrificeTeam.join("+");
+          const loss = await loseBattleOnPurpose(missionId, setup.chapterId, sacrificeTeam, sessionState.lossStart[teamKey]);
+          if (loss?.lossTimer != null) sessionState.lossStart[teamKey] = nextLossStart(loss.lossTimer);
           if (!loss?.info) return { fatal: true };
           if (loss.invalid) return { fatal: true, message: I18N("NX_ERR_RESULT_INVALID") };
           const calcSaysWin = loss.calcSaysWin;
@@ -1654,10 +1729,12 @@
   }
   async function runArchdemonNewLoop(setup) {
     sessionState.stopped = false;
+    sessionState.lossStart = {};
     runLogOpen(archdemonNewStop);
     try {
       return await runLoopAttempts(setup);
     } finally {
+      sessionState.lossStart = {};
       clearOwnedFragments();
       runLogClose();
     }
@@ -3445,6 +3522,7 @@
       NX_LOG_STOPPING: "Stopping…",
       NX_LOG_LAST_FAIL: "Last failed run {attempt}: {reason}",
       NX_TIMER_SEARCH: "Picking the battle timer {count} of {max}",
+      NX_LOSS_SEARCH: "Looking for a losing battle to throw the point, {count} of {max}",
       NX_BLOCK_SQUAD: "Goal: collect this team",
       NX_SQUAD_EDIT: "Edit",
       NX_SQUAD_EDIT_HINT: "Pick the heroes, their ranks and patrons, and the main pet",
@@ -3576,6 +3654,7 @@
       NX_LOG_STOPPING: "Останавливаем…",
       NX_LOG_LAST_FAIL: "Прошлый неудачный заход {attempt}: {reason}",
       NX_TIMER_SEARCH: "Подбор таймера боя {count} из {max}",
+      NX_LOSS_SEARCH: "Ищем проигрыш для слива {count} из {max}",
       NX_BLOCK_SQUAD: "Цель — собрать этот состав",
       NX_SQUAD_EDIT: "Изменить",
       NX_SQUAD_EDIT_HINT: "Выбрать героев, их ранги и покровителей, основного питомца",
