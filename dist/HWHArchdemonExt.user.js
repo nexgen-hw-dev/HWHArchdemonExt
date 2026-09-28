@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.35-alpha
+// @version          0.36-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -423,7 +423,8 @@
           value: 0,
           result: structuredClone(this.lastBattleResult),
           progress: structuredClone(this.lastBattleProgress),
-          battleTimer: this.lastResult.battleTimer
+          battleTimer: this.lastResult.battleTimer,
+          battleTime: this.lastResult.battleTime
         };
       }
     }
@@ -435,6 +436,33 @@
       archdemonNewProgress(I18N("NX_LOSS_SEARCH", { count: this.count, max: this.maxCount }), "timer");
     }
   };
+  function lossSkipWait(timer, battleTimer, battleTime) {
+    const full = Number(battleTimer);
+    const length = Number(battleTime);
+    let k = 1 / 1.5;
+    if (Number.isFinite(full) && full > 1.5 && Number.isFinite(length) && length > 0) k = (full - 1.5) / length;
+    k = Math.min(1 / 1.5, Math.max(0.2, k));
+    const [min, max] = NX_PACE.autoBattle;
+    const wait = Number(timer) * k + 1.5 + (min + Math.random() * (max - min)) / 1e3;
+    return Number.isFinite(full) && full > 0 ? Math.min(full, wait) : wait;
+  }
+  async function waitWithCountdown(startedAt, seconds, onTick) {
+    let left = startedAt + Number(seconds) * 1e3 - Date.now();
+    while (left > 0) {
+      onTick(Math.ceil(left / 1e3));
+      const step = Math.min(1e3, left);
+      await new Promise((e) => setTimeout(e, step));
+      left -= step;
+    }
+  }
+  function defendersSnapshot(battle) {
+    const team = battle?.defenders?.[0];
+    const units = Array.isArray(team) ? team : Object.values(team ?? {});
+    return {
+      units: units.map((u) => ({ id: u?.id, hp: u?.hp, state: u?.state })),
+      effects: battle?.effects?.defenders ?? null
+    };
+  }
   async function waitBattleTime(startedAt, improvedTimer = 0) {
     const seconds = Number(improvedTimer);
     let until;
@@ -500,6 +528,7 @@
         args: { id: missionId, chapterId, heroes, favor: {} }
       });
       const startedAt = Date.now();
+      console.log(`Слив: противник на старте ${JSON.stringify(defendersSnapshot(battle))}`);
       let outcome = await Calc(battle);
       let improvedTimer = 0;
       let lossTimer = null;
@@ -510,17 +539,24 @@
         const tries = found.maxCount ?? search.count ?? 0;
         if (found.result && found.result.win === false) {
           outcome = { ...outcome, result: found.result, progress: found.progress };
-          improvedTimer = found.battleTimer ?? outcome.battleTimer;
           lossTimer = found.timer;
+          const fullWait = found.battleTimer ?? outcome.battleTimer;
+          improvedTimer = lossSkipWait(lossTimer, fullWait, found.battleTime);
           console.log(
-            `Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, бой ${improvedTimer} с, перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`
+            `Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, ждём ${improvedTimer.toFixed(1)} с как пропуск после «авто» (весь бой ${fullWait} с), перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`
           );
         } else {
           console.log(`Слив: проигрыша не нашлось за ${tries} расчётов и ${Date.now() - searchStart} мс, уходит обычный автобой`);
+          archdemonNewProgress(I18N("NX_LOSS_NOT_FOUND"), "timer");
         }
       }
-      await waitBattleTime(startedAt, improvedTimer);
+      if (lossTimer != null) {
+        await waitWithCountdown(startedAt, improvedTimer, (seconds) => archdemonNewProgress(I18N("NX_LOSS_FOUND_WAIT", { seconds }), "timer"));
+      } else {
+        await waitBattleTime(startedAt, improvedTimer);
+      }
       const end = await sendBattleEnd(missionId, outcome);
+      if (lossTimer != null) archdemonNewProgress(I18N("NX_LOSS_SENT"), "timer");
       console.log("Слив, расчёт вернул", JSON.stringify(outcome.result));
       return { calcSaysWin: outcome.result?.win === true, lossTimer, ...end };
     } catch (e) {
@@ -3554,6 +3590,9 @@
       NX_LOG_LAST_FAIL: "Last failed run {attempt}: {reason}",
       NX_TIMER_SEARCH: "Picking the battle timer {count} of {max}",
       NX_LOSS_SEARCH: "Looking for a losing battle to throw the point, {count} of {max}",
+      NX_LOSS_FOUND_WAIT: "Losing battle found, sending it in {seconds} s",
+      NX_LOSS_SENT: "Losing battle sent",
+      NX_LOSS_NOT_FOUND: "No losing battle found, the plain auto battle goes",
       NX_BLOCK_SQUAD: "Goal: collect this team",
       NX_SQUAD_EDIT: "Edit",
       NX_SQUAD_EDIT_HINT: "Pick the heroes, their ranks and patrons, and the main pet",
@@ -3686,6 +3725,9 @@
       NX_LOG_LAST_FAIL: "Прошлый неудачный заход {attempt}: {reason}",
       NX_TIMER_SEARCH: "Подбор таймера боя {count} из {max}",
       NX_LOSS_SEARCH: "Ищем проигрыш для слива {count} из {max}",
+      NX_LOSS_FOUND_WAIT: "Комбинация проигрыша найдена, отправим через {seconds} с",
+      NX_LOSS_SENT: "Проигрыш отправлен",
+      NX_LOSS_NOT_FOUND: "Проигрыш не найден, уходит обычный автобой",
       NX_BLOCK_SQUAD: "Цель — собрать этот состав",
       NX_SQUAD_EDIT: "Изменить",
       NX_SQUAD_EDIT_HINT: "Выбрать героев, их ранги и покровителей, основного питомца",
