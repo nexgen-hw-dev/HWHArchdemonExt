@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.40-alpha
+// @version          0.41-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -3586,7 +3586,7 @@
     if (dropped) console.log(`Сборки: не подошли текущему событию или испорчены ${dropped} из ${loaded.rows.length}`);
     return { presets: sortPresets(presets, buff), source: loaded.source, error: loaded.error, dropped };
   }
-  function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = true }) {
+  function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = false }) {
     const parsed = preset.parsed ?? parseArchdemonNewTeam(preset.teamRaw);
     const targetPercent = preset.coins ? coinsToPercent(preset.coins) : 0;
     return {
@@ -3660,7 +3660,7 @@
 
   // src/presetsView.js
   function readKeepExtraCoins() {
-    const saved = getSaveVal(NX_SAVE_KEYS.keepExtraCoins, true);
+    const saved = getSaveVal(NX_SAVE_KEYS.keepExtraCoins, false);
     return saved === true || saved === "true";
   }
   function headerHtml(buff) {
