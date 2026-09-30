@@ -8,7 +8,12 @@ If a run does not work out, it resets the chapter and tries again.
 
 - **The goal is picked like in the game** — with a “Gather the team” window: up to five heroes
   with ranks 80/100/130, patrons, the main pet and two talismans.
-- **Regular run** — buys the team before every point.
+- **Regular run** — without the Talisman of Wealth. It holds off buying until the stall has more slots:
+  - on each point it buys the needed heroes; if there are none, one refresh, then the battle;
+  - on point 1 it buys every unknown card;
+  - a lost point is remembered and the chapter restarts; next time the team is changed;
+  - the final shopping completes the team, selling extra pets when coins run short;
+  - optionally stops before the Archdemon even if the team is not complete.
 - **Run with the Talisman of Wealth** — goes with cheap carry heroes, saves coins and buys
   the main team at the very end:
   - needed heroes are pinned in the shop along the way and bought in the final shopping,
@@ -20,10 +25,11 @@ If a run does not work out, it resets the chapter and tries again.
   - minimum Shop Coins with the talisman bonus shown: the shopping stops once it is out of reach.
 - **Run log** on the right, a Stop button, an optional report before the final shopping.
 - Paid Abyss chapters are never touched.
+- Does not start a run when less than 10 minutes are left until the event ends.
 
 ## Install
 
-HeroWarsHelper 2.459 or newer is required: with an older helper the run breaks down. Import `HWHArchdemonExt.user.js` into Tampermonkey after it.
+HeroWarsHelper 2.459 or newer is required: with an older helper the run fails. Import `HWHArchdemonExt.user.js` into Tampermonkey. The script order does not matter: the add-on waits for the helper.
 The item appears in the helper menu: **Others → Adventure (Arch)**.
 
 ## Screenshots
