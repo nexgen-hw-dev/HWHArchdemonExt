@@ -23,6 +23,9 @@ If a run does not work out, it resets the chapter and tries again.
   - resale of profitable lots;
   - discounted pets are bought out and sold later, so the shop offers more heroes;
   - minimum Shop Coins with the talisman bonus shown: the shopping stops once it is out of reach.
+- **Ready-made builds** — teams of other players from open videos, collected on [HWDaily](https://hwdaily.win/) (by Fragator)
+  and [HWMAP](https://hwmap.online/) (by Kircheis). One button runs the chapter with the chosen build. The builds are
+  loaded from our server on Netlify or its mirrors on jsDelivr and GitHub, no player data is sent. Thanks to the video authors and to both sites.
 - **Run log** on the right, a Stop button, an optional report before the final shopping.
 - Paid Abyss chapters are never touched.
 - Does not start a run when less than 10 minutes are left until the event ends.

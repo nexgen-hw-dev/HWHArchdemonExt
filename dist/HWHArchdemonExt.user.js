@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.39-alpha
+// @version          0.40-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -32,7 +32,7 @@
   };
 
   // src/constants.js
-  var NX_SALE_TALISMAN_ID, NX_PET_ID_THRESHOLD, NX_TIMER_SEARCH_MAX_TRIES, NX_TIMER_SEARCH_GRID, NX_TIMER_SEARCH_BUDGET_MS, NX_LOSS_TIMER_RANGE, NX_LOSS_TIMER_STEP, NX_LOSS_SEARCH_BUDGET_MS, NX_LOSS_SEARCH_MAX_TRIES, NX_LOSS_MEMORY_BACKOFF, NX_PACE, NX_SAVE_KEYS, NX_HELPER_POLL_MS, NX_HELPER_WAIT_MS, NX_EVENT_END_MARGIN_MINUTES, NX_WEALTH_TALISMAN_ID, NX_EXCLUDED_TALISMAN_IDS, NX_TEAM_SIZE, NX_MIN_LOT_COST, NX_STALL_REFRESH_COST, NX_RUN_PAUSE_MIN_SECONDS, NX_RUN_PAUSE_MAX_SECONDS, NX_FRAGMENT_SELL_PRICE, NX_MIN_COINS_SLACK, NX_SACRIFICE_LOSSES, NX_SACRIFICE_MAX_REFRESHES, NX_LOTS_PER_EARNED_REFRESH, NX_POINT1_MAX_REFRESHES, NX_RANDOM_LOT_FRAGMENTS, NX_BATTLE_TIMER_RANGE, NX_LOG_CASH, NX_LOG_BATTLE;
+  var NX_SALE_TALISMAN_ID, NX_PET_ID_THRESHOLD, NX_TIMER_SEARCH_MAX_TRIES, NX_TIMER_SEARCH_GRID, NX_TIMER_SEARCH_BUDGET_MS, NX_LOSS_TIMER_RANGE, NX_LOSS_TIMER_STEP, NX_LOSS_SEARCH_BUDGET_MS, NX_LOSS_SEARCH_MAX_TRIES, NX_LOSS_MEMORY_BACKOFF, NX_PACE, NX_SAVE_KEYS, NX_HELPER_POLL_MS, NX_HELPER_WAIT_MS, NX_EVENT_END_MARGIN_MINUTES, NX_PRESETS_URLS, NX_PRESETS_MIRROR_KEY, NX_PRESETS_STORAGE_KEY, NX_PRESETS_TTL_MS, NX_PRESETS_TIMEOUT_MS, NX_PRESETS_FORCE_KEY, NX_PRESETS_FORCE_INTERVAL_MS, NX_PRESET_VIDEO, NX_PRESET_SITES, NX_PRESET_CARRY, NX_PRESET_SACRIFICE, NX_PRESET_SACRIFICE_POINT, NX_SACRIFICE_POINTS, NX_WEALTH_TALISMAN_ID, NX_EXCLUDED_TALISMAN_IDS, NX_TEAM_SIZE, NX_MIN_LOT_COST, NX_STALL_REFRESH_COST, NX_RUN_PAUSE_MIN_SECONDS, NX_RUN_PAUSE_MAX_SECONDS, NX_FRAGMENT_SELL_PRICE, NX_MIN_COINS_SLACK, NX_SACRIFICE_LOSSES, NX_SACRIFICE_MAX_REFRESHES, NX_LOTS_PER_EARNED_REFRESH, NX_POINT1_MAX_REFRESHES, NX_RANDOM_LOT_FRAGMENTS, NX_BATTLE_TIMER_RANGE, NX_LOG_CASH, NX_LOG_BATTLE;
   var init_constants = __esm({
     "src/constants.js"() {
       NX_SALE_TALISMAN_ID = 8009;
@@ -70,11 +70,33 @@
         startRefreshes: "savedStartRefreshesForArchdemonNew",
         sacrificeRefreshes: "savedSacrificeRefreshesForArchdemonNew",
         randomAny: "savedBuyAnyRandomLotsForArchdemonNew",
-        stopIncomplete: "savedStopIfIncompleteForArchdemonNew"
+        stopIncomplete: "savedStopIfIncompleteForArchdemonNew",
+        sacrificePoint: "savedSacrificePointForArchdemonNew",
+        keepExtraCoins: "savedKeepExtraCoinsForArchdemonNew"
       };
       NX_HELPER_POLL_MS = 200;
       NX_HELPER_WAIT_MS = 6e4;
       NX_EVENT_END_MARGIN_MINUTES = 10;
+      NX_PRESETS_URLS = [
+        "https://hwh-archdemon.netlify.app/api/v1/presets",
+        "https://cdn.jsdelivr.net/gh/nexgen-hw-dev/hwh-presets-api@main/data/presets.json",
+        "https://raw.githubusercontent.com/nexgen-hw-dev/hwh-presets-api/main/data/presets.json"
+      ];
+      NX_PRESETS_MIRROR_KEY = "HWHArchdemonExt.presets.mirror";
+      NX_PRESETS_STORAGE_KEY = "HWHArchdemonExt.presets.v1";
+      NX_PRESETS_TTL_MS = 2 * 3600 * 1e3;
+      NX_PRESETS_TIMEOUT_MS = 5e3;
+      NX_PRESETS_FORCE_KEY = "HWHArchdemonExt.presets.forcedAt";
+      NX_PRESETS_FORCE_INTERVAL_MS = 60 * 1e3;
+      NX_PRESET_VIDEO = { 1: { prefix: "https://www.youtube.com/watch?v=", id: /^[\w-]{11}$/ } };
+      NX_PRESET_SITES = [
+        { name: "HWDaily", url: "https://hwdaily.win/eva-event/archdemon", author: "Fragator", key: "NX_PRESETS_SITE_HWDAILY" },
+        { name: "HWMAP", url: "https://hwmap.online/invasion/2999000034/teams", author: "Kircheis", key: "NX_PRESETS_SITE_HWMAP" }
+      ];
+      NX_PRESET_CARRY = [44, 75];
+      NX_PRESET_SACRIFICE = 44;
+      NX_PRESET_SACRIFICE_POINT = 7;
+      NX_SACRIFICE_POINTS = [5, 7];
       NX_WEALTH_TALISMAN_ID = 8008;
       NX_EXCLUDED_TALISMAN_IDS = [8005, 8009];
       NX_TEAM_SIZE = 5;
@@ -718,6 +740,18 @@
     }
     return getPetLib()[id] ? id : -1;
   }
+  function minCoinsForPercent(percent) {
+    const target = Number(percent);
+    if (!Number.isFinite(target) || target <= 0) return 0;
+    let low = 0;
+    let high = 1e6;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      if (coinsToPercent(middle) >= target) high = middle;
+      else low = middle + 1;
+    }
+    return low;
+  }
   function parseMinCoins(raw) {
     const value = String(raw ?? "").replace(/\s+/g, "");
     if (value === "") return { value: null };
@@ -764,20 +798,20 @@
       if (!Number.isInteger(rank) || rank < 1 || rank > 7) {
         return { error: I18N("NX_ERR_RANK", { block }) };
       }
-      const petId = normalizePetId(parts[2]);
-      if (petId === -1) {
+      const petId2 = normalizePetId(parts[2]);
+      if (petId2 === -1) {
         return { error: I18N("NX_ERR_PET", { block }) };
       }
-      if (petId > 0) {
-        if (favorPets.includes(petId)) {
-          return { error: I18N("NX_ERR_PET_DUP", { pet: unitName(petId) }) };
+      if (petId2 > 0) {
+        if (favorPets.includes(petId2)) {
+          return { error: I18N("NX_ERR_PET_DUP", { pet: unitName(petId2) }) };
         }
-        const favorHeroes = (petLib[petId]?.favorHeroes ?? []).map(Number);
+        const favorHeroes = (petLib[petId2]?.favorHeroes ?? []).map(Number);
         if (!favorHeroes.includes(heroId)) {
-          return { error: I18N("NX_ERR_FAVOR", { pet: unitName(petId), hero: unitName(heroId) }) };
+          return { error: I18N("NX_ERR_FAVOR", { pet: unitName(petId2), hero: unitName(heroId) }) };
         }
-        favorPets.push(petId);
-        favor[heroId] = petId;
+        favorPets.push(petId2);
+        favor[heroId] = petId2;
       }
       heroes.push(heroId);
       targets[heroId] = rankToFragments(rank);
@@ -845,7 +879,7 @@
   }
   function collectedState(setup, fragments) {
     const heroesLeft = setup.heroes.filter((heroId) => Number(fragments[heroId] ?? 0) < setup.targets[heroId]);
-    const petsLeft = setup.petsToCollect.filter((petId) => Number(fragments[petId] ?? 0) <= 0);
+    const petsLeft = setup.petsToCollect.filter((petId2) => Number(fragments[petId2] ?? 0) <= 0);
     return { heroesLeft, petsLeft, done: heroesLeft.length === 0 && petsLeft.length === 0 };
   }
   function fullPricePetsAllowed(setup, fragments) {
@@ -853,7 +887,7 @@
     for (const heroId of setup.heroes) {
       short += Math.max(0, Number(setup.targets[heroId] ?? 0) - Number(fragments[heroId] ?? 0));
     }
-    const petsLeft = setup.petsToCollect.filter((petId) => Number(fragments[petId] ?? 0) <= 0).length;
+    const petsLeft = setup.petsToCollect.filter((petId2) => Number(fragments[petId2] ?? 0) <= 0).length;
     return short <= 1 && petsLeft <= 1;
   }
   async function checkArchdemonNewConditions(setup) {
@@ -923,7 +957,7 @@
       ];
       PET_GAME_ART = { frame: "border_pet_purple4", bg: "bg_pet_purple" };
       PET_HEAD_FILE = "js/pet_icons/pet_icons";
-      petHeadSymbol = (petId) => `pet_50_${petId}`;
+      petHeadSymbol = (petId2) => `pet_50_${petId2}`;
       OCTAGON = "polygon(22% 0, 78% 0, 100% 22%, 100% 78%, 78% 100%, 22% 100%, 0 78%, 0 22%)";
     }
   });
@@ -1124,12 +1158,12 @@
     }
     if (!carryOnly) {
       for (const [id, amount] of Object.entries(petReward)) {
-        const petId = Number(id);
-        let need = setup.petsToCollect.includes(petId) && Number(fragments[petId] ?? 0) <= 0 ? 1 : 0;
+        const petId2 = Number(id);
+        let need = setup.petsToCollect.includes(petId2) && Number(fragments[petId2] ?? 0) <= 0 ? 1 : 0;
         if (need > 0 && waitPetDiscount && !isDiscountedPetSlot(slot, stallShopId()) && !fullPricePetsAllowed(setup, fragments)) {
           need = 0;
         }
-        if (need > 0) neededIds.push(petId);
+        if (need > 0) neededIds.push(petId2);
         useful += Math.min(Number(amount), need);
       }
     }
@@ -1343,11 +1377,11 @@
     if (extra.length === 0) return 0;
     let sold = 0;
     let income = 0;
-    for (const [petId, count] of extra) {
+    for (const [petId2, count] of extra) {
       if (sessionState.stopped) break;
-      income += await sellWhole(fragments, petId, count);
+      income += await sellWhole(fragments, petId2, count);
       sold += count;
-      console.log(`Продали лишнего питомца ${petId}`);
+      console.log(`Продали лишнего питомца ${petId2}`);
     }
     coins.value += income;
     ledgerAdd("продажа питомцев", income);
@@ -1604,19 +1638,19 @@
   function extraPetsResale(setup, fragments) {
     let count = 0;
     for (const [id, amount] of Object.entries(fragments)) {
-      const petId = Number(id);
-      if (petId >= NX_PET_ID_THRESHOLD && Number(amount) > 0 && !setup.petsToCollect.includes(petId)) count += Number(amount);
+      const petId2 = Number(id);
+      if (petId2 >= NX_PET_ID_THRESHOLD && Number(amount) > 0 && !setup.petsToCollect.includes(petId2)) count += Number(amount);
     }
     return count * fragmentSellPrice("pet");
   }
   async function sellOneExtraPet(setup, fragments, coins) {
     const extra = Object.entries(fragments).map(([id, count2]) => [Number(id), Number(count2)]).find(([id, count2]) => id >= NX_PET_ID_THRESHOLD && count2 > 0 && !setup.petsToCollect.includes(id));
     if (!extra) return 0;
-    const [petId, count] = extra;
-    const income = await sellWhole(fragments, petId, count);
+    const [petId2, count] = extra;
+    const income = await sellWhole(fragments, petId2, count);
     coins.value += income;
     ledgerAdd("продажа питомцев", income);
-    console.log(`${NX_LOG_CASH} +${income} продали лишнего питомца ${petId}, остаток ${coins.value}`);
+    console.log(`${NX_LOG_CASH} +${income} продали лишнего питомца ${petId2}, остаток ${coins.value}`);
     return income;
   }
   async function buyFinalDefault(shopId, shopSlots, setup, fragments, attempt, coins = wallet) {
@@ -1687,16 +1721,16 @@
     }
     const favor = {};
     for (const heroId of heroes) {
-      const petId = Number(setup.favor[heroId] ?? 0);
-      if (petId > 0 && havePets.includes(petId)) {
-        favor[heroId] = petId;
+      const petId2 = Number(setup.favor[heroId] ?? 0);
+      if (petId2 > 0 && havePets.includes(petId2)) {
+        favor[heroId] = petId2;
       }
     }
     return { heroes, pet, favor, packOwned: packOwned(setup, have.heroIds), fragments: have.fragments };
   }
   function pointMemoryKey(missionId, team) {
     const heroes = [...team.heroes].sort((a, b) => a - b).map((id) => `${id}:${rankOf(Number(team.fragments[id] ?? 0)).rank}`).join(",");
-    const favor = Object.entries(team.favor).sort(([a], [b]) => Number(a) - Number(b)).map(([heroId, petId]) => `${heroId}>${petId}`).join(",");
+    const favor = Object.entries(team.favor).sort(([a], [b]) => Number(a) - Number(b)).map(([heroId, petId2]) => `${heroId}>${petId2}`).join(",");
     return `${missionId}|${heroes}|${team.pet ?? 0}|${favor}`;
   }
   async function defaultShopPhase(setup, point, missionId, attempt, takenRolls) {
@@ -1865,7 +1899,7 @@
         await buyCarryHeroes(shopId, coins, shopSlots, setup, fragments);
         if (carryPackReady(setup, fragments)) await buyCarryRanks(shopId, coins, shopSlots, setup, fragments);
         await buyCheapLots(shopId, coins, shopSlots, setup, fragments);
-        const random = await buyAllRandomLots(shopId, coins, shopSlots, fragments, setup.buyAnyRandomLots === true);
+        const random = setup.skipRandomLots ? { bought: 0, cheap: 0 } : await buyAllRandomLots(shopId, coins, shopSlots, fragments, setup.buyAnyRandomLots === true);
         await sellUnneededFragments(setup, fragments, true, coins);
         await applyStallPins(shopId, shopSlots, setup, fragments);
         console.log(
@@ -1967,6 +2001,35 @@
       return { fatal: true };
     }
   }
+  async function spendExtraCoins(setup, attempt) {
+    const target = Number(setup.presetPercent ?? 0);
+    if (!target || setup.keepExtraCoins !== false) return {};
+    const fragments = (await readOwnedUnits()).fragments;
+    if (!collectedState(setup, fragments).done) return {};
+    const shopId = stallShopId();
+    if (!shopId) return { fatal: true };
+    const startCoins = wallet.value;
+    let refreshes = 0;
+    try {
+      while (coinsToPercent(wallet.value) > target && wallet.value >= NX_STALL_REFRESH_COST) {
+        if (sessionState.stopped) break;
+        if (coinsToPercent(wallet.value - NX_STALL_REFRESH_COST) < target) break;
+        archdemonNewProgress(I18N("NX_SPEND_EXTRA", { attempt, coins: wallet.value, percent: coinsToPercent(wallet.value), target }), "spend");
+        const before = wallet.value;
+        const refreshed = await refreshStall(shopId, wallet);
+        ledgerAdd("трата лишних монет", wallet.value - before);
+        if (!refreshed) break;
+        refreshes++;
+      }
+    } catch (e) {
+      console.error(e);
+      return { fatal: true };
+    }
+    if (refreshes) {
+      console.log(`${NX_LOG_CASH} лишние монеты: было ${startCoins} (${coinsToPercent(startCoins)}%), обновлений ${refreshes}, стало ${wallet.value} (${coinsToPercent(wallet.value)}%), у автора ${target}%`);
+    }
+    return {};
+  }
   async function buildCarryTeam(setup) {
     const have = await readOwnedUnits();
     let heroes = setup.carryHeroes.filter((id) => have.heroIds.includes(id));
@@ -1984,9 +2047,9 @@
     }
     const favor = {};
     for (const heroId of heroes) {
-      const petId = Number(setup.favor[heroId] ?? 0);
-      if (petId > 0 && havePets.includes(petId)) {
-        favor[heroId] = petId;
+      const petId2 = Number(setup.favor[heroId] ?? 0);
+      if (petId2 > 0 && havePets.includes(petId2)) {
+        favor[heroId] = petId2;
       }
     }
     return { heroes, pet, favor };
@@ -2027,6 +2090,9 @@
     ]);
     return { decision: answer === "continue" ? "continue" : "halt" };
   }
+  function currentSacrificePoint(setup, lastPoint) {
+    return Math.min(lastPoint, Math.max(1, Number(setup.sacrificePoint ?? lastPoint) || lastPoint));
+  }
   async function runArchdemonNewChapterWealth(setup, attempt) {
     archdemonNewProgress(I18N("NX_ENTERING", { attempt }));
     await new Promise((e) => setTimeout(e, 3e3));
@@ -2048,7 +2114,7 @@
       `${NX_LOG_CASH} СТАРТ захода ${attempt}: ${sessionState.startCoins} монет, жизней ${lives}, сборка расширения ${GM_info.script.version}`
     );
     const lastPoint = actions.length - 1;
-    const sacrificePoint = lastPoint;
+    const sacrificePoint = currentSacrificePoint(setup, lastPoint);
     await pause(NX_PACE.chapterEnter);
     let visit = await wealthShopPhase(setup, 1, attempt, { sacrificePoint, takenRolls });
     if (visit.fatal) return { fatal: true };
@@ -2121,7 +2187,7 @@
           "color: red; font-weight: bold;",
           "\n  герои: " + (team.heroes.length ? team.heroes.map(unitName).join(", ") : "пусто"),
           "\n  питомец: " + (team.pet ? unitName(team.pet) : "нет"),
-          "\n  покровительство: " + (Object.keys(team.favor).length ? Object.entries(team.favor).map(([heroId, petId]) => `${unitName(heroId)} -> ${unitName(petId)}`).join("; ") : "нет"),
+          "\n  покровительство: " + (Object.keys(team.favor).length ? Object.entries(team.favor).map(([heroId, petId2]) => `${unitName(heroId)} -> ${unitName(petId2)}`).join("; ") : "нет"),
           "\n  фрагменты состава: " + team.heroes.map((id) => `${unitName(id)} ${Number(fragmentsOwned[id] ?? 0)}`).join(", ")
         );
         return { ok: false, reason: I18N("NX_REASON_POINT_LOST", { point }) };
@@ -2160,6 +2226,9 @@
     const finalOutcome = await wealthFinalShopping(setup, attempt, finalVisit.slots);
     if (finalOutcome.fatal) return { fatal: true };
     if (finalOutcome.reason) return { ok: false, reason: finalOutcome.reason };
+    if (sessionState.stopped) return archdemonNewStoppedResult();
+    const spent = await spendExtraCoins(setup, attempt);
+    if (spent.fatal) return { fatal: true };
     if (sessionState.stopped) return archdemonNewStoppedResult();
     return await checkArchdemonNewConditions(setup);
   }
@@ -3053,10 +3122,10 @@
       }
       return anim(PAW_GLOW_ANIM, 20, 20, { cls: "nxNoHit" }) + paw;
     };
-    const patronBadge = (heroId, petId, x, y) => {
-      const head = petId ? piece(petHeadSymbol(petId), -1, -3, { render: { file: "pet_icons", width: 42, height: 42 }, cls: "nxNoHit" }) : "";
-      const inner = petId ? head || `<div class="nxP ${pic(`p${petId}`, petIcons[petId])}" style="left: 5px; top: 5px; width: 30px; height: 30px; border-radius: 50%; background-color: #1b1f45;"></div>` + piece("item_round_border_purple", 0, 0, { render: { width: 40, height: 40 }, size: [40, 40], fallback: "border: 3px solid #b82bce; border-radius: 50%;" }) : pawHtml();
-      return `<div data-patron="${heroId}" class="nxBox" title="${escapeAttr(petId ? name(petId) : I18N("NX_PATRON_ADD"))}" style="left: ${x}px; top: ${y}px; width: 40px; height: 40px; z-index: 3;">${inner}</div>`;
+    const patronBadge = (heroId, petId2, x, y) => {
+      const head = petId2 ? piece(petHeadSymbol(petId2), -1, -3, { render: { file: "pet_icons", width: 42, height: 42 }, cls: "nxNoHit" }) : "";
+      const inner = petId2 ? head || `<div class="nxP ${pic(`p${petId2}`, petIcons[petId2])}" style="left: 5px; top: 5px; width: 30px; height: 30px; border-radius: 50%; background-color: #1b1f45;"></div>` + piece("item_round_border_purple", 0, 0, { render: { width: 40, height: 40 }, size: [40, 40], fallback: "border: 3px solid #b82bce; border-radius: 50%;" }) : pawHtml();
+      return `<div data-patron="${heroId}" class="nxBox" title="${escapeAttr(petId2 ? name(petId2) : I18N("NX_PATRON_ADD"))}" style="left: ${x}px; top: ${y}px; width: 40px; height: 40px; z-index: 3;">${inner}</div>`;
     };
     const tabHtml = (id, value, y) => {
       const active = tab === id;
@@ -3069,7 +3138,7 @@
     };
     const sortedTeam = () => [...team.keys()].sort((a, b) => order(a) - order(b));
     const rowTeam = () => sortedTeam().reverse();
-    const ownerOf = (petId) => [...team.entries()].find(([, v]) => v.pet === petId)?.[0] ?? 0;
+    const ownerOf = (petId2) => [...team.entries()].find(([, v]) => v.pet === petId2)?.[0] ?? 0;
     const gridHtml = () => {
       const ids = tab === "heroes" ? heroes : pets;
       let cells = "";
@@ -3117,7 +3186,7 @@
       if (!patronFor) return "";
       const heroId = patronFor;
       const own = team.get(heroId)?.pet ?? 0;
-      const fitting = pets.filter((petId) => (petLib[petId]?.favorHeroes ?? []).map(Number).includes(heroId));
+      const fitting = pets.filter((petId2) => (petLib[petId2]?.favorHeroes ?? []).map(Number).includes(heroId));
       const cols = fitting.length >= 4 ? 2 : 1;
       const rows = Math.max(1, Math.ceil(fitting.length / cols));
       const W = ITEM.left * 2 + cols * ITEM.w + (cols - 1) * ITEM.gap;
@@ -3128,20 +3197,20 @@
       const px = Math.round(Math.min(Math.max(heroCenter - W / 2, 8), STAGE_W - W - 8));
       const py = Math.round(ROW.y - 18 - H);
       let items = "";
-      fitting.forEach((petId, k) => {
+      fitting.forEach((petId2, k) => {
         const ix = ITEM.left + k % cols * (ITEM.w + ITEM.gap);
         const iy = ITEM.top + Math.floor(k / cols) * (ITEM.h + ITEM.gap);
-        const owner = ownerOf(petId);
-        const stats = (petLib[petId]?.favorStats ?? []).map((s) => escapeAttr(statName(s.stat)));
+        const owner = ownerOf(petId2);
+        const stats = (petLib[petId2]?.favorStats ?? []).map((s) => escapeAttr(statName(s.stat)));
         let status;
-        if (petId === own) {
+        if (petId2 === own) {
           status = piece("iconvsmall", 156 - 34, 76, { render: { width: 25, height: 23 }, size: [25, 23], fallback: "color: #5fe02a; font: 700 20px/23px sans-serif;", inner: "✔", cls: "nxNoHit" }) + label(I18N("NX_PATRON_CHOSEN"), 101, 72, 219, 28, 20, TEXT_COLORS.chosen) + piece("clan_member_dismiss_button", 290, 72, { size: [31, 31], fallback: "background: #6a4526; border-radius: 50%;", attrs: `data-patron-remove="1" title="${escapeAttr(I18N("NX_PATRON_REMOVE"))}"`, cls: "nxBox" });
         } else if (owner) {
           status = piece("team_gather_select_favor_label_busy", 95, 70, { cls: "nxNoHit" }) + label(escapeAttr(I18N("NX_PATRON_BUSY", { hero: name(owner) })), 101, 72, 219, 28, 20, TEXT_COLORS.busy);
         } else {
           status = label(I18N("NX_PATRON_FREE"), 101, 72, 219, 28, 20, TEXT_COLORS.free);
         }
-        items += `<div data-patron-pick="${petId}" class="nxBox nxItem" style="left: ${ix}px; top: ${iy}px; width: ${ITEM.w}px; height: ${ITEM.h}px;">` + piece("cutePanel_BG_12_12_12_12", 0, 0, { render: { width: ITEM.w, height: ITEM.h }, size: [ITEM.w, ITEM.h], fallback: "background: #2a1a10; border: 1px solid #ce976766; border-radius: 10px;", cls: "nxIdle" }) + piece("cutePanelActive_BG_12_12_12_12", 0, 0, { render: { width: ITEM.w, height: ITEM.h }, size: [ITEM.w, ITEM.h], fallback: "background: #3a2616; border: 1px solid #ce9767; border-radius: 10px;", cls: "nxHover" }) + petCard(petId, 7, 9) + label(escapeAttr(name(petId)), 101, 6, 219, 28, 20, TEXT_COLORS.petName) + `<div class="nxT" style="left: 101px; top: 34px; width: 219px; line-height: 18px; text-align: center; white-space: normal; ${text(16, TEXT_COLORS.stats)}">${stats.join("<br>")}</div>` + status + `<div class="nxP ${pic(`s${petId}`, skillIcons[petId])}" style="left: 333px; top: 21px; width: 72px; height: 72px; background-color: #1b1f45; border-radius: 3px;"></div>` + piece("border_item_purple", 327, 15, { cls: "nxNoHit" }) + "</div>";
+        items += `<div data-patron-pick="${petId2}" class="nxBox nxItem" style="left: ${ix}px; top: ${iy}px; width: ${ITEM.w}px; height: ${ITEM.h}px;">` + piece("cutePanel_BG_12_12_12_12", 0, 0, { render: { width: ITEM.w, height: ITEM.h }, size: [ITEM.w, ITEM.h], fallback: "background: #2a1a10; border: 1px solid #ce976766; border-radius: 10px;", cls: "nxIdle" }) + piece("cutePanelActive_BG_12_12_12_12", 0, 0, { render: { width: ITEM.w, height: ITEM.h }, size: [ITEM.w, ITEM.h], fallback: "background: #3a2616; border: 1px solid #ce9767; border-radius: 10px;", cls: "nxHover" }) + petCard(petId2, 7, 9) + label(escapeAttr(name(petId2)), 101, 6, 219, 28, 20, TEXT_COLORS.petName) + `<div class="nxT" style="left: 101px; top: 34px; width: 219px; line-height: 18px; text-align: center; white-space: normal; ${text(16, TEXT_COLORS.stats)}">${stats.join("<br>")}</div>` + status + `<div class="nxP ${pic(`s${petId2}`, skillIcons[petId2])}" style="left: 333px; top: 21px; width: 72px; height: 72px; background-color: #1b1f45; border-radius: 3px;"></div>` + piece("border_item_purple", 327, 15, { cls: "nxNoHit" }) + "</div>";
       });
       if (!fitting.length) {
         items = label(I18N("NX_PATRON_NONE"), ITEM.left, ITEM.top + 40, ITEM.w, 30, 18, TEXT_COLORS.free);
@@ -3210,12 +3279,12 @@
             return;
           }
           if (el = at("[data-patron-pick]")) {
-            const petId = Number(el.dataset.patronPick);
+            const petId2 = Number(el.dataset.patronPick);
             for (const entry2 of team.values()) {
-              if (entry2.pet === petId) entry2.pet = 0;
+              if (entry2.pet === petId2) entry2.pet = 0;
             }
             const entry = team.get(patronFor);
-            if (entry) entry.pet = petId;
+            if (entry) entry.pet = petId2;
             patronFor = 0;
             refresh();
             return;
@@ -3371,11 +3440,352 @@
     }
   });
 
-  // src/setup.js
+  // src/presets.js
+  function readCache(storage) {
+    try {
+      const cached = JSON.parse(storage.getItem(NX_PRESETS_STORAGE_KEY) ?? "null");
+      return cached && Array.isArray(cached.data) ? cached : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  function writeCache(storage, data2, now) {
+    try {
+      storage.setItem(NX_PRESETS_STORAGE_KEY, JSON.stringify({ exp: now + NX_PRESETS_TTL_MS, data: data2 }));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  async function loadPresetRows({ storage = globalThis.localStorage, now = Date.now(), fetchImpl = globalThis.fetch, force = false, urls = NX_PRESETS_URLS } = {}) {
+    const cached = storage ? readCache(storage) : null;
+    if (cached && cached.exp > now && !force) return { rows: cached.data, source: "cache" };
+    const errors = [];
+    for (const url of mirrorOrder(storage, urls)) {
+      try {
+        const data2 = await fetchRows(fetchImpl, url);
+        if (storage) {
+          writeCache(storage, data2, now);
+          rememberMirror(storage, url);
+        }
+        return { rows: data2, source: "network", url };
+      } catch (e) {
+        console.error(`Сборки: зеркало ${url} не ответило`, e);
+        errors.push(`${new URL(url).hostname}: ${String(e?.message ?? e)}`);
+      }
+    }
+    const error = errors.join("; ") || "нет зеркал";
+    if (cached) return { rows: cached.data, source: "stale", error };
+    return { rows: [], source: "none", error };
+  }
+  async function fetchRows(fetchImpl, url) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), NX_PRESETS_TIMEOUT_MS);
+    let response;
+    try {
+      response = await fetchImpl(url, { signal: controller.signal, cache: "no-cache" });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data2 = await response.json();
+    if (!Array.isArray(data2)) throw new Error("ответ не массив");
+    return data2;
+  }
+  function mirrorOrder(storage, urls = NX_PRESETS_URLS) {
+    let last = null;
+    try {
+      last = storage?.getItem(NX_PRESETS_MIRROR_KEY) ?? null;
+    } catch (e) {
+      last = null;
+    }
+    return urls.includes(last) ? [last, ...urls.filter((u) => u !== last)] : [...urls];
+  }
+  function rememberMirror(storage, url) {
+    try {
+      storage.setItem(NX_PRESETS_MIRROR_KEY, url);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  function decodePresetRow(row) {
+    if (!Array.isArray(row) || row.length < 9) return null;
+    const [author, videoType, videoId, damage, buff, coins, talismans, mainPet, heroes] = row;
+    if (typeof author !== "string") return null;
+    if (!Array.isArray(talismans) || talismans.length !== 2 || !talismans.every(Number.isInteger)) return null;
+    if (!Array.isArray(heroes) || !heroes.length || heroes.length % 3 || heroes.length > 15 || !heroes.every(Number.isInteger)) return null;
+    const blocks = [];
+    for (let i = 0; i < heroes.length; i += 3) {
+      const [hero, rank, patron] = heroes.slice(i, i + 3);
+      if (![1, 3, 7].includes(rank)) return null;
+      blocks.push(`${hero}/${rank}/${patron ? petId(patron) : "-"}`);
+    }
+    const video = NX_PRESET_VIDEO[videoType];
+    return {
+      author: author.trim().slice(0, 40),
+      videoUrl: video && typeof videoId === "string" && video.id.test(videoId) ? video.prefix + videoId : null,
+      damage: Number.isFinite(damage) && damage > 0 ? damage : 0,
+      buff: Number.isInteger(buff) && buff >= 0 ? buff : 0,
+      coins: Number.isInteger(coins) && coins > 0 ? coins : 0,
+      talismanIds: talismans.map(Number),
+      mainPet: Number.isInteger(mainPet) && mainPet > 0 ? petId(mainPet) : 0,
+      teamRaw: blocks.join(", ")
+    };
+  }
+  function validatePreset(preset) {
+    const parsed = parseArchdemonNewTeam(preset.teamRaw);
+    if (parsed.error) return null;
+    const pets = getEventPetIds();
+    if (preset.mainPet && pets.length && !pets.includes(preset.mainPet)) return null;
+    const all = lib.data.invasion?.talismans ?? {};
+    const [first, second] = preset.talismanIds;
+    const usable = (id, roll) => {
+      const talisman = Object.values(all).find((e) => Number(e.id) === id);
+      return Boolean(talisman) && !NX_EXCLUDED_TALISMAN_IDS.includes(id) && (roll === 1 || !talisman.firstChoiceOnly);
+    };
+    if (first === second || !usable(first, 1) || !usable(second, 2)) return null;
+    return parsed;
+  }
+  function sortPresets(list, buff) {
+    return [...list].sort((a, b) => {
+      const matchA = a.buff === buff ? 0 : 1;
+      const matchB = b.buff === buff ? 0 : 1;
+      return matchA - matchB || a.buff - b.buff || b.damage - a.damage;
+    });
+  }
+  function presetsForceWait({ storage = globalThis.localStorage, now = Date.now() } = {}) {
+    let last = null;
+    try {
+      const raw = storage?.getItem(NX_PRESETS_FORCE_KEY);
+      last = raw == null ? null : Number(raw);
+    } catch (e) {
+      last = null;
+    }
+    if (last == null || !Number.isFinite(last)) return 0;
+    return Math.max(0, last + NX_PRESETS_FORCE_INTERVAL_MS - now);
+  }
+  function markPresetsForced({ storage = globalThis.localStorage, now = Date.now() } = {}) {
+    try {
+      storage?.setItem(NX_PRESETS_FORCE_KEY, String(now));
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  async function loadPresets(buff, options) {
+    const loaded = await loadPresetRows(options);
+    const presets = [];
+    let dropped = 0;
+    for (const row of loaded.rows) {
+      const preset = decodePresetRow(row);
+      const parsed = preset && validatePreset(preset);
+      if (!parsed) {
+        dropped++;
+        continue;
+      }
+      presets.push({ ...preset, parsed });
+    }
+    if (dropped) console.log(`Сборки: не подошли текущему событию или испорчены ${dropped} из ${loaded.rows.length}`);
+    return { presets: sortPresets(presets, buff), source: loaded.source, error: loaded.error, dropped };
+  }
+  function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = true }) {
+    const parsed = preset.parsed ?? parseArchdemonNewTeam(preset.teamRaw);
+    const targetPercent = preset.coins ? coinsToPercent(preset.coins) : 0;
+    return {
+      chapterId,
+      chapterNumber,
+      heroes: parsed.heroes,
+      targets: parsed.targets,
+      favor: parsed.favor,
+      favorPets: parsed.favorPets,
+      mainPet: preset.mainPet,
+      petsToCollect: [...new Set([...parsed.favorPets, preset.mainPet].filter(Boolean))],
+      talismanId: preset.talismanIds[0],
+      talismanIds: [...preset.talismanIds],
+      minCoins: targetPercent ? minCoinsForPercent(targetPercent) : null,
+      presetPercent: targetPercent || null,
+      keepExtraCoins,
+      carryHeroes: [...NX_PRESET_CARRY],
+      carryTargets: Object.fromEntries(NX_PRESET_CARRY.map((id) => [id, 1])),
+      carryExtraHeroes: [],
+      startRefreshes: 0,
+      sacrificeHeroes: [NX_PRESET_SACRIFICE],
+      sacrificeRefreshes: 0,
+      sacrificePoint: NX_PRESET_SACRIFICE_POINT,
+      pauseAfterBoss: false,
+      buyAnyRandomLots: false,
+      skipRandomLots: true,
+      stopIfIncomplete: false,
+      preset: { author: preset.author, damage: preset.damage, buff: preset.buff, coins: preset.coins }
+    };
+  }
+  var petId;
+  var init_presets = __esm({
+    "src/presets.js"() {
+      init_constants();
+      init_parse();
+      petId = (n) => n > 0 && n < 100 ? 6e3 + n : n;
+    }
+  });
+
+  // src/slots.js
   function talismanIconUrl(library, talismanId, size) {
     const icon = lib.data.invasion.talismans?.[talismanId]?.clientData?.icon;
     return icon ? renderGui(library, icon, { file: "talisman_icons", width: size, height: size })?.url ?? "" : "";
   }
+  function slotHtml(url, name2, frame, size, border) {
+    const inner = url ? `<img src="${url}" alt="" style="width: 100%; height: 100%; display: block; border-radius: 2px; background: #1b1f45; box-shadow: 0 0 0 1px rgba(20, 8, 30, 0.6);">` : '<div style="width: 100%; height: 100%; background: #1b1f45; border-radius: 2px;"></div>';
+    return `<div title="${escapeAttr(name2)}" style="position: relative; width: ${size}px; height: ${size}px; padding: ${border}px; box-sizing: border-box; border-radius: 4px; background: ${frame}; box-shadow: 0 0 1px rgba(0, 0, 0, 0.7);">${inner}`;
+  }
+  function gameSlotHtml(library, url, name2, frameSymbol, size, { octagon = false, round = false, faded = false, bg = "" } = {}) {
+    const frame = renderGui(library, frameSymbol, round ? { width: size, height: size } : {});
+    if (!frame) return null;
+    const k = round ? 1 : size / 96;
+    const inset = Math.round(round ? size * 0.14 : (octagon ? 6 : 8) * k);
+    const clip = octagon ? `clip-path: ${OCTAGON};` : round ? "border-radius: 50%;" : "border-radius: 3px;";
+    const back = bg ? renderGui(library, bg, { width: size - 2 * inset, height: size - 2 * inset }) : null;
+    const backHtml = back ? `<img src="${back.url}" alt="" style="position: absolute; left: ${inset}px; top: ${inset}px; width: ${size - 2 * inset}px; height: ${size - 2 * inset}px; ${clip}">` : "";
+    const inner = url ? backHtml + `<img src="${url}" alt="" style="position: absolute; left: ${inset}px; top: ${inset}px; width: ${size - 2 * inset}px; height: ${size - 2 * inset}px;${back ? "" : " background: #1b1f45;"} ${clip}">` : `<div style="position: absolute; left: ${inset}px; top: ${inset}px; width: ${size - 2 * inset}px; height: ${size - 2 * inset}px; background: #140c07; ${clip}"></div>`;
+    return `<div title="${escapeAttr(name2)}" style="position: relative; width: ${size}px; height: ${size}px; flex: none;">${inner}<img src="${frame.url}" alt="" style="position: absolute; left: ${frame.x * k}px; top: ${frame.y * k}px; width: ${frame.width * k}px; height: ${frame.height * k}px;${faded ? " opacity: 0.55;" : ""}">`;
+  }
+  function editButtonHtml(id, hint, label = I18N("NX_SQUAD_EDIT")) {
+    return `<div id="${id}" class="PopUp_btnSocket" title="${escapeAttr(hint)}" style="margin-left: auto; flex: none;"><div class="PopUp_btnRow"><div class="PopUp_btnGap green"><div class="PopUp_btnPlate">` + label + "</div></div></div></div>";
+  }
+  var init_slots = __esm({
+    "src/slots.js"() {
+      init_frames();
+      init_gameGui();
+      init_hwh();
+      init_parse();
+    }
+  });
+
+  // src/presetsView.js
+  function readKeepExtraCoins() {
+    const saved = getSaveVal(NX_SAVE_KEYS.keepExtraCoins, true);
+    return saved === true || saved === "true";
+  }
+  function headerHtml(buff) {
+    const sites = NX_PRESET_SITES.map(
+      (site) => `<div style="margin-left: 10px;">• <a href="${escapeAttr(site.url)}" target="_blank" rel="noopener noreferrer" style="color: #ffd88a;">${escapeAttr(site.name)}</a> — ${I18N(site.key)}</div>`
+    ).join("");
+    return `<div style="font-size: 22px; color: #ffd88a; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: `<span style="color: LimeGreen;">${Number(buff) || 0}</span>` })}</div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}${sites}</div><div style="margin-top: 8px;">${I18N("NX_PRESETS_AUTHORS")}</div>`;
+  }
+  function keepCoinsHtml() {
+    return `<div class="PopUp_ContCheckbox" style="margin-top: 14px;"><input type="checkbox" class="PopUp_checkbox" id="nxKeepExtraCoins"${readKeepExtraCoins() ? " checked" : ""}><label for="nxKeepExtraCoins" title="${escapeAttr(I18N("NX_PRESETS_KEEP_COINS_HINT"))}">${I18N("NX_PRESETS_KEEP_COINS")}</label></div>`;
+  }
+  function columnsHtml() {
+    const cell = (width, key, align = "center") => `<div style="width: ${width}px; flex: none; text-align: ${align};">${I18N(key)}</div>`;
+    return '<div style="display: flex; align-items: flex-end; gap: 6px; font-size: 13px; color: #c9b89c; margin-top: 8px; padding-bottom: 4px;">' + cell(88, "NX_PRESETS_HEAD_DAMAGE", "right") + cell(40, "NX_PRESETS_HEAD_BUFF") + cell(40, "NX_PRESETS_HEAD_COINS") + cell(2 * TALISMAN - 12, "NX_PRESETS_HEAD_TALISMANS") + cell(SIZE, "NX_PRESETS_HEAD_PET") + cell(5 * SIZE + 4 * 3, "NX_PRESETS_HEAD_HEROES") + `<div style="flex: 1; min-width: 60px;">${I18N("NX_PRESETS_HEAD_AUTHOR")}</div></div>`;
+  }
+  function presetRowHtml(preset, index, ctx) {
+    const { library, heroIcons, petIcons, buff } = ctx;
+    const name2 = (id) => id ? cheats.translate(`LIB_HERO_NAME_${id}`) : "";
+    const slot = (url, title, gameFrame, cssFrame, size, border, opts) => (gameSlotHtml(library, url, title, gameFrame, size, opts) ?? slotHtml(url, title, cssFrame, size, border)) + "</div>";
+    const order2 = (id) => Number(lib.data.hero?.[id]?.battleOrder ?? 0);
+    const team = preset.parsed.heroes.map((id) => ({ id, fragments: preset.parsed.targets[id], pet: Number(preset.parsed.favor[id] ?? 0) })).sort((a, b) => order2(b.id) - order2(a.id));
+    const heroes = team.map((hero) => {
+      const rank = rankOf(hero.fragments);
+      const head = hero.pet ? renderGui(library, petHeadSymbol(hero.pet), { file: "pet_icons", width: 17, height: 17 }) : null;
+      const patron = head ? `<img src="${head.url}" alt="" title="${escapeAttr(name2(hero.pet))}" style="position: absolute; top: -6px; right: -4px; width: 17px; height: 17px;">` : "";
+      const cell = gameSlotHtml(library, heroIcons[hero.id], name2(hero.id), rank.gameFrame, SIZE, { bg: rank.gameBg }) ?? slotHtml(heroIcons[hero.id], name2(hero.id), frameFor(hero.fragments), SIZE, 3);
+      return cell + patron + "</div>";
+    }).join("");
+    const pet = preset.mainPet ? slot(petIcons[preset.mainPet], name2(preset.mainPet), PET_GAME_ART.frame, SQUAD_FRAMES.purple, SIZE, 3, { octagon: true, bg: PET_GAME_ART.bg }) : `<div title="${escapeAttr(I18N("NX_PRESETS_NO_PET"))}" style="width: ${SIZE}px; height: ${SIZE}px; flex: none; text-align: center; line-height: ${SIZE}px; opacity: 0.5;">—</div>`;
+    const talismans = preset.talismanIds.map((id) => {
+      const url = talismanIconUrl(library, id, TALISMAN);
+      const title = escapeAttr(cheats.translate(`LIB_TALISMAN_NAME_${id}`));
+      return url ? `<img src="${url}" alt="" title="${title}" style="width: ${TALISMAN}px; height: ${TALISMAN}px; margin: 0 -6px; flex: none;">` : `<div title="${title}" style="width: ${TALISMAN - 12}px; flex: none;">?</div>`;
+    }).join("");
+    const authorText = preset.author ? escapeAttr(preset.author) : muted(I18N("NX_PRESETS_UNKNOWN_AUTHOR"));
+    const author = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" style="color: #ffd88a;">${authorText}</a>` : authorText;
+    const video = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(I18N("NX_PRESETS_VIDEO"))}" style="flex: none;">${PLAY_ICON}</a>` : "";
+    const matched = preset.buff === Number(buff);
+    return `<div style="display: flex; align-items: center; gap: 6px; padding: 5px 0; border-top: 1px solid rgba(206, 151, 103, 0.25);"><div style="width: 88px; flex: none; text-align: right; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="width: 40px; flex: none; text-align: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="width: 40px; flex: none; text-align: center; font-size: 13px;">${preset.coins || "—"}</div><div style="display: flex; width: ${2 * TALISMAN - 12}px; flex: none; justify-content: center;">${talismans}</div>` + pet + `<div style="display: flex; gap: 3px; flex: none;">${heroes}</div><div style="flex: 1; min-width: 60px; display: flex; align-items: center; gap: 6px; overflow: hidden;"><span style="min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div>` + editButtonHtml(`nxPresetGo${index}`, I18N("NX_PRESETS_GO_HINT"), I18N("NX_PRESETS_GO")) + "</div>";
+  }
+  async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, loadOptions }) {
+    root.querySelector("#nxPresetsView")?.remove();
+    const view = document.createElement("div");
+    view.id = "nxPresetsView";
+    view.className = "PopUp_text";
+    view.setAttribute("style", "text-align: left; max-width: 820px; font-size: 16px;");
+    view.innerHTML = headerHtml(buff) + keepCoinsHtml() + `<div data-part="list" style="margin-top: 6px;">${I18N("NX_PRESETS_LOADING")}</div><div data-part="error" style="color: #ff6b6b; margin-top: 10px; min-height: 1px;"></div><div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">` + REFRESH_BUTTON.replace('role="button"', `role="button" title="${escapeAttr(I18N("NX_PRESETS_REFRESH"))}"`) + '<span data-part="refresh-note" style="font-size: 13px; opacity: 0.8;"></span>' + editButtonHtml("nxPresetsBack", "", I18N("NX_PRESETS_BACK")) + "</div>";
+    form.style.display = "none";
+    setButtonsVisible(false);
+    root.append(view);
+    const close = () => {
+      view.remove();
+      form.style.display = "";
+      setButtonsVisible(true);
+    };
+    view.querySelector("#nxPresetsBack")?.addEventListener("click", close);
+    const keep = view.querySelector("#nxKeepExtraCoins");
+    keep?.addEventListener("change", () => setSaveVal(NX_SAVE_KEYS.keepExtraCoins, keep.checked));
+    const list = view.querySelector('[data-part="list"]');
+    const error = view.querySelector('[data-part="error"]');
+    const note = view.querySelector('[data-part="refresh-note"]');
+    let busy = false;
+    view.querySelector("#nxPresetsRefresh")?.addEventListener("click", async () => {
+      if (busy) return;
+      const wait = presetsForceWait(loadOptions);
+      if (wait > 0) {
+        if (note) note.textContent = I18N("NX_PRESETS_REFRESH_WAIT", { seconds: Math.ceil(wait / 1e3) });
+        return;
+      }
+      markPresetsForced(loadOptions);
+      if (note) note.textContent = "";
+      busy = true;
+      try {
+        await renderList(true);
+      } finally {
+        busy = false;
+      }
+    });
+    await renderList(false);
+    return close;
+    async function renderList(force) {
+      if (!list) return;
+      list.innerHTML = I18N("NX_PRESETS_LOADING");
+      if (error) error.innerHTML = "";
+      const loaded = await loadPresets(Number(buff) || 0, { ...loadOptions, force });
+      if (!view.isConnected) return;
+      if (!loaded.presets.length) {
+        list.innerHTML = loaded.error ? `<div style="color: #ffb347;">${I18N("NX_PRESETS_ERROR")}</div><div style="font-size: 12px; margin-top: 4px; opacity: 0.7;">${escapeAttr(loaded.error)}</div>` : I18N("NX_PRESETS_EMPTY");
+        return;
+      }
+      const heroIds = [...new Set(loaded.presets.flatMap((p) => p.parsed.heroes))];
+      const petIds = [...new Set(loaded.presets.flatMap((p) => [p.mainPet, ...p.parsed.favorPets]).filter(Boolean))];
+      const [library, heroIcons, petIcons] = await Promise.all([loadGameGui(GUI_FILES2), loadHeroIcons(heroIds), loadUnitIcons(petIds)]);
+      if (!view.isConnected) return;
+      const ctx = { library, heroIcons, petIcons, buff };
+      list.innerHTML = (loaded.source === "stale" ? `<div style="font-size: 13px; color: #ffb347;">${I18N("NX_PRESETS_STALE")}</div>` : "") + columnsHtml() + loaded.presets.map((preset, index) => presetRowHtml(preset, index, ctx)).join("");
+      loaded.presets.forEach((preset, index) => {
+        view.querySelector(`#nxPresetGo${index}`)?.addEventListener("click", () => {
+          const problem = onGo(preset, keep ? keep.checked : readKeepExtraCoins());
+          if (problem && error) error.innerHTML = problem;
+        });
+      });
+    }
+  }
+  var GUI_FILES2, SIZE, TALISMAN, PLAY_ICON, muted, REFRESH_BUTTON;
+  var init_presetsView = __esm({
+    "src/presetsView.js"() {
+      init_constants();
+      init_frames();
+      init_gameGui();
+      init_hwh();
+      init_icons();
+      init_parse();
+      init_presets();
+      init_slots();
+      GUI_FILES2 = [PET_HEAD_FILE, "talisman_icons"];
+      SIZE = 36;
+      TALISMAN = 30;
+      PLAY_ICON = '<svg width="32" height="23" viewBox="0 0 24 17" aria-hidden="true" style="display: block;"><rect width="24" height="17" rx="4" fill="#e53935"/><path d="M9.5 4.5v8l7-4z" fill="#fff"/></svg>';
+      muted = (text2) => `<span style="opacity: 0.6;">${text2}</span>`;
+      REFRESH_BUTTON = '<div id="nxPresetsRefresh" role="button" style="flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #88cb13; color: #88cb13; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; line-height: 1; user-select: none;">↻</div>';
+    }
+  });
+
+  // src/setup.js
   function talismanSlotsHtml(library, talismanIds) {
     return talismanIds.map((id) => {
       const url = id ? talismanIconUrl(library, id, 58) : "";
@@ -3403,6 +3813,8 @@
     const savedRandomAny = savedRandomAnyRaw === true || savedRandomAnyRaw === "true";
     const savedStopIncompleteRaw = getSaveVal(NX_SAVE_KEYS.stopIncomplete, false);
     const savedStopIncomplete = savedStopIncompleteRaw === true || savedStopIncompleteRaw === "true";
+    const savedSacrificePointRaw = Number(getSaveVal(NX_SAVE_KEYS.sacrificePoint, NX_SACRIFICE_POINTS[NX_SACRIFICE_POINTS.length - 1]));
+    const savedSacrificePoint = NX_SACRIFICE_POINTS.includes(savedSacrificePointRaw) ? savedSacrificePointRaw : NX_SACRIFICE_POINTS[NX_SACRIFICE_POINTS.length - 1];
     const talismanRowsFor = (rollNumber) => Object.values(lib.data.invasion.talismans).filter((e) => !NX_EXCLUDED_TALISMAN_IDS.includes(Number(e.id))).filter((e) => rollNumber === 1 || !e.firstChoiceOnly).map((e) => {
       let description = "";
       try {
@@ -3415,7 +3827,7 @@
     }).sort((a, b) => a.name.localeCompare(b.name));
     const section = (title, hint) => `<div style="text-align: left; margin: 14px 0 4px; font-size: 19px; color: #ffd88a;">${title}` + (hint ? `<div style="font-size: 13px; color: #d8cbb8; opacity: 0.85;">${hint}</div>` : "") + "</div>";
     const radioRow = (group, value, label, checked, title) => `<div class="PopUp_ContCheckbox"><input type="checkbox" class="PopUp_checkbox hwhNewRadio radio_hwhNew_${group}" data-group="${group}" data-value="${escapeAttr(value)}" id="hwhNew_${group}_${escapeAttr(value)}"${checked ? " checked" : ""}><label for="hwhNew_${group}_${escapeAttr(value)}" title="${escapeAttr(title)}">${label}</label></div>`;
-    let html = '<div class="PopUp_text" style="text-align: left; max-width: 600px;">';
+    let html = '<div id="nxSetupForm" class="PopUp_text" style="text-align: left; max-width: 600px;">';
     const columns = (count, rows, fill = "row") => `<div style="display: grid; grid-template-columns: repeat(${count}, minmax(0, 1fr)); column-gap: 18px; align-items: start;` + (fill === "column" ? ` grid-auto-flow: column; grid-template-rows: repeat(${rows}, auto);` : "") + '">';
     const abyssOrder = getAbyssChapters().map((e) => Number(e.id));
     const chapterAvailable = {};
@@ -3445,6 +3857,7 @@
       return saved !== 0 && !talismanRowsFor(index + 1).some((e) => e.id === saved) ? 0 : saved;
     });
     html += '<div id="nxSquadBlock">' + await squadHtml(section, currentTeam, currentMainPet, initialTalismans) + "</div>";
+    html += `<div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;"><div style="flex: 1; font-size: 15px; color: #ffd88a;"><span style="color: LimeGreen; font-weight: bold;">New!</span> ${I18N("NX_PRESETS_LINE")}</div>` + editButtonHtml("nxPresetsOpen", I18N("NX_PRESETS_BUTTON_HINT"), I18N("NX_PRESETS_BUTTON")) + "</div>";
     html += columns(rollBosses.length);
     rollBosses.forEach((bossNumber, index) => {
       const rollNumber = index + 1;
@@ -3477,6 +3890,11 @@
     html += section(I18N("NX_BLOCK_SACRIFICE_REFRESH"), I18N("NX_BLOCK_SACRIFICE_REFRESH_HINT"));
     html += `<input type="text" id="hwhNewSacrificeRefreshInput" class="PopUp_input" style="width: 100%; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_SACRIFICE_REFRESH_HINT"))}" placeholder="0" value="${escapeAttr(savedSacrificeRefreshes)}">`;
     html += "</div>";
+    html += section(I18N("NX_BLOCK_SACRIFICE_POINT"), I18N("NX_BLOCK_SACRIFICE_POINT_HINT"));
+    NX_SACRIFICE_POINTS.forEach((point) => {
+      const label = point === 5 ? I18N("NX_SACRIFICE_POINT_5") : I18N("NX_SACRIFICE_POINT_7");
+      html += radioRow("sacrificePoint", point, label, point === savedSacrificePoint, "");
+    });
     html += section(I18N("NX_BLOCK_MIN_COINS", { coin: stallCoinName() }), I18N("NX_BLOCK_MIN_COINS_HINT"));
     html += `<div style="display: flex; align-items: center; gap: 12px;"><input type="text" id="hwhNewMinCoinsInput" class="PopUp_input" style="flex: 1; min-width: 0; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_MIN_COINS_HINT"))}" placeholder="${escapeAttr(I18N("NX_MIN_COINS_PLACEHOLDER"))}" value="${escapeAttr(savedMinCoins)}"><span id="nxMinCoinsBonus" style="flex: none; font-size: 14px; color: #ffd88a;">${minCoinsBonusText(savedMinCoins)}</span></div>`;
     html += `<div class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewRandomAnyInput"${savedRandomAny ? " checked" : ""}><label for="hwhNewRandomAnyInput" title="${escapeAttr(I18N("NX_BLOCK_RANDOM_ANY_HINT", { price: randomLotResale() }))}">${I18N("NX_BLOCK_RANDOM_ANY")}</label></div>`;
@@ -3617,6 +4035,7 @@
           buyAnyRandomLots,
           stopIfIncomplete: talismanId !== NX_WEALTH_TALISMAN_ID && stopIfIncompleteRaw,
           stopIfIncompleteRaw,
+          sacrificePoint: Number(readRadio("sacrificePoint") ?? savedSacrificePoint),
           teamRaw: String(teamRaw).trim(),
           minCoinsRaw: String(minCoinsRaw).replace(/\s+/g, ""),
           carryRaw: String(carryRaw).trim(),
@@ -3684,6 +4103,7 @@
         setSaveVal(NX_SAVE_KEYS.randomAny, result.value.buyAnyRandomLots);
         setSaveVal(NX_SAVE_KEYS.stopIncomplete, result.value.stopIfIncompleteRaw);
         setSaveVal(NX_SAVE_KEYS.startRefreshes, result.value.startRefreshesRaw);
+        setSaveVal(NX_SAVE_KEYS.sacrificePoint, result.value.sacrificePoint);
         popup.hide();
         complete(result.value);
       });
@@ -3746,27 +4166,35 @@
         popup.hide();
         complete("cancel");
       });
+      const cancelButton = popup.buttons[popup.buttons.length - 1];
+      const setButtonsVisible = (visible) => {
+        for (const button of [startButton, cancelButton]) {
+          if (button) button.style.display = visible ? "" : "none";
+        }
+      };
+      const goWithPreset = (preset, keepExtraCoins) => {
+        const chapterValue = readRadio("chapter");
+        if (chapterValue === null) return I18N("NX_ERR_NO_CHAPTER");
+        const chapterId = Number(chapterValue);
+        if (!chapterAvailable[chapterId]) {
+          return I18N("NX_NEED_RELIC", { relicName: getAbyssRelicName(), needLevel: chapterNeedLevel[chapterId] ?? 0, haveLevel: relicLevel });
+        }
+        const value = presetSetup(preset, { chapterId, chapterNumber: chapterNumbers[chapterId] ?? 0, keepExtraCoins });
+        popup.hide();
+        complete(value);
+        return null;
+      };
+      popup.custom.querySelector("#nxPresetsOpen")?.addEventListener("click", () => {
+        const form = popup.custom.querySelector("#nxSetupForm");
+        if (!form) return;
+        openPresetsView({ root: popup.custom, form, buff: buffAmount, setButtonsVisible, onGo: goWithPreset }).catch((e) => console.error(e));
+      });
       popup.addButton({ isClose: true }, () => {
         popup.hide();
         complete("cancel");
       });
       popup.show();
     });
-  }
-  function slotHtml(url, name2, frame, size, border) {
-    const inner = url ? `<img src="${url}" alt="" style="width: 100%; height: 100%; display: block; border-radius: 2px; background: #1b1f45; box-shadow: 0 0 0 1px rgba(20, 8, 30, 0.6);">` : '<div style="width: 100%; height: 100%; background: #1b1f45; border-radius: 2px;"></div>';
-    return `<div title="${escapeAttr(name2)}" style="position: relative; width: ${size}px; height: ${size}px; padding: ${border}px; box-sizing: border-box; border-radius: 4px; background: ${frame}; box-shadow: 0 0 1px rgba(0, 0, 0, 0.7);">${inner}`;
-  }
-  function gameSlotHtml(library, url, name2, frameSymbol, size, { octagon = false, round = false, faded = false, bg = "" } = {}) {
-    const frame = renderGui(library, frameSymbol, round ? { width: size, height: size } : {});
-    if (!frame) return null;
-    const k = round ? 1 : size / 96;
-    const inset = Math.round(round ? size * 0.14 : (octagon ? 6 : 8) * k);
-    const clip = octagon ? `clip-path: ${OCTAGON};` : round ? "border-radius: 50%;" : "border-radius: 3px;";
-    const back = bg ? renderGui(library, bg, { width: size - 2 * inset, height: size - 2 * inset }) : null;
-    const backHtml = back ? `<img src="${back.url}" alt="" style="position: absolute; left: ${inset}px; top: ${inset}px; width: ${size - 2 * inset}px; height: ${size - 2 * inset}px; ${clip}">` : "";
-    const inner = url ? backHtml + `<img src="${url}" alt="" style="position: absolute; left: ${inset}px; top: ${inset}px; width: ${size - 2 * inset}px; height: ${size - 2 * inset}px;${back ? "" : " background: #1b1f45;"} ${clip}">` : `<div style="position: absolute; left: ${inset}px; top: ${inset}px; width: ${size - 2 * inset}px; height: ${size - 2 * inset}px; background: #140c07; ${clip}"></div>`;
-    return `<div title="${escapeAttr(name2)}" style="position: relative; width: ${size}px; height: ${size}px; flex: none;">${inner}<img src="${frame.url}" alt="" style="position: absolute; left: ${frame.x * k}px; top: ${frame.y * k}px; width: ${frame.width * k}px; height: ${frame.height * k}px;${faded ? " opacity: 0.55;" : ""}">`;
   }
   async function squadHtml(section, teamRaw, mainPet, talismanIds) {
     const parsed = String(teamRaw ?? "").trim() ? parseArchdemonNewTeam(teamRaw) : { error: true };
@@ -3799,9 +4227,6 @@
     const hint = ready ? "" : `<div style="margin-top: 8px; font-size: 14px; color: #ffb347;">${I18N("NX_SQUAD_REQUIRED")}</div>`;
     return section(I18N("NX_BLOCK_SQUAD"), "") + /** Зазоры узкие: с талисманами по 58 строка иначе не влезает в окно, «Изменить» уезжал за край */
     '<div style="display: flex; align-items: center; gap: 4px; padding-top: 8px;">' + row + talismans + button + "</div>" + hint;
-  }
-  function editButtonHtml(id, hint) {
-    return `<div id="${id}" class="PopUp_btnSocket" title="${escapeAttr(hint)}" style="margin-left: auto; flex: none;"><div class="PopUp_btnRow"><div class="PopUp_btnGap green"><div class="PopUp_btnPlate">` + I18N("NX_SQUAD_EDIT") + "</div></div></div></div>";
   }
   async function heroListHtml(items, buttonId, hint) {
     const order2 = (id) => Number(lib.data.hero?.[id]?.battleOrder ?? 0);
@@ -3844,6 +4269,9 @@
       init_icons();
       init_parse();
       init_picker();
+      init_presets();
+      init_presetsView();
+      init_slots();
       init_prices();
       SETUP_GUI_FILES = [PET_HEAD_FILE, "talisman_icons"];
     }
@@ -4027,10 +4455,10 @@
       NX_COOLDOWN: "Restart in {seconds} s",
       NX_BLOCK_CARRY: "Carry heroes, they only walk you through",
       NX_BLOCK_CARRY_HINT: "On point 1 at least purple is a must, up to the chosen rank they are topped up as soon as possible. Sold after the last point before the Archdemon",
-      NX_BLOCK_SACRIFICE: "Who throws the last point",
-      NX_BLOCK_SACRIFICE_HINT: "One hero loses the last point before the Archdemon twice on purpose, then the carry team takes it",
-      NX_BLOCK_SACRIFICE_REFRESH: "Stall refreshes on the last point to find the throwing hero",
-      NX_BLOCK_SACRIFICE_REFRESH_HINT: "Needed when the throwing hero is not a carry hero: then he is bought on the last point. Zero means no refreshes, if he is not there the run restarts",
+      NX_BLOCK_SACRIFICE: "Who throws the point",
+      NX_BLOCK_SACRIFICE_HINT: "One hero loses the chosen point twice on purpose, then the carry team takes it",
+      NX_BLOCK_SACRIFICE_REFRESH: "Stall refreshes on the throw point to find the throwing hero",
+      NX_BLOCK_SACRIFICE_REFRESH_HINT: "Needed when the throwing hero is not a carry hero: then he is bought on the throw point. Zero means no refreshes, if he is not there the run restarts",
       NX_ERR_SACRIFICE_REFRESH: "Refreshes for the throwing hero must be a whole number from 0 to {max}",
       NX_SACRIFICE_EDIT_HINT: "Pick one hero",
       NX_SACRIFICE_REFRESH: "Looking for the throwing hero, refresh {refreshes} of {max}",
@@ -4045,12 +4473,47 @@
       NX_REASON_NO_CARRY_EXTRA: "None of the extra carry heroes were on sale: {list}",
       NX_WEALTH_SHOP: 'Point {point}, stall. Coins: <span style="color: LimeGreen;">{coins}</span>',
       NX_WEALTH_FINAL: "Selling the carry heroes and collecting the real team",
-      NX_SACRIFICE: 'Throwing the last point on purpose, <span style="color: LimeGreen;">{number}</span> of {total}',
+      NX_SACRIFICE: 'Throwing the point on purpose, <span style="color: LimeGreen;">{number}</span> of {total}',
       NX_REASON_SACRIFICE_WON: "The throwing lineup won, which breaks the plan",
       NX_REASON_NO_CARRY: "Carry heroes were not on sale: {list}",
       NX_REASON_POINT_LOST: "Point {point} was not taken",
       NX_REASON_POINT_LOST_REMEMBERED: "Point {point} was not taken, this team is remembered",
       NX_EVENT_ENDING: "Less than {minutes} minutes are left until the event ends. No new runs are started",
+      NX_BLOCK_SACRIFICE_POINT: "Which point to throw",
+      NX_BLOCK_SACRIFICE_POINT_HINT: "Coins come out the same on points 5 to 7. On point 7 the enemy is stronger, so losing on purpose is easier",
+      NX_SACRIFICE_POINT_5: "Point 5",
+      NX_SACRIFICE_POINT_7: "Point 7, the last before the Archdemon",
+      NX_SPEND_EXTRA: "Spending extra coins: {coins} ({percent}%), the author had {target}%",
+      NX_PRESETS_LINE: "Or pick a ready-made build",
+      NX_PRESETS_BUTTON: "Ready-made builds",
+      NX_PRESETS_BUTTON_HINT: "Builds of other players from open videos: team, pet and talismans. Your settings here stay as they are",
+      NX_PRESETS_BUFF: "Your buff: {buff}",
+      NX_PRESETS_KEEP_COINS: "Keep extra coins (extra coins can both raise and lower the damage)",
+      NX_PRESETS_KEEP_COINS_HINT: "A build is made for as many coins as its author had: they set the Talisman of Wealth bonus. Checked: extra coins stay and the bonus is higher than the author had. Unchecked: the extra is spent on stall refreshes, 3 coins each, until the bonus matches the author",
+      NX_PRESETS_SOURCES: "The builds come from open videos of players. Thanks to the sites that collected them:",
+      NX_PRESETS_SITE_HWDAILY: "guides and teams for Hero Wars events. Author Fragator, reachable on the official Hero Wars Discord",
+      NX_PRESETS_SITE_HWMAP: "game database and event teams. Author Kircheis",
+      NX_PRESETS_AUTHORS: "Every build has an author. If a build helped you, drop by their video and leave a 👍",
+      NX_PRESETS_HEAD_DAMAGE: "Damage",
+      NX_PRESETS_HEAD_BUFF: "Buff",
+      NX_PRESETS_HEAD_COINS: "Coins",
+      NX_PRESETS_HEAD_TALISMANS: "Talismans",
+      NX_PRESETS_HEAD_PET: "Pet",
+      NX_PRESETS_HEAD_HEROES: "Heroes",
+      NX_PRESETS_HEAD_AUTHOR: "Author",
+      NX_PRESETS_BILLION: "{value}B",
+      NX_PRESETS_UNKNOWN_AUTHOR: "N/A",
+      NX_PRESETS_VIDEO: "Open the video",
+      NX_PRESETS_NO_PET: "No main pet",
+      NX_PRESETS_GO: "Let's go",
+      NX_PRESETS_GO_HINT: "Run the chosen chapter with this build: carry Astrid and Lucas and Eva, Astrid and Lucas throws point 7, no spare refreshes and no unknown cards",
+      NX_PRESETS_BACK: "Back",
+      NX_PRESETS_LOADING: "Loading the builds…",
+      NX_PRESETS_EMPTY: "No builds for this event yet",
+      NX_PRESETS_ERROR: "The request cannot be completed from your region. Please use additional tools",
+      NX_PRESETS_STALE: "The server did not answer, showing the saved copy",
+      NX_PRESETS_REFRESH: "Refresh the builds from the server, at most once a minute",
+      NX_PRESETS_REFRESH_WAIT: "You can refresh again in {seconds} s",
       NX_REASON_POINT_KNOWN_LOSS: "Point {point}: this team has already lost it, and there is nobody to buy",
       NX_DEFAULT_FINAL: "Selling the extra heroes and collecting the team",
       NX_BLOCK_STOP_INCOMPLETE: "Stop before the Archdemon even if the team is not complete",
@@ -4171,10 +4634,10 @@
       NX_COOLDOWN: "Перезапуск через {seconds} с",
       NX_BLOCK_CARRY: "Проходные герои, ими только идём",
       NX_BLOCK_CARRY_HINT: "На первой точке обязательно хотя бы до фиолетового, до выбранного ранга докупаются при первой возможности. Продаются после последней точки перед Архидемоном",
-      NX_BLOCK_SACRIFICE: "Кем сливаем последнюю точку",
-      NX_BLOCK_SACRIFICE_HINT: "Один герой дважды намеренно проигрывает последнюю точку перед Архидемоном, потом её берёт проходной состав",
-      NX_BLOCK_SACRIFICE_REFRESH: "Обновлений лавки на последней точке, чтобы найти героя для слива",
-      NX_BLOCK_SACRIFICE_REFRESH_HINT: "Нужно, если героя для слива нет среди проходных: тогда его докупают на последней точке. Ноль — без обновлений, не нашёлся — заход заново",
+      NX_BLOCK_SACRIFICE: "Кем сливаем точку",
+      NX_BLOCK_SACRIFICE_HINT: "Один герой дважды намеренно проигрывает выбранную точку, потом её берёт проходной состав",
+      NX_BLOCK_SACRIFICE_REFRESH: "Обновлений лавки на точке слива, чтобы найти героя для слива",
+      NX_BLOCK_SACRIFICE_REFRESH_HINT: "Нужно, если героя для слива нет среди проходных: тогда его докупают на точке слива. Ноль — без обновлений, не нашёлся — заход заново",
       NX_ERR_SACRIFICE_REFRESH: "Обновлений для героя слива — целое число от 0 до {max}",
       NX_SACRIFICE_EDIT_HINT: "Выбрать одного героя",
       NX_SACRIFICE_REFRESH: "Ищем героя для слива, обновление {refreshes} из {max}",
@@ -4189,12 +4652,47 @@
       NX_REASON_NO_CARRY_EXTRA: "Ни одного дополнительного проходного не было в продаже: {list}",
       NX_WEALTH_SHOP: 'Точка {point}, лавка. Монет: <span style="color: LimeGreen;">{coins}</span>',
       NX_WEALTH_FINAL: "Продаём проходных и собираем основной состав",
-      NX_SACRIFICE: 'Намеренно сливаем последнюю точку, <span style="color: LimeGreen;">{number}</span> из {total}',
+      NX_SACRIFICE: 'Намеренно сливаем точку, <span style="color: LimeGreen;">{number}</span> из {total}',
       NX_REASON_SACRIFICE_WON: "Сливающий состав выиграл, это ломает план",
       NX_REASON_NO_CARRY: "Проходных не было в продаже: {list}",
       NX_REASON_POINT_LOST: "Точка {point} не взята",
       NX_REASON_POINT_LOST_REMEMBERED: "Точка {point} не взята, состав запомнили",
       NX_EVENT_ENDING: "До конца события меньше {minutes} минут. Новых заходов не начинаем",
+      NX_BLOCK_SACRIFICE_POINT: "На какой точке сливаем",
+      NX_BLOCK_SACRIFICE_POINT_HINT: "По монетам точки с 5-й по 7-ю одинаковы. На седьмой противник сильнее, и проиграть нарочно проще",
+      NX_SACRIFICE_POINT_5: "Точка 5",
+      NX_SACRIFICE_POINT_7: "Точка 7, последняя перед Архидемоном",
+      NX_SPEND_EXTRA: "Тратим лишние монеты: {coins} ({percent}%), у автора {target}%",
+      NX_PRESETS_LINE: "Или выберите готовую сборку",
+      NX_PRESETS_BUTTON: "Готовые сборки",
+      NX_PRESETS_BUTTON_HINT: "Сборки других игроков из открытых видео: команда, питомец и талисманы. Ваши настройки здесь не меняются",
+      NX_PRESETS_BUFF: "Ваше усиление: {buff}",
+      NX_PRESETS_KEEP_COINS: "Оставлять лишние монеты (лишние монеты могут как увеличить урон, так и уменьшить)",
+      NX_PRESETS_KEEP_COINS_HINT: "Сборка рассчитана на столько монет, сколько было у автора: от них зависит бонус Талисмана капитала. С галкой лишние монеты остаются, бонус выше, чем у автора. Без галки лишнее тратится обновлениями лавки по 3 монеты, пока бонус не станет как у автора",
+      NX_PRESETS_SOURCES: "Сборки взяты из открытых видео игроков. Спасибо сайтам, которые их собрали:",
+      NX_PRESETS_SITE_HWDAILY: "гайды и составы по событиям Hero Wars. Автор Fragator, связь — в официальном Discord Hero Wars",
+      NX_PRESETS_SITE_HWMAP: "база игры и команды по событиям. Автор Kircheis",
+      NX_PRESETS_AUTHORS: "У каждой сборки есть автор. Если сборка помогла, загляните к нему на видео и поставьте 👍",
+      NX_PRESETS_HEAD_DAMAGE: "Урон",
+      NX_PRESETS_HEAD_BUFF: "Усиление",
+      NX_PRESETS_HEAD_COINS: "Монеты",
+      NX_PRESETS_HEAD_TALISMANS: "Талисманы",
+      NX_PRESETS_HEAD_PET: "Питомец",
+      NX_PRESETS_HEAD_HEROES: "Герои",
+      NX_PRESETS_HEAD_AUTHOR: "Автор",
+      NX_PRESETS_BILLION: "{value} млрд",
+      NX_PRESETS_UNKNOWN_AUTHOR: "н/д",
+      NX_PRESETS_VIDEO: "Открыть видео",
+      NX_PRESETS_NO_PET: "Без основного питомца",
+      NX_PRESETS_GO: "Поехали",
+      NX_PRESETS_GO_HINT: "Пройти выбранную главу по этой сборке: проходные Astrid and Lucas и Eva, Astrid and Lucas сливает точку 7, без запаса обновлений и без неизвестных карт",
+      NX_PRESETS_BACK: "Назад",
+      NX_PRESETS_LOADING: "Загружаем сборки…",
+      NX_PRESETS_EMPTY: "Для этого события сборок пока нет",
+      NX_PRESETS_ERROR: "Для вашего региона невозможно выполнить запрос. Воспользуйтесь дополнительными инструментами",
+      NX_PRESETS_STALE: "Сервер не ответил, показана сохранённая копия",
+      NX_PRESETS_REFRESH: "Обновить сборки с сервера, не чаще раза в минуту",
+      NX_PRESETS_REFRESH_WAIT: "Обновить можно через {seconds} с",
       NX_REASON_POINT_KNOWN_LOSS: "Точка {point}: этот состав её уже не брал, а докупить некого",
       NX_DEFAULT_FINAL: "Продаём лишних героев и собираем состав",
       NX_BLOCK_STOP_INCOMPLETE: "Остановиться перед Архидемоном, даже если состав не собран полностью",
