@@ -3,7 +3,7 @@
 // @name:en          HWHArchdemonExt
 // @name:ru          HWHArchdemonExt
 // @namespace        HWHArchdemonExt
-// @version          0.38-alpha
+// @version          0.39-alpha
 // @description      Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en   Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:ru   Дополнение к HeroWarsHelper: крутит бесплатную главу Бездны, пока не соберётся связка, и останавливается перед Архидемоном
@@ -16,15 +16,86 @@
 // ==/UserScript==
 
 (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __esm = (fn, res, err) => function __init() {
+    if (err) throw err[0];
+    try {
+      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+    } catch (e) {
+      throw err = [e], e;
+    }
+  };
+  var __export = (target, all) => {
+    for (var name2 in all)
+      __defProp(target, name2, { get: all[name2], enumerable: true });
+  };
+
+  // src/constants.js
+  var NX_SALE_TALISMAN_ID, NX_PET_ID_THRESHOLD, NX_TIMER_SEARCH_MAX_TRIES, NX_TIMER_SEARCH_GRID, NX_TIMER_SEARCH_BUDGET_MS, NX_LOSS_TIMER_RANGE, NX_LOSS_TIMER_STEP, NX_LOSS_SEARCH_BUDGET_MS, NX_LOSS_SEARCH_MAX_TRIES, NX_LOSS_MEMORY_BACKOFF, NX_PACE, NX_SAVE_KEYS, NX_HELPER_POLL_MS, NX_HELPER_WAIT_MS, NX_EVENT_END_MARGIN_MINUTES, NX_WEALTH_TALISMAN_ID, NX_EXCLUDED_TALISMAN_IDS, NX_TEAM_SIZE, NX_MIN_LOT_COST, NX_STALL_REFRESH_COST, NX_RUN_PAUSE_MIN_SECONDS, NX_RUN_PAUSE_MAX_SECONDS, NX_FRAGMENT_SELL_PRICE, NX_MIN_COINS_SLACK, NX_SACRIFICE_LOSSES, NX_SACRIFICE_MAX_REFRESHES, NX_LOTS_PER_EARNED_REFRESH, NX_POINT1_MAX_REFRESHES, NX_RANDOM_LOT_FRAGMENTS, NX_BATTLE_TIMER_RANGE, NX_LOG_CASH, NX_LOG_BATTLE;
+  var init_constants = __esm({
+    "src/constants.js"() {
+      NX_SALE_TALISMAN_ID = 8009;
+      NX_PET_ID_THRESHOLD = 4400;
+      NX_TIMER_SEARCH_MAX_TRIES = 1e3;
+      NX_TIMER_SEARCH_GRID = 30;
+      NX_TIMER_SEARCH_BUDGET_MS = 6e4;
+      NX_LOSS_TIMER_RANGE = { min: 1.3, max: 25 };
+      NX_LOSS_TIMER_STEP = 0.5;
+      NX_LOSS_SEARCH_BUDGET_MS = 2e4;
+      NX_LOSS_SEARCH_MAX_TRIES = 200;
+      NX_LOSS_MEMORY_BACKOFF = 5;
+      NX_PACE = {
+        afterBattle: [670, 870],
+        talismanPick: [600, 870],
+        stallOpen: [35, 70],
+        stallAll: [70, 170],
+        firstAction: [330, 600],
+        betweenActions: [230, 600],
+        beforeBattle: [530, 1e3],
+        chapterEnter: [400, 530],
+        autoBattle: [1200, 2e3]
+      };
+      NX_SAVE_KEYS = {
+        chapter: "savedChapterForArchdemonNew",
+        team: "savedTeamForArchdemonNew",
+        mainPet: "savedMainPetForArchdemonNew",
+        talisman: "savedTalismanForArchdemonNew",
+        talismans: "savedTalismanIdsForArchdemonNew",
+        minCoins: "savedMinCoinsForArchdemonNew",
+        carry: "savedCarryHeroesForArchdemonNew",
+        sacrifice: "savedSacrificeHeroesForArchdemonNew",
+        pause: "savedPauseAfterBossForArchdemonNew",
+        carryExtra: "savedCarryExtraHeroesForArchdemonNew",
+        startRefreshes: "savedStartRefreshesForArchdemonNew",
+        sacrificeRefreshes: "savedSacrificeRefreshesForArchdemonNew",
+        randomAny: "savedBuyAnyRandomLotsForArchdemonNew",
+        stopIncomplete: "savedStopIfIncompleteForArchdemonNew"
+      };
+      NX_HELPER_POLL_MS = 200;
+      NX_HELPER_WAIT_MS = 6e4;
+      NX_EVENT_END_MARGIN_MINUTES = 10;
+      NX_WEALTH_TALISMAN_ID = 8008;
+      NX_EXCLUDED_TALISMAN_IDS = [8005, 8009];
+      NX_TEAM_SIZE = 5;
+      NX_MIN_LOT_COST = 12;
+      NX_STALL_REFRESH_COST = 3;
+      NX_RUN_PAUSE_MIN_SECONDS = 1;
+      NX_RUN_PAUSE_MAX_SECONDS = 2;
+      NX_FRAGMENT_SELL_PRICE = 8;
+      NX_MIN_COINS_SLACK = 30;
+      NX_SACRIFICE_LOSSES = 2;
+      NX_SACRIFICE_MAX_REFRESHES = 30;
+      NX_LOTS_PER_EARNED_REFRESH = 2;
+      NX_POINT1_MAX_REFRESHES = 30;
+      NX_RANDOM_LOT_FRAGMENTS = 2;
+      NX_BATTLE_TIMER_RANGE = { min: 1.3, max: 25 };
+      NX_LOG_CASH = `КАССА[${GM_info.script.version}]`;
+      NX_LOG_BATTLE = `БОЙ[${GM_info.script.version}]`;
+    }
+  });
+
   // src/hwh.js
-  var funcs = typeof HWHFuncs !== "undefined" ? HWHFuncs : {};
-  var data = typeof HWHData !== "undefined" ? HWHData : {};
-  var classes = typeof HWHClasses !== "undefined" ? HWHClasses : {};
-  var hwhFound = typeof HWHClasses !== "undefined" && typeof HWHFuncs !== "undefined" && typeof HWHData !== "undefined";
-  var { popup, confShow, setProgress, I18N, countdownTimer, getSaveVal, setSaveVal, addExtentionName, setIsCancalBattle } = funcs;
-  var { i18nLangData, othersPopupButtons } = data;
-  var { WinFixBattle } = classes;
-  var helperVersion = typeof scriptInfo !== "undefined" ? String(scriptInfo?.version ?? "?") : "?";
   function missingHelperApi() {
     const has = {
       popup: typeof popup?.confirm === "function",
@@ -77,21 +148,43 @@
     Promise.resolve().then(() => cheats.refreshGame()).catch((e) => console.error(e));
     return false;
   }
+  var funcs, data, classes, popup, confShow, setProgress, I18N, countdownTimer, getSaveVal, setSaveVal, addExtentionName, setIsCancalBattle, i18nLangData, othersPopupButtons, WinFixBattle, helperVersion;
+  var init_hwh = __esm({
+    "src/hwh.js"() {
+      funcs = typeof HWHFuncs !== "undefined" ? HWHFuncs : {};
+      data = typeof HWHData !== "undefined" ? HWHData : {};
+      classes = typeof HWHClasses !== "undefined" ? HWHClasses : {};
+      ({ popup, confShow, setProgress, I18N, countdownTimer, getSaveVal, setSaveVal, addExtentionName, setIsCancalBattle } = funcs);
+      ({ i18nLangData, othersPopupButtons } = data);
+      ({ WinFixBattle } = classes);
+      helperVersion = typeof scriptInfo !== "undefined" ? String(scriptInfo?.version ?? "?") : "?";
+    }
+  });
 
   // src/state.js
-  var sessionState = {
-    /** Номер события. Определяется при каждом входе в меню */
-    eventId: 0,
-    /** Остановка по клику доступна на любом этапе, флаг общий на весь цикл */
-    stopped: false,
-    /** Монеты на старте захода, от них считается бухгалтерия */
-    startCoins: 0,
-    /**
-     * С какого таймера начинать поиск проигрыша для слива, по составу: «44» → 10.5. Живёт только в пределах
-     * прогона — от «Старт» до успеха или остановки: игрок может поднять усиление, и старое станет неверным
-     */
-    lossStart: {}
-  };
+  var sessionState;
+  var init_state = __esm({
+    "src/state.js"() {
+      sessionState = {
+        /** Номер события. Определяется при каждом входе в меню */
+        eventId: 0,
+        /** Остановка по клику доступна на любом этапе, флаг общий на весь цикл */
+        stopped: false,
+        /** Монеты на старте захода, от них считается бухгалтерия */
+        startCoins: 0,
+        /**
+         * С какого таймера начинать поиск проигрыша для слива, по составу: «44» → 10.5. Живёт только в пределах
+         * прогона — от «Старт» до успеха или остановки: игрок может поднять усиление, и старое станет неверным
+         */
+        lossStart: {},
+        /**
+         * Прогон без богатства: чем кончилась точка этим составом, «точка|герои:ранги|питомец|покровители» → won | lost.
+         * Живёт, как и lossStart, только в пределах прогона: игрок может поднять усиление, и «не берётся» станет неверным
+         */
+        pointMemory: {}
+      };
+    }
+  });
 
   // src/abyss.js
   function toRoman(number) {
@@ -125,6 +218,12 @@
       return "";
     }
   }
+  function chapterDate(value) {
+    return Date.parse(String(value).replace(" ", "T") + "Z");
+  }
+  function chapterEndsAt(chapterId) {
+    return chapterDate(lib.data.invasion.chapter[chapterId]?.endDate);
+  }
   function getChapterSealCost(chapterId) {
     const sealId = getAbyssSealId();
     return Number(lib.data.invasion.chapter[chapterId]?.startCost?.coin?.[sealId] ?? 0);
@@ -140,95 +239,14 @@
     }
     return name2 && name2 !== key ? `${numeral}&nbsp;${name2}` : `${I18N("NX_CHAPTER")}&nbsp;${numeral}`;
   }
-
-  // src/constants.js
-  var NX_SALE_TALISMAN_ID = 8009;
-  var NX_PET_ID_THRESHOLD = 4400;
-  var NX_TIMER_SEARCH_MAX_TRIES = 1e3;
-  var NX_TIMER_SEARCH_GRID = 30;
-  var NX_TIMER_SEARCH_BUDGET_MS = 6e4;
-  var NX_LOSS_TIMER_RANGE = { min: 1.3, max: 25 };
-  var NX_LOSS_TIMER_STEP = 0.5;
-  var NX_LOSS_SEARCH_BUDGET_MS = 2e4;
-  var NX_LOSS_SEARCH_MAX_TRIES = 200;
-  var NX_LOSS_MEMORY_BACKOFF = 5;
-  var NX_PACE = {
-    afterBattle: [670, 870],
-    talismanPick: [600, 870],
-    stallOpen: [35, 70],
-    stallAll: [70, 170],
-    firstAction: [330, 600],
-    betweenActions: [230, 600],
-    beforeBattle: [530, 1e3],
-    chapterEnter: [400, 530],
-    autoBattle: [1200, 2e3]
-  };
-  var NX_SAVE_KEYS = {
-    chapter: "savedChapterForArchdemonNew",
-    team: "savedTeamForArchdemonNew",
-    mainPet: "savedMainPetForArchdemonNew",
-    talisman: "savedTalismanForArchdemonNew",
-    talismans: "savedTalismanIdsForArchdemonNew",
-    minCoins: "savedMinCoinsForArchdemonNew",
-    carry: "savedCarryHeroesForArchdemonNew",
-    sacrifice: "savedSacrificeHeroesForArchdemonNew",
-    pause: "savedPauseAfterBossForArchdemonNew",
-    carryExtra: "savedCarryExtraHeroesForArchdemonNew",
-    startRefreshes: "savedStartRefreshesForArchdemonNew",
-    sacrificeRefreshes: "savedSacrificeRefreshesForArchdemonNew",
-    randomAny: "savedBuyAnyRandomLotsForArchdemonNew"
-  };
-  var NX_WEALTH_TALISMAN_ID = 8008;
-  var NX_EXCLUDED_TALISMAN_IDS = [8005, 8009];
-  var NX_TEAM_SIZE = 5;
-  var NX_MIN_LOT_COST = 12;
-  var NX_STALL_REFRESH_COST = 3;
-  var NX_RUN_PAUSE_MIN_SECONDS = 1;
-  var NX_RUN_PAUSE_MAX_SECONDS = 2;
-  var NX_FRAGMENT_SELL_PRICE = 8;
-  var NX_MIN_COINS_SLACK = 30;
-  var NX_SACRIFICE_LOSSES = 2;
-  var NX_SACRIFICE_MAX_REFRESHES = 30;
-  var NX_LOTS_PER_EARNED_REFRESH = 2;
-  var NX_POINT1_MAX_REFRESHES = 30;
-  var NX_RANDOM_LOT_FRAGMENTS = 2;
-  var NX_BATTLE_TIMER_RANGE = { min: 1.3, max: 25 };
-  var NX_LOG_CASH = `КАССА[${GM_info.script.version}]`;
-  var NX_LOG_BATTLE = `БОЙ[${GM_info.script.version}]`;
+  var init_abyss = __esm({
+    "src/abyss.js"() {
+      init_hwh();
+      init_state();
+    }
+  });
 
   // src/runLog.js
-  var NX_RUN_LOG_ID = "nxRunLog";
-  var box = null;
-  var live = null;
-  var PANEL_STYLE = [
-    "position: fixed",
-    /** Отступ от правого края такой, чтобы не закрывать крестики окон игры */
-    "right: 110px",
-    "top: 60px",
-    "width: 360px",
-    "max-height: 60vh",
-    "display: flex",
-    "flex-direction: column",
-    "box-sizing: border-box",
-    "padding: 8px 10px",
-    "background: #190e08e6",
-    "border: 2px solid #ce9767",
-    "border-radius: 8px",
-    "color: #fce1ac",
-    "font: 600 13px sans-serif",
-    "letter-spacing: 0.5px",
-    /** Ниже окон помощника: итоговые окна ложатся поверх журнала */
-    "z-index: 10000"
-  ].join("; ");
-  var STOP_STYLE = [
-    "background: #3a1f10",
-    "color: #fce1ac",
-    "border: 1px solid #ce9767",
-    "border-radius: 5px",
-    "padding: 2px 12px",
-    "font: inherit",
-    "cursor: pointer"
-  ].join("; ");
   function runLogOpen(onStop) {
     document.getElementById(NX_RUN_LOG_ID)?.remove();
     const root = document.createElement("div");
@@ -308,6 +326,45 @@
     box = null;
     live = null;
   }
+  var NX_RUN_LOG_ID, box, live, PANEL_STYLE, STOP_STYLE;
+  var init_runLog = __esm({
+    "src/runLog.js"() {
+      init_hwh();
+      init_state();
+      NX_RUN_LOG_ID = "nxRunLog";
+      box = null;
+      live = null;
+      PANEL_STYLE = [
+        "position: fixed",
+        /** Отступ от правого края такой, чтобы не закрывать крестики окон игры */
+        "right: 110px",
+        "top: 60px",
+        "width: 360px",
+        "max-height: 60vh",
+        "display: flex",
+        "flex-direction: column",
+        "box-sizing: border-box",
+        "padding: 8px 10px",
+        "background: #190e08e6",
+        "border: 2px solid #ce9767",
+        "border-radius: 8px",
+        "color: #fce1ac",
+        "font: 600 13px sans-serif",
+        "letter-spacing: 0.5px",
+        /** Ниже окон помощника: итоговые окна ложатся поверх журнала */
+        "z-index: 10000"
+      ].join("; ");
+      STOP_STYLE = [
+        "background: #3a1f10",
+        "color: #fce1ac",
+        "border: 1px solid #ce9767",
+        "border-radius: 5px",
+        "padding: 2px 12px",
+        "font: inherit",
+        "cursor: pointer"
+      ].join("; ");
+    }
+  });
 
   // src/progress.js
   function archdemonNewStop() {
@@ -324,9 +381,15 @@
   function archdemonNewStoppedResult() {
     return { ok: false, reason: I18N("NX_REASON_STOPPED") };
   }
+  var init_progress = __esm({
+    "src/progress.js"() {
+      init_hwh();
+      init_runLog();
+      init_state();
+    }
+  });
 
   // src/units.js
-  var live2 = null;
   function setOwnedFragments(fragments) {
     const next = {};
     for (const [id, amount] of Object.entries(fragments ?? {})) {
@@ -356,10 +419,15 @@
       pets: byAmount.filter((id) => id > NX_PET_ID_THRESHOLD)
     };
   }
+  var live2;
+  var init_units = __esm({
+    "src/units.js"() {
+      init_constants();
+      live2 = null;
+    }
+  });
 
   // src/wallet.js
-  var wallet = { value: 0 };
-  var STALL_COIN = 1080;
   function coinsOf(reward) {
     return Number(reward?.coin?.[STALL_COIN] ?? 0);
   }
@@ -380,44 +448,15 @@
     }
     return await walletLoad();
   }
+  var wallet, STALL_COIN;
+  var init_wallet = __esm({
+    "src/wallet.js"() {
+      wallet = { value: 0 };
+      STALL_COIN = 1080;
+    }
+  });
 
   // src/battle.js
-  var PointTimerSearch = class extends (WinFixBattle ?? class {
-  }) {
-    constructor(battle, range) {
-      super(battle);
-      this.isGetTimer = false;
-      this.minTimer = range.min;
-      this.maxTimer = range.max;
-      this.pending = [];
-      this.depth = 0;
-    }
-    /**
-     * Следующий слой таймеров: на первом все узлы сетки, дальше только новые середины.
-     * К каждому узлу малый случайный сдвиг в пределах четверти шага: покрытие сетки то же,
-     * а одни и те же точные числа не повторяются из боя в бой
-     */
-    addLayer() {
-      const parts = NX_TIMER_SEARCH_GRID * 2 ** this.depth;
-      const step = (this.maxTimer - this.minTimer) / parts;
-      const first = this.depth === 0;
-      for (let i = first ? 0 : 1; i <= parts; i += first ? 1 : 2) {
-        const timer = this.minTimer + i * step + (Math.random() - 0.5) * step * 0.5;
-        this.pending.push(Math.min(this.maxTimer, Math.max(this.minTimer, timer)));
-      }
-      this.depth++;
-    }
-    randTimer() {
-      if (this.pending.length === 0) {
-        this.addLayer();
-      }
-      return this.pending.shift();
-    }
-    /** Ход подбора — одной строкой нашего журнала, а не в мигающую строку помощника */
-    showResult() {
-      archdemonNewProgress(I18N("NX_TIMER_SEARCH", { count: this.count, max: this.maxCount }), "timer");
-    }
-  };
   function lossTimerQueue(start, range = NX_LOSS_TIMER_RANGE, step = NX_LOSS_TIMER_STEP) {
     const from = Math.min(range.max, Math.max(range.min, Number(start) || range.min));
     const jitter = (t, i) => i === 0 ? t : Math.min(range.max, Math.max(range.min, t + (Math.random() - 0.5) * step * 0.5));
@@ -430,40 +469,6 @@
   function nextLossStart(found, range = NX_LOSS_TIMER_RANGE) {
     return Math.max(range.min, Number(found) - NX_LOSS_MEMORY_BACKOFF);
   }
-  var LossTimerSearch = class extends (WinFixBattle ?? class {
-  }) {
-    constructor(battle, start, range = NX_LOSS_TIMER_RANGE) {
-      super(battle);
-      this.isGetTimer = false;
-      this.minTimer = range.min;
-      this.maxTimer = range.max;
-      this.pending = lossTimerQueue(start, range);
-    }
-    randTimer() {
-      if (this.pending.length === 0) this.exhausted = true;
-      return this.pending.length ? this.pending.shift() : this.maxTimer;
-    }
-    checkResult() {
-      if (this.count > 1 && this.lastBattleResult && !this.lastBattleResult.win) {
-        this.bestResult = {
-          count: this.count,
-          timer: this.lastTimer,
-          value: 0,
-          result: structuredClone(this.lastBattleResult),
-          progress: structuredClone(this.lastBattleProgress),
-          battleTimer: this.lastResult.battleTimer,
-          battleTime: this.lastResult.battleTime
-        };
-      }
-    }
-    isEndLoop() {
-      const found = Boolean(this.bestResult?.result) && this.bestResult.result.win === false;
-      return found || this.exhausted || this.count >= this.maxCount || this.endTime < Date.now();
-    }
-    showResult() {
-      archdemonNewProgress(I18N("NX_LOSS_SEARCH", { count: this.count, max: this.maxCount }), "timer");
-    }
-  };
   function lossSkipWait(timer, battleTimer, battleTime) {
     const full = Number(battleTimer);
     const length = Number(battleTime);
@@ -592,6 +597,86 @@
       return null;
     }
   }
+  var PointTimerSearch, LossTimerSearch;
+  var init_battle = __esm({
+    "src/battle.js"() {
+      init_constants();
+      init_hwh();
+      init_progress();
+      init_units();
+      init_wallet();
+      PointTimerSearch = class extends (WinFixBattle ?? class {
+      }) {
+        constructor(battle, range) {
+          super(battle);
+          this.isGetTimer = false;
+          this.minTimer = range.min;
+          this.maxTimer = range.max;
+          this.pending = [];
+          this.depth = 0;
+        }
+        /**
+         * Следующий слой таймеров: на первом все узлы сетки, дальше только новые середины.
+         * К каждому узлу малый случайный сдвиг в пределах четверти шага: покрытие сетки то же,
+         * а одни и те же точные числа не повторяются из боя в бой
+         */
+        addLayer() {
+          const parts = NX_TIMER_SEARCH_GRID * 2 ** this.depth;
+          const step = (this.maxTimer - this.minTimer) / parts;
+          const first = this.depth === 0;
+          for (let i = first ? 0 : 1; i <= parts; i += first ? 1 : 2) {
+            const timer = this.minTimer + i * step + (Math.random() - 0.5) * step * 0.5;
+            this.pending.push(Math.min(this.maxTimer, Math.max(this.minTimer, timer)));
+          }
+          this.depth++;
+        }
+        randTimer() {
+          if (this.pending.length === 0) {
+            this.addLayer();
+          }
+          return this.pending.shift();
+        }
+        /** Ход подбора — одной строкой нашего журнала, а не в мигающую строку помощника */
+        showResult() {
+          archdemonNewProgress(I18N("NX_TIMER_SEARCH", { count: this.count, max: this.maxCount }), "timer");
+        }
+      };
+      LossTimerSearch = class extends (WinFixBattle ?? class {
+      }) {
+        constructor(battle, start, range = NX_LOSS_TIMER_RANGE) {
+          super(battle);
+          this.isGetTimer = false;
+          this.minTimer = range.min;
+          this.maxTimer = range.max;
+          this.pending = lossTimerQueue(start, range);
+        }
+        randTimer() {
+          if (this.pending.length === 0) this.exhausted = true;
+          return this.pending.length ? this.pending.shift() : this.maxTimer;
+        }
+        checkResult() {
+          if (this.count > 1 && this.lastBattleResult && !this.lastBattleResult.win) {
+            this.bestResult = {
+              count: this.count,
+              timer: this.lastTimer,
+              value: 0,
+              result: structuredClone(this.lastBattleResult),
+              progress: structuredClone(this.lastBattleProgress),
+              battleTimer: this.lastResult.battleTimer,
+              battleTime: this.lastResult.battleTime
+            };
+          }
+        }
+        isEndLoop() {
+          const found = Boolean(this.bestResult?.result) && this.bestResult.result.win === false;
+          return found || this.exhausted || this.count >= this.maxCount || this.endTime < Date.now();
+        }
+        showResult() {
+          archdemonNewProgress(I18N("NX_LOSS_SEARCH", { count: this.count, max: this.maxCount }), "timer");
+        }
+      };
+    }
+  });
 
   // src/parse.js
   function getPetLib() {
@@ -718,6 +803,13 @@
     if (ids.some((e) => !Number.isInteger(e) || e <= 0)) return null;
     return [...new Set(ids)];
   }
+  var init_parse = __esm({
+    "src/parse.js"() {
+      init_constants();
+      init_hwh();
+      init_state();
+    }
+  });
 
   // src/collect.js
   function carryPackReady(setup, fragments) {
@@ -769,7 +861,7 @@
     const state = collectedState(setup, fragments);
     if (!state.done) {
       const list = [...state.heroesLeft, ...state.petsLeft].map(unitName).join(", ");
-      return { ok: false, reason: I18N("NX_REASON_NOT_COLLECTED", { list }) };
+      return { ok: false, reason: I18N("NX_REASON_NOT_COLLECTED", { list }), missing: list };
     }
     const coins = wallet.value;
     const percent = coinsToPercent(coins);
@@ -795,22 +887,48 @@
     if (setup.targets[fragmentId]) return setup.targets[fragmentId];
     return 0;
   }
+  var init_collect = __esm({
+    "src/collect.js"() {
+      init_constants();
+      init_hwh();
+      init_parse();
+      init_units();
+      init_wallet();
+    }
+  });
 
-  // src/pace.js
-  function pause(range) {
-    const [min, max] = range;
-    return new Promise((e) => setTimeout(e, min + Math.random() * (max - min)));
+  // src/frames.js
+  function rankOf(fragments) {
+    if (fragments >= 7) return RANKS[2];
+    if (fragments >= 3) return RANKS[1];
+    return RANKS[0];
   }
-  var actionsInVisit = 0;
-  function newStallVisit() {
-    actionsInVisit = 0;
+  function frameFor(fragments) {
+    return rankOf(fragments).frame;
   }
-  function beforeStallAction() {
-    return pause(actionsInVisit++ === 0 ? NX_PACE.firstAction : NX_PACE.betweenActions);
-  }
+  var SQUAD_FRAMES, RANKS, PET_GAME_ART, PET_HEAD_FILE, petHeadSymbol, OCTAGON;
+  var init_frames = __esm({
+    "src/frames.js"() {
+      SQUAD_FRAMES = {
+        purple: "linear-gradient(180deg, #E151D2 0%, #DA4BD2 8%, #CC42CE 19%, #C840CB 31%, #C135CE 42%, #B82BCE 53%, #AC21CF 64%, #A418D8 75%, #9A0ED2 86%, #770AB4 100%)",
+        orange: "linear-gradient(180deg, #FDA42B 0%, #FBC170 11%, #FB9E1E 19%, #FD9E1C 28%, #FBAE3C 36%, #FFC069 44%, #DB8A09 53%, #C47602 61%, #9F5802 69%, #864203 78%, #A95403 86%, #DB8906 100%)",
+        red: "linear-gradient(180deg, #F2532E 0%, #E74F2C 11%, #E14925 19%, #D54021 36%, #C9331D 53%, #B72618 69%, #AF1E10 86%, #A41515 100%)",
+        /** Пустой слот: приглушённая рамка, чтобы было видно, что место свободно */
+        empty: "linear-gradient(180deg, #4a3a5c 0%, #2a2038 100%)"
+      };
+      RANKS = [
+        { rank: 1, label: "80", frame: SQUAD_FRAMES.purple, plate: "linear-gradient(180deg, #d562e0, #7d1aae)", dot: "#b82bce", key: "NX_RANK_PURPLE", gameFrame: "border_hero_purple4", gamePlate: "level_purple", gameBg: "bg_hero_purple" },
+        { rank: 3, label: "100", frame: SQUAD_FRAMES.orange, plate: "linear-gradient(180deg, #ffc15a, #c06a05)", dot: "#f0a020", key: "NX_RANK_YELLOW", gameFrame: "border_hero_gold3", gamePlate: "level_gold", gameBg: "bg_hero_orange" },
+        { rank: 7, label: "130", frame: SQUAD_FRAMES.red, plate: "linear-gradient(180deg, #ff6a48, #a81a12)", dot: "#d63a22", key: "NX_RANK_RED", gameFrame: "border_hero_red3", gamePlate: "level_red", gameBg: "bg_hero_red" }
+      ];
+      PET_GAME_ART = { frame: "border_pet_purple4", bg: "bg_pet_purple" };
+      PET_HEAD_FILE = "js/pet_icons/pet_icons";
+      petHeadSymbol = (petId) => `pet_50_${petId}`;
+      OCTAGON = "polygon(22% 0, 78% 0, 100% 22%, 100% 78%, 78% 100%, 22% 100%, 0 78%, 0 22%)";
+    }
+  });
 
   // src/ledger.js
-  var archdemonNewLedger = {};
   function ledgerReset(startCoins) {
     sessionState.startCoins = Number(startCoins) || 0;
     for (const key of Object.keys(archdemonNewLedger)) {
@@ -828,6 +946,32 @@
     const fromPoints = Number(finalCoins) - sessionState.startCoins - mine;
     return { entries, mine, fromPoints, start: sessionState.startCoins, final: Number(finalCoins) };
   }
+  var archdemonNewLedger;
+  var init_ledger = __esm({
+    "src/ledger.js"() {
+      init_state();
+      archdemonNewLedger = {};
+    }
+  });
+
+  // src/pace.js
+  function pause(range) {
+    const [min, max] = range;
+    return new Promise((e) => setTimeout(e, min + Math.random() * (max - min)));
+  }
+  function newStallVisit() {
+    actionsInVisit = 0;
+  }
+  function beforeStallAction() {
+    return pause(actionsInVisit++ === 0 ? NX_PACE.firstAction : NX_PACE.betweenActions);
+  }
+  var actionsInVisit;
+  var init_pace = __esm({
+    "src/pace.js"() {
+      init_constants();
+      actionsInVisit = 0;
+    }
+  });
 
   // src/prices.js
   function fragmentSellPrice(kind) {
@@ -856,6 +1000,12 @@
     const base = petLotBaseCost(shopId);
     return cost > 0 && base > 0 && cost < base;
   }
+  var init_prices = __esm({
+    "src/prices.js"() {
+      init_constants();
+      init_state();
+    }
+  });
 
   // src/talismans.js
   function offeredTalismans(answer) {
@@ -882,6 +1032,13 @@
     archdemonNewProgress(I18N("NX_TALISMAN_TAKEN", { name: cheats.translate(`LIB_TALISMAN_NAME_${pick}`) }));
     return null;
   }
+  var init_talismans = __esm({
+    "src/talismans.js"() {
+      init_constants();
+      init_hwh();
+      init_progress();
+    }
+  });
 
   // src/stall.js
   function stallShopId() {
@@ -931,6 +1088,16 @@
       return null;
     }
   }
+  var init_stall = __esm({
+    "src/stall.js"() {
+      init_constants();
+      init_hwh();
+      init_pace();
+      init_state();
+      init_talismans();
+      init_wallet();
+    }
+  });
 
   // src/shop.js
   function slotValue(slot, setup, fragments, carryOnly, waitPetDiscount = false) {
@@ -1405,12 +1572,168 @@
     }
     return bought;
   }
+  async function defaultPointPurchases(shopId, coins, shopSlots, setup, fragments, point) {
+    await buyDiscountedPets(shopId, coins, shopSlots, fragments);
+    const neededBought = await buySlotsForArchdemonNew(shopId, coins, shopSlots, setup, fragments, false);
+    if (point === 1) await buyAllRandomLots(shopId, coins, shopSlots, fragments, true);
+    return neededBought;
+  }
+  async function buyAnyHero(shopId, coins, shopSlots, fragments) {
+    const heroPrice = fragmentSellPrice("hero");
+    let best = null;
+    for (const slot of shopSlots) {
+      if (slot.bought || slot.reward?.invasionFragmentHeroRand || slot.reward?.invasionFragmentPet) continue;
+      const heroes = slot.reward?.invasionFragmentHero;
+      if (!heroes) continue;
+      const cost = Number(slot.cost?.coin?.[1080] ?? 0);
+      if (!cost || coins.value < cost) continue;
+      const count = Object.values(heroes).reduce((sum, amount) => sum + Number(amount), 0);
+      const net = cost - count * heroPrice;
+      const better = !best || net < best.net || net === best.net && (count > best.count || count === best.count && cost < best.cost);
+      if (better) best = { slot, cost, count, net };
+    }
+    if (!best) return false;
+    await buySlot(shopId, best.slot);
+    coins.value -= best.cost;
+    best.slot.bought = true;
+    applyReward(fragments, best.slot.reward);
+    ledgerAdd("любой герой", -best.cost);
+    console.log(`${NX_LOG_CASH} -${best.cost} любой герой ${lotUnits(best.slot)}, чистая ${best.net}, остаток ${coins.value}`);
+    return true;
+  }
+  function extraPetsResale(setup, fragments) {
+    let count = 0;
+    for (const [id, amount] of Object.entries(fragments)) {
+      const petId = Number(id);
+      if (petId >= NX_PET_ID_THRESHOLD && Number(amount) > 0 && !setup.petsToCollect.includes(petId)) count += Number(amount);
+    }
+    return count * fragmentSellPrice("pet");
+  }
+  async function sellOneExtraPet(setup, fragments, coins) {
+    const extra = Object.entries(fragments).map(([id, count2]) => [Number(id), Number(count2)]).find(([id, count2]) => id >= NX_PET_ID_THRESHOLD && count2 > 0 && !setup.petsToCollect.includes(id));
+    if (!extra) return 0;
+    const [petId, count] = extra;
+    const income = await sellWhole(fragments, petId, count);
+    coins.value += income;
+    ledgerAdd("продажа питомцев", income);
+    console.log(`${NX_LOG_CASH} +${income} продали лишнего питомца ${petId}, остаток ${coins.value}`);
+    return income;
+  }
+  async function buyFinalDefault(shopId, shopSlots, setup, fragments, attempt, coins = wallet) {
+    let slots = shopSlots;
+    await sellUnneededFragments(setup, fragments, false, coins);
+    let tick = 0;
+    let guard = 0;
+    while (guard < 300) {
+      guard++;
+      if (sessionState.stopped) break;
+      const state = collectedState(setup, fragments);
+      if (state.done) break;
+      archdemonNewProgress(
+        I18N("NX_SHOPPING", { attempt, coins: coins.value, heroes: state.heroesLeft.length, pets: state.petsLeft.length }) + ".".repeat(tick % 3 + 1),
+        "shopping"
+      );
+      tick++;
+      if (await buySlotsForArchdemonNew(shopId, coins, slots, setup, fragments, false)) {
+        await sellUnneededFragments(setup, fragments, false, coins);
+        continue;
+      }
+      const needed = usefulSlots(slots, setup, fragments, false).sort((a, b) => a.cost - b.cost)[0];
+      if (needed && coins.value + extraPetsResale(setup, fragments) >= needed.cost) {
+        while (coins.value < needed.cost && await sellOneExtraPet(setup, fragments, coins) > 0) {
+          if (sessionState.stopped) break;
+        }
+        continue;
+      }
+      if (coins.value < NX_STALL_REFRESH_COST) {
+        if (await sellOneExtraPet(setup, fragments, coins) > 0) continue;
+        console.log(`Финал: монет ${coins.value}, на обновление не хватает и продавать некого. Закупка закончена`);
+        break;
+      }
+      const beforeRefresh = coins.value;
+      slots = await refreshStall(shopId, coins);
+      ledgerAdd("обновления лавки", coins.value - beforeRefresh);
+      if (!slots) break;
+    }
+    return { coins: coins.value };
+  }
+  var init_shop = __esm({
+    "src/shop.js"() {
+      init_collect();
+      init_constants();
+      init_hwh();
+      init_ledger();
+      init_pace();
+      init_prices();
+      init_progress();
+      init_stall();
+      init_state();
+      init_units();
+      init_wallet();
+    }
+  });
 
   // src/runDefault.js
+  function packOwned(setup, heroIds) {
+    return setup.heroes.every((id) => heroIds.includes(id));
+  }
+  async function buildDefaultTeam(setup) {
+    const have = await readOwnedUnits();
+    const heroes = packOwned(setup, have.heroIds) ? setup.heroes : have.bestFive;
+    const havePets = have.pets;
+    let pet;
+    if (havePets.length > 0) {
+      pet = havePets.includes(setup.mainPet) ? setup.mainPet : havePets[0];
+    }
+    const favor = {};
+    for (const heroId of heroes) {
+      const petId = Number(setup.favor[heroId] ?? 0);
+      if (petId > 0 && havePets.includes(petId)) {
+        favor[heroId] = petId;
+      }
+    }
+    return { heroes, pet, favor, packOwned: packOwned(setup, have.heroIds), fragments: have.fragments };
+  }
+  function pointMemoryKey(missionId, team) {
+    const heroes = [...team.heroes].sort((a, b) => a - b).map((id) => `${id}:${rankOf(Number(team.fragments[id] ?? 0)).rank}`).join(",");
+    const favor = Object.entries(team.favor).sort(([a], [b]) => Number(a) - Number(b)).map(([heroId, petId]) => `${heroId}>${petId}`).join(",");
+    return `${missionId}|${heroes}|${team.pet ?? 0}|${favor}`;
+  }
+  async function defaultShopPhase(setup, point, missionId, attempt, takenRolls) {
+    const shopId = stallShopId();
+    if (!shopId) return { fatal: true };
+    try {
+      const opened = await openStallVisit(shopId, (offered) => chooseTalisman(setup, offered, takenRolls));
+      if (opened.reason) return { reason: opened.reason };
+      let shopSlots = opened.slots;
+      const coins = wallet;
+      const fragments = (await readOwnedUnits()).fragments;
+      archdemonNewProgress(I18N("NX_WEALTH_SHOP", { attempt, point, coins: coins.value }));
+      const neededBought = await defaultPointPurchases(shopId, coins, shopSlots, setup, fragments, point);
+      if (!neededBought && !collectedState(setup, fragments).done) {
+        const team = await buildDefaultTeam(setup);
+        if (sessionState.pointMemory[pointMemoryKey(missionId, team)] === "won") {
+          console.log(`Точка ${point}: этот состав её уже брал, нужных в лавке нет — без обновления`);
+        } else if (coins.value >= NX_STALL_REFRESH_COST + NX_MIN_LOT_COST) {
+          const beforeRefresh = coins.value;
+          const refreshed = await refreshStall(shopId, coins);
+          ledgerAdd("обновления лавки", coins.value - beforeRefresh);
+          if (refreshed) {
+            shopSlots = refreshed;
+            await defaultPointPurchases(shopId, coins, shopSlots, setup, fragments, point);
+          }
+        }
+      }
+      return { shopId, shopSlots };
+    } catch (e) {
+      console.error(e);
+      return { fatal: true };
+    }
+  }
   async function runArchdemonNewChapterDefault(setup, attempt) {
     archdemonNewProgress(I18N("NX_ENTERING", { attempt }));
     await new Promise((e) => setTimeout(e, 3e3));
-    if (sessionState.stopped) return { ok: false, reason: I18N("NX_REASON_STOPPED") };
+    if (sessionState.stopped) return archdemonNewStoppedResult();
     let chapterInfo;
     try {
       chapterInfo = await Caller.send({ name: "invasion_setActiveChapter", args: { chapterId: setup.chapterId } });
@@ -1420,59 +1743,91 @@
     }
     setOwnedFragments(chapterInfo.invasion.fragments);
     await walletOnChapterEntry(chapterInfo, attempt > 1);
+    ledgerReset(wallet.value);
     const actions = Object.values(chapterInfo.invasion.actions);
-    const lastMission = actions[actions.length - 1];
-    const lastMissionId = lastMission.payload.id;
-    let missionId = actions[0].payload.id;
-    let missionNumber = 1;
-    let lives = chapterInfo.invasion.lives;
+    const lastPoint = actions.length - 1;
     const takenRolls = [];
     await pause(NX_PACE.chapterEnter);
-    while (lives > 0) {
-      if (sessionState.stopped) return { ok: false, reason: I18N("NX_REASON_STOPPED") };
-      const shopping = await buyForArchdemonNew(setup, attempt, {
-        onTalismans: (offered) => chooseTalisman(setup, offered, takenRolls)
-      });
-      if (shopping.reason) return { ok: false, reason: shopping.reason };
-      if (sessionState.stopped) return { ok: false, reason: I18N("NX_REASON_STOPPED") };
-      if (missionId === lastMissionId) {
-        return await checkArchdemonNewConditions(setup);
-      }
-      archdemonNewProgress(I18N("NX_MISSION", { attempt, missionNumber }));
-      await pause(NX_PACE.beforeBattle);
-      const have = await readOwnedUnits();
-      let heroes = have.bestFive;
-      if (setup.heroes.every((id) => have.heroIds.includes(id))) {
-        heroes = setup.heroes;
-      }
-      const havePets = have.pets;
-      let pet;
-      if (havePets.length > 0) {
-        pet = havePets.includes(setup.mainPet) ? setup.mainPet : havePets[0];
-      }
-      const petsFavor = {};
-      for (const heroId of heroes) {
-        const petId = Number(setup.favor[heroId] ?? 0);
-        if (petId > 0 && havePets.includes(petId)) {
-          petsFavor[heroId] = petId;
+    for (let point = 1; point <= lastPoint; point++) {
+      if (sessionState.stopped) return archdemonNewStoppedResult();
+      const missionId = actions[point - 1]?.payload?.id;
+      if (!missionId) return { ok: false, reason: I18N("NX_REASON_NO_MISSIONS") };
+      if (point > 1) await pause(NX_PACE.afterBattle);
+      const visit = await defaultShopPhase(setup, point, missionId, attempt, takenRolls);
+      if (visit.fatal) return { fatal: true };
+      if (visit.reason) return { ok: false, reason: visit.reason };
+      if (sessionState.stopped) return archdemonNewStoppedResult();
+      let team = await buildDefaultTeam(setup);
+      let key = pointMemoryKey(missionId, team);
+      if (sessionState.pointMemory[key] === "lost") {
+        const bought = !team.packOwned && await buyAnyHero(visit.shopId, wallet, visit.shopSlots, team.fragments);
+        if (!bought) {
+          console.log(`Точка ${point}: этот состав её уже не брал, поменять его нечем — новый заход без боя`);
+          return { ok: false, reason: I18N("NX_REASON_POINT_KNOWN_LOSS", { point }) };
         }
+        team = await buildDefaultTeam(setup);
+        key = pointMemoryKey(missionId, team);
       }
-      const fight = await fightPoint(missionId, setup.chapterId, heroes, pet, petsFavor);
+      if (team.packOwned) await sellUnneededFragments(setup, team.fragments, false, wallet);
+      archdemonNewProgress(I18N("NX_MISSION", { attempt, missionNumber: point }));
+      await pause(NX_PACE.beforeBattle);
+      const fight = await fightPoint(missionId, setup.chapterId, team.heroes, team.pet, team.favor);
       if (fight.error || !fight.info) return { fatal: true };
       if (fight.invalid) return { fatal: true, message: I18N("NX_ERR_RESULT_INVALID") };
-      const info = fight.info;
-      lives = info.lives;
-      if (sessionState.stopped) return { ok: false, reason: I18N("NX_REASON_STOPPED") };
-      if (lives === 0) return { ok: false, reason: I18N("NX_REASON_NO_LIVES") };
-      const missions = Object.values(info.actions);
-      const nextMissionIndex = missions.findIndex((e) => e.payload.wins === 0);
-      if (nextMissionIndex === -1) return { ok: false, reason: I18N("NX_REASON_NO_MISSIONS") };
-      missionId = missions[nextMissionIndex].payload.id;
-      missionNumber = nextMissionIndex + 1;
-      await pause(NX_PACE.afterBattle);
+      const passed = Object.values(fight.info.actions ?? {}).find((e) => e.payload.id === missionId);
+      if (!passed || Number(passed.payload.wins ?? 0) === 0) {
+        sessionState.pointMemory[key] = "lost";
+        console.log(
+          `%c${NX_LOG_BATTLE} точка ${point} ПРОИГРАНА, запомнили состав`,
+          "color: red; font-weight: bold;",
+          "\n  герои: " + team.heroes.map((id) => `${unitName(id)} ${Number(team.fragments[id] ?? 0)}`).join(", "),
+          "\n  питомец: " + (team.pet ? unitName(team.pet) : "нет")
+        );
+        return { ok: false, reason: I18N("NX_REASON_POINT_LOST_REMEMBERED", { point }) };
+      }
+      sessionState.pointMemory[key] = "won";
+      if (sessionState.stopped) return archdemonNewStoppedResult();
     }
-    return { ok: false, reason: I18N("NX_REASON_NO_LIVES") };
+    await pause(NX_PACE.afterBattle);
+    if (sessionState.stopped) return archdemonNewStoppedResult();
+    const shopId = stallShopId();
+    if (!shopId) return { fatal: true };
+    try {
+      const finalVisit = await openStallVisit(shopId, (offered) => chooseTalisman(setup, offered, takenRolls));
+      if (finalVisit.reason) return { ok: false, reason: finalVisit.reason };
+      archdemonNewProgress(I18N("NX_DEFAULT_FINAL", { attempt }));
+      const fragments = (await readOwnedUnits()).fragments;
+      await buyFinalDefault(shopId, finalVisit.slots, setup, fragments, attempt);
+    } catch (e) {
+      console.error(e);
+      return { fatal: true };
+    }
+    if (sessionState.stopped) return archdemonNewStoppedResult();
+    const result = await checkArchdemonNewConditions(setup);
+    if (!result.ok && result.missing && setup.stopIfIncomplete) {
+      return { incomplete: true, missing: result.missing };
+    }
+    return result;
   }
+  var init_runDefault = __esm({
+    "src/runDefault.js"() {
+      init_battle();
+      init_collect();
+      init_constants();
+      init_frames();
+      init_hwh();
+      init_ledger();
+      init_pace();
+      init_parse();
+      init_progress();
+      init_shop();
+      init_stall();
+      init_state();
+      init_talismans();
+      init_units();
+      init_wallet();
+    }
+  });
 
   // src/runWealth.js
   async function wealthShopPhase(setup, point, attempt, { sacrificePoint = 0, takenRolls = [] } = {}) {
@@ -1808,6 +2163,25 @@
     if (sessionState.stopped) return archdemonNewStoppedResult();
     return await checkArchdemonNewConditions(setup);
   }
+  var init_runWealth = __esm({
+    "src/runWealth.js"() {
+      init_battle();
+      init_collect();
+      init_constants();
+      init_hwh();
+      init_ledger();
+      init_pace();
+      init_parse();
+      init_prices();
+      init_progress();
+      init_shop();
+      init_stall();
+      init_state();
+      init_talismans();
+      init_units();
+      init_wallet();
+    }
+  });
 
   // src/loop.js
   function syncAndReturnToMenu() {
@@ -1822,11 +2196,13 @@
   async function runArchdemonNewLoop(setup) {
     sessionState.stopped = false;
     sessionState.lossStart = {};
+    sessionState.pointMemory = {};
     runLogOpen(archdemonNewStop);
     try {
       return await runLoopAttempts(setup);
     } finally {
       sessionState.lossStart = {};
+      sessionState.pointMemory = {};
       clearOwnedFragments();
       runLogClose();
     }
@@ -1836,6 +2212,12 @@
     let lastFailure = null;
     while (!sessionState.stopped) {
       attempt++;
+      if (chapterEndsAt(setup.chapterId) - Date.now() < NX_EVENT_END_MARGIN_MINUTES * 6e4) {
+        setProgress("", true);
+        await popup.confirm(I18N("NX_EVENT_ENDING", { minutes: NX_EVENT_END_MARGIN_MINUTES }));
+        syncAndReturnToMenu();
+        return;
+      }
       if (getChapterSealCost(setup.chapterId) > 0) {
         setProgress("", true);
         await popup.confirm(I18N("NX_ERR_PAID_CHAPTER"));
@@ -1862,6 +2244,12 @@
         syncGame();
         return;
       }
+      if (outcome.incomplete) {
+        setProgress("", true);
+        await popup.confirm(I18N("NX_INCOMPLETE", { attempt, list: outcome.missing }));
+        syncGame();
+        return;
+      }
       if (sessionState.stopped) break;
       runLogFail(I18N("NX_RETRY", { attempt, reason: outcome.reason }));
       lastFailure = { attempt, reason: outcome.reason };
@@ -1884,32 +2272,20 @@
     await popup.confirm(I18N("NX_STOPPED", { attempt }));
     syncAndReturnToMenu();
   }
-
-  // src/frames.js
-  var SQUAD_FRAMES = {
-    purple: "linear-gradient(180deg, #E151D2 0%, #DA4BD2 8%, #CC42CE 19%, #C840CB 31%, #C135CE 42%, #B82BCE 53%, #AC21CF 64%, #A418D8 75%, #9A0ED2 86%, #770AB4 100%)",
-    orange: "linear-gradient(180deg, #FDA42B 0%, #FBC170 11%, #FB9E1E 19%, #FD9E1C 28%, #FBAE3C 36%, #FFC069 44%, #DB8A09 53%, #C47602 61%, #9F5802 69%, #864203 78%, #A95403 86%, #DB8906 100%)",
-    red: "linear-gradient(180deg, #F2532E 0%, #E74F2C 11%, #E14925 19%, #D54021 36%, #C9331D 53%, #B72618 69%, #AF1E10 86%, #A41515 100%)",
-    /** Пустой слот: приглушённая рамка, чтобы было видно, что место свободно */
-    empty: "linear-gradient(180deg, #4a3a5c 0%, #2a2038 100%)"
-  };
-  var RANKS = [
-    { rank: 1, label: "80", frame: SQUAD_FRAMES.purple, plate: "linear-gradient(180deg, #d562e0, #7d1aae)", dot: "#b82bce", key: "NX_RANK_PURPLE", gameFrame: "border_hero_purple4", gamePlate: "level_purple", gameBg: "bg_hero_purple" },
-    { rank: 3, label: "100", frame: SQUAD_FRAMES.orange, plate: "linear-gradient(180deg, #ffc15a, #c06a05)", dot: "#f0a020", key: "NX_RANK_YELLOW", gameFrame: "border_hero_gold3", gamePlate: "level_gold", gameBg: "bg_hero_orange" },
-    { rank: 7, label: "130", frame: SQUAD_FRAMES.red, plate: "linear-gradient(180deg, #ff6a48, #a81a12)", dot: "#d63a22", key: "NX_RANK_RED", gameFrame: "border_hero_red3", gamePlate: "level_red", gameBg: "bg_hero_red" }
-  ];
-  var PET_GAME_ART = { frame: "border_pet_purple4", bg: "bg_pet_purple" };
-  var PET_HEAD_FILE = "js/pet_icons/pet_icons";
-  var petHeadSymbol = (petId) => `pet_50_${petId}`;
-  function rankOf(fragments) {
-    if (fragments >= 7) return RANKS[2];
-    if (fragments >= 3) return RANKS[1];
-    return RANKS[0];
-  }
-  function frameFor(fragments) {
-    return rankOf(fragments).frame;
-  }
-  var OCTAGON = "polygon(22% 0, 78% 0, 100% 22%, 100% 78%, 78% 100%, 22% 100%, 0 78%, 0 22%)";
+  var init_loop = __esm({
+    "src/loop.js"() {
+      init_abyss();
+      init_constants();
+      init_hwh();
+      init_menu();
+      init_progress();
+      init_runLog();
+      init_runDefault();
+      init_runWealth();
+      init_state();
+      init_units();
+    }
+  });
 
   // src/gameFiles.js
   function openCache() {
@@ -1988,7 +2364,6 @@
       }
     });
   }
-  var hashedPaths = null;
   function buildHashedPaths() {
     const found = /* @__PURE__ */ new Map();
     const storage = typeof selfGame !== "undefined" ? selfGame["game.assets.storage.AssetStorage"] : null;
@@ -2043,7 +2418,6 @@
       }
     });
   }
-  var downloadBase;
   async function downloadUrlFor(plainPath) {
     hashedPaths ??= buildHashedPaths();
     if (downloadBase === void 0) downloadBase = await readDownloadBase();
@@ -2071,53 +2445,18 @@
       return null;
     }
   }
+  var hashedPaths, downloadBase;
+  var init_gameFiles = __esm({
+    "src/gameFiles.js"() {
+      hashedPaths = null;
+    }
+  });
 
   // src/rsx.js
-  var Reader = class {
-    constructor(bytes, littleEndian) {
-      this.bytes = bytes;
-      this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-      this.le = littleEndian;
-      this.pos = 0;
-    }
-    u8() {
-      return this.view.getUint8(this.pos++);
-    }
-    u16() {
-      const v = this.view.getUint16(this.pos, this.le);
-      this.pos += 2;
-      return v;
-    }
-    i16() {
-      const v = this.view.getInt16(this.pos, this.le);
-      this.pos += 2;
-      return v;
-    }
-    u32() {
-      const v = this.view.getUint32(this.pos, this.le);
-      this.pos += 4;
-      return v;
-    }
-    f32() {
-      const v = this.view.getFloat32(this.pos, this.le);
-      this.pos += 4;
-      return v;
-    }
-    take(n) {
-      const out = this.bytes.subarray(this.pos, this.pos + n);
-      this.pos += n;
-      return out;
-    }
-    str() {
-      return new TextDecoder().decode(this.take(this.u16()));
-    }
-  };
   async function inflate(bytes) {
     const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate"));
     return new Uint8Array(await new Response(stream).arrayBuffer());
   }
-  var RSX_FLOAT_PIVOT_VERSION = 538183465;
-  var RSX_LONG_COLOR_VERSION = 538186016;
   async function parseRsx(bytes) {
     const reader = new Reader(bytes, bytes[0] === 4);
     if (reader.str() !== "RE$X") throw new Error("rsx: нет заголовка RE$X");
@@ -2249,32 +2588,54 @@
     await readChunks(reader, bytes.length - 4);
     return asset;
   }
+  var Reader, RSX_FLOAT_PIVOT_VERSION, RSX_LONG_COLOR_VERSION;
+  var init_rsx = __esm({
+    "src/rsx.js"() {
+      Reader = class {
+        constructor(bytes, littleEndian) {
+          this.bytes = bytes;
+          this.view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+          this.le = littleEndian;
+          this.pos = 0;
+        }
+        u8() {
+          return this.view.getUint8(this.pos++);
+        }
+        u16() {
+          const v = this.view.getUint16(this.pos, this.le);
+          this.pos += 2;
+          return v;
+        }
+        i16() {
+          const v = this.view.getInt16(this.pos, this.le);
+          this.pos += 2;
+          return v;
+        }
+        u32() {
+          const v = this.view.getUint32(this.pos, this.le);
+          this.pos += 4;
+          return v;
+        }
+        f32() {
+          const v = this.view.getFloat32(this.pos, this.le);
+          this.pos += 4;
+          return v;
+        }
+        take(n) {
+          const out = this.bytes.subarray(this.pos, this.pos + n);
+          this.pos += n;
+          return out;
+        }
+        str() {
+          return new TextDecoder().decode(this.take(this.u16()));
+        }
+      };
+      RSX_FLOAT_PIVOT_VERSION = 538183465;
+      RSX_LONG_COLOR_VERSION = 538186016;
+    }
+  });
 
   // src/gameGui.js
-  var GUI_FILES = ["dialog_basic", "button_team_gather_hero_favor"];
-  var RENDER_SCALE = 2;
-  var MAX_DEPTH = 16;
-  var GUI_FPS = 60;
-  var BLEND_MODES = [
-    "source-over",
-    "source-over",
-    "source-over",
-    "screen",
-    "overlay",
-    "multiply",
-    "lighten",
-    "source-over",
-    "source-over",
-    "hard-light",
-    "destination-out",
-    "difference",
-    "darken",
-    "destination-in",
-    "lighter"
-  ];
-  var assets = /* @__PURE__ */ new Map();
-  var rendered = /* @__PURE__ */ new Map();
-  var fullFrames = /* @__PURE__ */ new Map();
   async function loadGameGui(extra = []) {
     const files = [.../* @__PURE__ */ new Set([...GUI_FILES, ...extra])];
     const loaded = await Promise.all(
@@ -2316,15 +2677,6 @@
     }
     return null;
   }
-  var IDENTITY = [1, 0, 0, 1, 0, 0];
-  var mul = (m, n) => [
-    m[0] * n[0] + m[2] * n[1],
-    m[1] * n[0] + m[3] * n[1],
-    m[0] * n[2] + m[2] * n[3],
-    m[1] * n[2] + m[3] * n[3],
-    m[0] * n[4] + m[2] * n[5] + m[4],
-    m[1] * n[4] + m[3] * n[5] + m[5]
-  ];
   function walk(ctx, asset, clip, matrix, alpha, blend, depth) {
     if (!clip || depth > MAX_DEPTH || ctx.exclude?.includes(clip.className)) return;
     const first = clip.frames.length ? clip.frames[ctx.frame % clip.frames.length] : null;
@@ -2346,7 +2698,6 @@
       walk(ctx, asset, asset.clips[state.clip], child, alpha * state.alpha, state.blend || blend, depth + 1);
     }
   }
-  var stretched = (grid, m, scale) => grid && Math.abs(m[1]) + Math.abs(m[2]) < 1e-3 && (Math.abs(m[0] - scale) > 1e-3 || Math.abs(m[3] - scale) > 1e-3);
   function frameBox(frame, m) {
     const xs = [];
     const ys = [];
@@ -2474,9 +2825,49 @@
     }
     return rendered.get(key);
   }
+  var GUI_FILES, RENDER_SCALE, MAX_DEPTH, GUI_FPS, BLEND_MODES, assets, rendered, fullFrames, IDENTITY, mul, stretched;
+  var init_gameGui = __esm({
+    "src/gameGui.js"() {
+      init_gameFiles();
+      init_rsx();
+      GUI_FILES = ["dialog_basic", "button_team_gather_hero_favor"];
+      RENDER_SCALE = 2;
+      MAX_DEPTH = 16;
+      GUI_FPS = 60;
+      BLEND_MODES = [
+        "source-over",
+        "source-over",
+        "source-over",
+        "screen",
+        "overlay",
+        "multiply",
+        "lighten",
+        "source-over",
+        "source-over",
+        "hard-light",
+        "destination-out",
+        "difference",
+        "darken",
+        "destination-in",
+        "lighter"
+      ];
+      assets = /* @__PURE__ */ new Map();
+      rendered = /* @__PURE__ */ new Map();
+      fullFrames = /* @__PURE__ */ new Map();
+      IDENTITY = [1, 0, 0, 1, 0, 0];
+      mul = (m, n) => [
+        m[0] * n[0] + m[2] * n[1],
+        m[1] * n[0] + m[3] * n[1],
+        m[0] * n[2] + m[2] * n[3],
+        m[1] * n[2] + m[3] * n[3],
+        m[0] * n[4] + m[2] * n[5] + m[4],
+        m[1] * n[4] + m[3] * n[5] + m[5]
+      ];
+      stretched = (grid, m, scale) => grid && Math.abs(m[1]) + Math.abs(m[2]) < 1e-3 && (Math.abs(m[0] - scale) > 1e-3 || Math.abs(m[3] - scale) > 1e-3);
+    }
+  });
 
   // src/icons.js
-  var iconUrls = /* @__PURE__ */ new Map();
   function toDataUrl(buffer) {
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -2516,7 +2907,6 @@
     }
     return out;
   }
-  var heroAtlas = null;
   async function loadHeroAtlas() {
     const [xml, image] = await readCacheRecords(["hero_icons_only/hero_icons_only.xml", "hero_icons_only/hero_icons_only.avif"]);
     if (!xml?.data || !image?.data) return null;
@@ -2555,60 +2945,16 @@
     }
     return out;
   }
+  var iconUrls, heroAtlas;
+  var init_icons = __esm({
+    "src/icons.js"() {
+      init_gameFiles();
+      iconUrls = /* @__PURE__ */ new Map();
+      heroAtlas = null;
+    }
+  });
 
   // src/picker.js
-  var PICKER_ID = "nxSquadPicker";
-  var PICKER_Z = 10050;
-  var STAGE_W = 940;
-  var STAGE_H = 680;
-  var OX = 140;
-  var MAX_SCALE = 1.4;
-  var CARD = 96;
-  var GRID = { x: 46, y: 104, w: 555, h: 390, step: 110, rowStep: 112, cols: 5, padX: 9, padY: 12 };
-  var ROW = { y: 536, petX: 21, heroX: 123, step: 102.5 };
-  var ITEM = { w: 421, h: 112, gap: 5, left: 24, top: 67, bottom: 26 };
-  var PET_LEVEL = "130";
-  var TEXT_COLORS = {
-    title: "#fbe0ac",
-    tabActive: "#b7f26b",
-    tabIdle: "#fbe0ac",
-    subHeader: "#fce5b7",
-    save: "#e4ff4c",
-    cancel: "#fce5b7",
-    patronHeader: "#f8dfb2",
-    petName: "#ffffff",
-    stats: "#ffcf84",
-    free: "#f8e8c1",
-    busy: "#f2e947",
-    chosen: "#e4ff4c"
-  };
-  var text = (size, color) => `font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif; font-weight: 700; font-size: ${size}px; color: ${color}; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.75), 0 2px 4px rgba(0, 0, 0, 0.5);`;
-  var name = (id) => id ? cheats.translate(`LIB_HERO_NAME_${id}`) : "";
-  var order = (id) => Number(lib.data.hero?.[id]?.battleOrder ?? 0);
-  var statName = (stat) => {
-    const key = `LIB_BATTLESTATDATA_${String(stat).toUpperCase()}`;
-    const value = cheats.translate(key);
-    return value && value !== key ? value : String(stat);
-  };
-  var BASE_CSS = `
-#${PICKER_ID} { position: fixed; inset: 0; z-index: ${PICKER_Z}; background: radial-gradient(ellipse at 50% 35%, #3a2414 0%, #20130b 55%, #0c0704 100%); display: flex; align-items: center; justify-content: center; user-select: none; }
-#${PICKER_ID} .nxStage { position: relative; width: ${STAGE_W}px; height: ${STAGE_H}px; flex: none; transform-origin: 0 0; }
-#${PICKER_ID} .nxP, #${PICKER_ID} .nxT, #${PICKER_ID} .nxBox, #${PICKER_ID} .nxList { position: absolute; box-sizing: border-box; }
-#${PICKER_ID} .nxP { background-size: 100% 100%; background-repeat: no-repeat; }
-#${PICKER_ID} .nxT { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
-#${PICKER_ID} .nxBox { cursor: pointer; }
-#${PICKER_ID} .nxNoHit { pointer-events: none; }
-#${PICKER_ID} .nxList { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #c49359 #130502; }
-#${PICKER_ID} .nxItem .nxHover { opacity: 0; }
-#${PICKER_ID} .nxItem:hover .nxHover { opacity: 1; }
-#${PICKER_ID} .nxItem:hover .nxIdle { opacity: 0; }
-#${PICKER_ID} .nxAnim { background-repeat: no-repeat; animation-name: nxStrip; animation-iteration-count: infinite; }
-@keyframes nxStrip { from { background-position-x: 0%; } to { background-position-x: 100%; } }
-`;
-  var STAR_ANIM = ["epic_star_icon_mid_animated", { frames: 100, every: 2, scale: 0.9, renderScale: 1.5 }];
-  var PAW_ANIM = ["icon_pet_favor_bouncing", { every: 2 }];
-  var PAW_GLOW_ANIM = ["button_team_gather_hero_favor", { only: ["animation_glow"], exclude: ["icon_pet_favor_bouncing"], frames: 360, every: 6, renderScale: 0.75 }];
-  var PICKED_DIM = 0.55;
   async function openHeroListPicker(heroes, title, max = NX_TEAM_SIZE, withRanks = false) {
     return await openSquadPicker("", 0, { heroList: heroes, title, max, withRanks });
   }
@@ -2961,17 +3307,79 @@
       refresh();
     });
   }
+  var PICKER_ID, PICKER_Z, STAGE_W, STAGE_H, OX, MAX_SCALE, CARD, GRID, ROW, ITEM, PET_LEVEL, TEXT_COLORS, text, name, order, statName, BASE_CSS, STAR_ANIM, PAW_ANIM, PAW_GLOW_ANIM, PICKED_DIM;
+  var init_picker = __esm({
+    "src/picker.js"() {
+      init_constants();
+      init_frames();
+      init_gameGui();
+      init_hwh();
+      init_icons();
+      init_parse();
+      PICKER_ID = "nxSquadPicker";
+      PICKER_Z = 10050;
+      STAGE_W = 940;
+      STAGE_H = 680;
+      OX = 140;
+      MAX_SCALE = 1.4;
+      CARD = 96;
+      GRID = { x: 46, y: 104, w: 555, h: 390, step: 110, rowStep: 112, cols: 5, padX: 9, padY: 12 };
+      ROW = { y: 536, petX: 21, heroX: 123, step: 102.5 };
+      ITEM = { w: 421, h: 112, gap: 5, left: 24, top: 67, bottom: 26 };
+      PET_LEVEL = "130";
+      TEXT_COLORS = {
+        title: "#fbe0ac",
+        tabActive: "#b7f26b",
+        tabIdle: "#fbe0ac",
+        subHeader: "#fce5b7",
+        save: "#e4ff4c",
+        cancel: "#fce5b7",
+        patronHeader: "#f8dfb2",
+        petName: "#ffffff",
+        stats: "#ffcf84",
+        free: "#f8e8c1",
+        busy: "#f2e947",
+        chosen: "#e4ff4c"
+      };
+      text = (size, color) => `font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif; font-weight: 700; font-size: ${size}px; color: ${color}; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.75), 0 2px 4px rgba(0, 0, 0, 0.5);`;
+      name = (id) => id ? cheats.translate(`LIB_HERO_NAME_${id}`) : "";
+      order = (id) => Number(lib.data.hero?.[id]?.battleOrder ?? 0);
+      statName = (stat) => {
+        const key = `LIB_BATTLESTATDATA_${String(stat).toUpperCase()}`;
+        const value = cheats.translate(key);
+        return value && value !== key ? value : String(stat);
+      };
+      BASE_CSS = `
+#${PICKER_ID} { position: fixed; inset: 0; z-index: ${PICKER_Z}; background: radial-gradient(ellipse at 50% 35%, #3a2414 0%, #20130b 55%, #0c0704 100%); display: flex; align-items: center; justify-content: center; user-select: none; }
+#${PICKER_ID} .nxStage { position: relative; width: ${STAGE_W}px; height: ${STAGE_H}px; flex: none; transform-origin: 0 0; }
+#${PICKER_ID} .nxP, #${PICKER_ID} .nxT, #${PICKER_ID} .nxBox, #${PICKER_ID} .nxList { position: absolute; box-sizing: border-box; }
+#${PICKER_ID} .nxP { background-size: 100% 100%; background-repeat: no-repeat; }
+#${PICKER_ID} .nxT { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+#${PICKER_ID} .nxBox { cursor: pointer; }
+#${PICKER_ID} .nxNoHit { pointer-events: none; }
+#${PICKER_ID} .nxList { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #c49359 #130502; }
+#${PICKER_ID} .nxItem .nxHover { opacity: 0; }
+#${PICKER_ID} .nxItem:hover .nxHover { opacity: 1; }
+#${PICKER_ID} .nxItem:hover .nxIdle { opacity: 0; }
+#${PICKER_ID} .nxAnim { background-repeat: no-repeat; animation-name: nxStrip; animation-iteration-count: infinite; }
+@keyframes nxStrip { from { background-position-x: 0%; } to { background-position-x: 100%; } }
+`;
+      STAR_ANIM = ["epic_star_icon_mid_animated", { frames: 100, every: 2, scale: 0.9, renderScale: 1.5 }];
+      PAW_ANIM = ["icon_pet_favor_bouncing", { every: 2 }];
+      PAW_GLOW_ANIM = ["button_team_gather_hero_favor", { only: ["animation_glow"], exclude: ["icon_pet_favor_bouncing"], frames: 360, every: 6, renderScale: 0.75 }];
+      PICKED_DIM = 0.55;
+    }
+  });
 
   // src/setup.js
-  var SETUP_GUI_FILES = [PET_HEAD_FILE, "talisman_icons"];
   function talismanIconUrl(library, talismanId, size) {
     const icon = lib.data.invasion.talismans?.[talismanId]?.clientData?.icon;
     return icon ? renderGui(library, icon, { file: "talisman_icons", width: size, height: size })?.url ?? "" : "";
   }
   function talismanSlotsHtml(library, talismanIds) {
     return talismanIds.map((id) => {
-      const url = id ? talismanIconUrl(library, id, 46) : "";
-      return url ? `<img src="${url}" alt="" title="${escapeAttr(cheats.translate(`LIB_TALISMAN_NAME_${id}`))}" style="width: 46px; height: 46px; flex: none;">` : `<div title="${escapeAttr(I18N("NX_ANY_TALISMAN"))}" style="width: 42px; height: 42px; margin: 2px; flex: none; border-radius: 50%; box-sizing: border-box; border: 2px dashed rgba(206, 151, 103, 0.45);"></div>`;
+      const url = id ? talismanIconUrl(library, id, 58) : "";
+      return url ? `<img src="${url}" alt="" title="${escapeAttr(cheats.translate(`LIB_TALISMAN_NAME_${id}`))}" style="width: 58px; height: 58px; margin: 0 -9px; flex: none;">` : `<div title="${escapeAttr(I18N("NX_ANY_TALISMAN"))}" style="width: 40px; height: 40px; margin: 9px 0; flex: none; border-radius: 50%; box-sizing: border-box; border: 2px dashed rgba(206, 151, 103, 0.45);"></div>`;
     }).join("");
   }
   async function archdemonNewSetup(chapters, buffAmount, relicLevel) {
@@ -2993,6 +3401,8 @@
     const savedPause = savedPauseRaw === true || savedPauseRaw === "true";
     const savedRandomAnyRaw = getSaveVal(NX_SAVE_KEYS.randomAny, false);
     const savedRandomAny = savedRandomAnyRaw === true || savedRandomAnyRaw === "true";
+    const savedStopIncompleteRaw = getSaveVal(NX_SAVE_KEYS.stopIncomplete, false);
+    const savedStopIncomplete = savedStopIncompleteRaw === true || savedStopIncompleteRaw === "true";
     const talismanRowsFor = (rollNumber) => Object.values(lib.data.invasion.talismans).filter((e) => !NX_EXCLUDED_TALISMAN_IDS.includes(Number(e.id))).filter((e) => rollNumber === 1 || !e.firstChoiceOnly).map((e) => {
       let description = "";
       try {
@@ -3055,6 +3465,7 @@
     });
     html += "</div>";
     html += '<div id="hwhNewWealthNote" style="text-align: left; margin: 16px 0 0; font-size: 14px; color: #ffd88a;">' + I18N("NX_WEALTH_ONLY_NOTE") + "</div>";
+    html += `<div id="hwhNewDefaultBlock" class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewStopIncompleteInput"${savedStopIncomplete ? " checked" : ""}><label for="hwhNewStopIncompleteInput" title="${escapeAttr(I18N("NX_BLOCK_STOP_INCOMPLETE_HINT"))}">${I18N("NX_BLOCK_STOP_INCOMPLETE")}</label></div>`;
     html += '<div id="hwhNewWealthBlock">';
     html += section(I18N("NX_BLOCK_CARRY"), I18N("NX_BLOCK_CARRY_HINT"));
     html += `<div id="nxCarryBlock">${await heroListHtml(parseRankedIdList(currentCarry) ?? [], "nxCarryEdit", I18N("NX_LIST_EDIT_HINT"))}</div>`;
@@ -3085,6 +3496,10 @@
       const note = popup.custom.querySelector("#hwhNewWealthNote");
       if (note) {
         note.style.display = wealth ? "none" : "";
+      }
+      const defaultBlock = popup.custom.querySelector("#hwhNewDefaultBlock");
+      if (defaultBlock) {
+        defaultBlock.style.display = wealth ? "none" : "";
       }
     };
     const repaintTalismans = () => {
@@ -3176,6 +3591,7 @@
       }
       const pauseAfterBoss = popup.custom.querySelector("#hwhNewPauseInput")?.checked === true;
       const buyAnyRandomLots = popup.custom.querySelector("#hwhNewRandomAnyInput")?.checked === true;
+      const stopIfIncompleteRaw = popup.custom.querySelector("#hwhNewStopIncompleteInput")?.checked === true;
       const mainPet = Number(mainPetValue);
       const chapterId = Number(chapterValue);
       return {
@@ -3199,6 +3615,8 @@
           sacrificeRefreshes,
           pauseAfterBoss,
           buyAnyRandomLots,
+          stopIfIncomplete: talismanId !== NX_WEALTH_TALISMAN_ID && stopIfIncompleteRaw,
+          stopIfIncompleteRaw,
           teamRaw: String(teamRaw).trim(),
           minCoinsRaw: String(minCoinsRaw).replace(/\s+/g, ""),
           carryRaw: String(carryRaw).trim(),
@@ -3264,6 +3682,7 @@
         setSaveVal(NX_SAVE_KEYS.sacrificeRefreshes, result.value.sacrificeRefreshesRaw);
         setSaveVal(NX_SAVE_KEYS.pause, result.value.pauseAfterBoss);
         setSaveVal(NX_SAVE_KEYS.randomAny, result.value.buyAnyRandomLots);
+        setSaveVal(NX_SAVE_KEYS.stopIncomplete, result.value.stopIfIncompleteRaw);
         setSaveVal(NX_SAVE_KEYS.startRefreshes, result.value.startRefreshesRaw);
         popup.hide();
         complete(result.value);
@@ -3370,15 +3789,16 @@
         continue;
       }
       const head = hero.pet ? renderGui(library, petHeadSymbol(hero.pet), { file: "pet_icons", width: 28, height: 28 }) : null;
-      const patron = !hero.pet ? "" : head ? `<img src="${head.url}" alt="" title="${escapeAttr(name2(hero.pet))}" style="position: absolute; top: -9px; right: -9px; width: 28px; height: 28px;">` : `<div style="position: absolute; top: -8px; right: -8px;">` + slot(petIcons[hero.pet], name2(hero.pet), "item_round_border_purple", SQUAD_FRAMES.purple, 26, 3, { round: true }) + "</div></div>";
+      const patron = !hero.pet ? "" : head ? `<img src="${head.url}" alt="" title="${escapeAttr(name2(hero.pet))}" style="position: absolute; top: -9px; right: -5px; width: 28px; height: 28px;">` : `<div style="position: absolute; top: -8px; right: -8px;">` + slot(petIcons[hero.pet], name2(hero.pet), "item_round_border_purple", SQUAD_FRAMES.purple, 26, 3, { round: true }) + "</div></div>";
       const rank = rankOf(hero.fragments);
       row += slot(heroIcons[hero.id], name2(hero.id), rank.gameFrame, frameFor(hero.fragments), 58, 4, { bg: rank.gameBg }) + patron + "</div>";
     }
     const button = editButtonHtml("nxSquadEdit", I18N("NX_SQUAD_EDIT_HINT"));
-    const talismans = `<div id="nxTalismanSlots" style="display: flex; gap: 4px; margin-left: 10px;">${talismanSlotsHtml(library, talismanIds)}</div>`;
+    const talismans = `<div id="nxTalismanSlots" style="display: flex; gap: 2px; margin-left: 6px;">${talismanSlotsHtml(library, talismanIds)}</div>`;
     const ready = team.length > 0;
     const hint = ready ? "" : `<div style="margin-top: 8px; font-size: 14px; color: #ffb347;">${I18N("NX_SQUAD_REQUIRED")}</div>`;
-    return section(I18N("NX_BLOCK_SQUAD"), "") + '<div style="display: flex; align-items: center; gap: 8px; padding-top: 8px;">' + row + talismans + button + "</div>" + hint;
+    return section(I18N("NX_BLOCK_SQUAD"), "") + /** Зазоры узкие: с талисманами по 58 строка иначе не влезает в окно, «Изменить» уезжал за край */
+    '<div style="display: flex; align-items: center; gap: 4px; padding-top: 8px;">' + row + talismans + button + "</div>" + hint;
   }
   function editButtonHtml(id, hint) {
     return `<div id="${id}" class="PopUp_btnSocket" title="${escapeAttr(hint)}" style="margin-left: auto; flex: none;"><div class="PopUp_btnRow"><div class="PopUp_btnGap green"><div class="PopUp_btnPlate">` + I18N("NX_SQUAD_EDIT") + "</div></div></div></div>";
@@ -3413,6 +3833,21 @@
     if (!String(teamRaw ?? "").trim()) return false;
     return !parseArchdemonNewTeam(teamRaw).error;
   }
+  var SETUP_GUI_FILES;
+  var init_setup = __esm({
+    "src/setup.js"() {
+      init_abyss();
+      init_constants();
+      init_frames();
+      init_gameGui();
+      init_hwh();
+      init_icons();
+      init_parse();
+      init_picker();
+      init_prices();
+      SETUP_GUI_FILES = [PET_HEAD_FILE, "talisman_icons"];
+    }
+  });
 
   // src/start.js
   async function attackArchdemonNew() {
@@ -3437,6 +3872,16 @@
     console.log("archdemonNewSetup ", JSON.stringify(setup));
     await runArchdemonNewLoop(setup);
   }
+  var init_start = __esm({
+    "src/start.js"() {
+      init_abyss();
+      init_hwh();
+      init_loop();
+      init_menu();
+      init_setup();
+      init_state();
+    }
+  });
 
   // src/menu.js
   function addMenuEntry() {
@@ -3462,8 +3907,9 @@
   async function onClickArchdemonNewButton() {
     const info = await Caller.send("invasion_getInfo");
     sessionState.eventId = Number(info?.id ?? 0);
+    const now = Date.now();
     const opened = Object.values(lib.data.invasion.chapter).some(
-      (chapter) => chapter.invasionId === sessionState.eventId && Date.parse(String(chapter.startDate).replace(" ", "T") + "Z") <= Date.now()
+      (chapter) => chapter.invasionId === sessionState.eventId && chapterDate(chapter.startDate) <= now && !(chapterDate(chapter.endDate) <= now)
     );
     if (!sessionState.eventId || !opened) {
       confShow(I18N("NX_NO_EVENT"));
@@ -3523,6 +3969,14 @@
   function returnToMenu() {
     showArchdemonNewMenu();
   }
+  var init_menu = __esm({
+    "src/menu.js"() {
+      init_abyss();
+      init_hwh();
+      init_start();
+      init_state();
+    }
+  });
 
   // src/texts.js
   function registerTexts() {
@@ -3595,6 +4049,15 @@
       NX_REASON_SACRIFICE_WON: "The throwing lineup won, which breaks the plan",
       NX_REASON_NO_CARRY: "Carry heroes were not on sale: {list}",
       NX_REASON_POINT_LOST: "Point {point} was not taken",
+      NX_REASON_POINT_LOST_REMEMBERED: "Point {point} was not taken, this team is remembered",
+      NX_EVENT_ENDING: "Less than {minutes} minutes are left until the event ends. No new runs are started",
+      NX_REASON_POINT_KNOWN_LOSS: "Point {point}: this team has already lost it, and there is nobody to buy",
+      NX_DEFAULT_FINAL: "Selling the extra heroes and collecting the team",
+      NX_BLOCK_STOP_INCOMPLETE: "Stop before the Archdemon even if the team is not complete",
+      NX_BLOCK_STOP_INCOMPLETE_HINT: "If hero parts or pets are still missing after the final shopping, the run stops instead of restarting the chapter. The window lists what is missing",
+      NX_INCOMPLETE: `<span style="font-size: 25px;">The team is not complete, run <span style="color: LimeGreen;">{attempt}</span></span><br>
+          Missing: <span style="color: #ff6b6b;">{list}</span><br>
+          Every point before the Archdemon is taken. Go in and attack the Archdemon yourself`,
       NX_REASON_NO_SACRIFICE: "Nobody to throw the last point with, this hero is not owned: {list}",
       NX_POINT1_REFRESH: 'Point 1, earned refresh <span style="color: LimeGreen;">{refreshes}</span>, unknown lots taken {bought}, coins {coins}',
       NX_BLOCK_PAUSE: "Stop right before the Archdemon",
@@ -3730,6 +4193,15 @@
       NX_REASON_SACRIFICE_WON: "Сливающий состав выиграл, это ломает план",
       NX_REASON_NO_CARRY: "Проходных не было в продаже: {list}",
       NX_REASON_POINT_LOST: "Точка {point} не взята",
+      NX_REASON_POINT_LOST_REMEMBERED: "Точка {point} не взята, состав запомнили",
+      NX_EVENT_ENDING: "До конца события меньше {minutes} минут. Новых заходов не начинаем",
+      NX_REASON_POINT_KNOWN_LOSS: "Точка {point}: этот состав её уже не брал, а докупить некого",
+      NX_DEFAULT_FINAL: "Продаём лишних героев и собираем состав",
+      NX_BLOCK_STOP_INCOMPLETE: "Остановиться перед Архидемоном, даже если состав не собран полностью",
+      NX_BLOCK_STOP_INCOMPLETE_HINT: "Если после финальной закупки не хватает частей героев или питомцев, прогон останавливается, а не начинает главу заново. В окне — чего не хватило",
+      NX_INCOMPLETE: `<span style="font-size: 25px;">Состав собран не полностью, заход <span style="color: LimeGreen;">{attempt}</span></span><br>
+          Не хватает: <span style="color: #ff6b6b;">{list}</span><br>
+          Все точки до Архидемона взяты. Заходи и бей Архидемона сам`,
       NX_REASON_NO_SACRIFICE: "Нечем сливать последнюю точку, этого героя нет в наличии: {list}",
       NX_POINT1_REFRESH: 'Точка 1, заработанное обновление <span style="color: LimeGreen;">{refreshes}</span>, неизвестных взято {bought}, монет {coins}',
       NX_BLOCK_PAUSE: "Остановиться прямо перед Архидемоном",
@@ -3797,15 +4269,48 @@
       NX_NEED_RELIC: '<span style="color: #ff6b6b;">нужен {relicName} {needLevel} уровня, у вас {haveLevel}</span>'
     });
   }
+  var init_texts = __esm({
+    "src/texts.js"() {
+      init_hwh();
+    }
+  });
 
-  // src/main.js
-  if (!hwhFound) {
-    console.log("%cHWHArchdemonExt: HeroWarsHelper не найден, дополнение не запущено", "color: red");
-  } else {
-    const missing = missingHelperApi();
+  // src/app.js
+  var app_exports = {};
+  __export(app_exports, {
+    startAddon: () => startAddon
+  });
+  function startAddon() {
+    const missing = missingHelperApi().filter((name2) => name2 !== "lib");
     if (missing.length) console.log(`%cHWHArchdemonExt: HeroWarsHelper ${helperVersion} слишком старый, нет: ${missing.join(", ")}`, "color: red");
     addExtentionName(GM_info.script.name, GM_info.script.version, GM_info.script.author);
     registerTexts();
     addMenuEntry();
   }
+  var init_app = __esm({
+    "src/app.js"() {
+      init_hwh();
+      init_menu();
+      init_texts();
+    }
+  });
+
+  // src/main.js
+  init_constants();
+  var helperReady = () => typeof HWHClasses !== "undefined" && typeof HWHFuncs !== "undefined" && typeof HWHData !== "undefined";
+  async function waitForHelper() {
+    const tries = Math.ceil(NX_HELPER_WAIT_MS / NX_HELPER_POLL_MS);
+    for (let i = 0; i < tries; i++) {
+      if (helperReady()) return true;
+      await new Promise((e) => setTimeout(e, NX_HELPER_POLL_MS));
+    }
+    return helperReady();
+  }
+  waitForHelper().then((found) => {
+    if (!found) {
+      console.log(`%cHWHArchdemonExt: HeroWarsHelper не найден за ${NX_HELPER_WAIT_MS / 1e3} с, дополнение не запущено`, "color: red");
+      return;
+    }
+    return Promise.resolve().then(() => (init_app(), app_exports)).then((app) => app.startAddon());
+  }).catch((e) => console.error(e));
 })();
