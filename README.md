@@ -7,7 +7,7 @@ If a run does not work out, it resets the chapter and tries again.
 ## Install
 
 1. Install HeroWarsHelper in Tampermonkey.
-2. Install [HWHArchdemonExt.user.js](dist/HWHArchdemonExt.user.js) after it.
+2. Install [HWHArchdemonExt.user.js](dist/HWHArchdemonExt.user.js). The script order does not matter: the add-on waits for the helper.
 3. Open the helper menu: **Others → Adventure (Arch)**.
 
 Features: [English](ABOUT_EN.md) · [Русский](ABOUT_RU.md).
