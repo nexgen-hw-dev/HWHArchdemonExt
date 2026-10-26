@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         0.96-alpha
+// @version         0.97-alpha
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -177,7 +177,7 @@
 			NX_MIN_COINS_PLACEHOLDER: "empty means no condition",
 			NX_MIN_COINS_BONUS: "{talisman}: +{percent}% attack",
 			NX_STALL_COIN: "Stall coin",
-			NX_ANY_TALISMAN: "<span style=\"color: LimeGreen;\">Any talisman</span>",
+			NX_ANY_TALISMAN: "<span style=\"color: LimeGreen;\">Any emblem</span>",
 			NX_ERR_NO_CHAPTER: "Pick a chapter",
 			NX_ERR_BLOCKS: "From one to five blocks are needed, like 25/1/6001, 27/3/6002, ...",
 			NX_ERR_BLOCK_FORMAT: "Block <span style=\"color: Red;\">{block}</span> is malformed. Expected heroId/rank/petId",
@@ -187,7 +187,7 @@
 			NX_ERR_PET: "No such pet in block <span style=\"color: Red;\">{block}</span>",
 			NX_ERR_PET_DUP: "You messed up: {pet} is set as patron for two heroes at once",
 			NX_ERR_FAVOR: "{pet} does not patronize {hero}",
-			NX_ERR_TALISMAN: "Pick a talisman",
+			NX_ERR_TALISMAN: "Pick an emblem",
 			NX_ERR_MIN_COINS: "Minimum coins is a whole number, or leave it empty",
 			NX_ATTEMPT: "ArchRank — run <span style=\"color: LimeGreen;\">{attempt}</span>",
 			NX_SHOPPING: "Shopping. Coins: <span style=\"color: LimeGreen;\">{coins}</span>, heroes left {heroes}, pets left {pets}",
@@ -195,14 +195,14 @@
 			NX_RETRY: "Run {attempt} failed. {reason}<br>Resetting the chapter",
 			NX_READY: `<span style="font-size: 25px;">Everything is collected on run <span style="color: LimeGreen;">{attempt}</span></span><br>
           Coins left: <span style="color: LimeGreen;">{coins}</span><br>
-          Wealth bonus: <span style="color: LimeGreen;">{percent}</span>%<br>
-          Every point before the Archdemon is taken, the talismans are on. Go in and attack the Archdemon yourself`,
+          Capital bonus: <span style="color: LimeGreen;">{percent}</span>%<br>
+          Every point before the Archdemon is taken, the emblems are on. Go in and attack the Archdemon yourself`,
 			NX_STOPPED: "Stopped on run {attempt}",
 			NX_REASON_NOT_COLLECTED: "Not collected: {list}",
 			NX_REASON_MIN_COINS: "{coins} coins left (bonus {percent}%), at least {min} needed",
 			NX_REASON_MIN_COINS_UNREACHABLE: "Minimum is out of reach: {coins} + sale {resale} + margin {slack} = {projected} < {min}",
 			NX_REASON_NO_LIVES: "Lives are over",
-			NX_REASON_NO_TALISMAN: "The required talisman was not offered",
+			NX_REASON_NO_TALISMAN: "The required emblem was not offered",
 			NX_REASON_NO_MISSIONS: "No missions left in the chapter",
 			NX_REASON_STOPPED: "Stopped by you",
 			NX_COOLDOWN: "Restart in {seconds} s",
@@ -239,10 +239,10 @@
 			NX_SPEND_EXTRA: "Spending extra coins: {coins} ({percent}%), the author had {target}%",
 			NX_PRESETS_LINE: "Or pick a ready-made build",
 			NX_PRESETS_BUTTON: "Ready-made builds",
-			NX_PRESETS_BUTTON_HINT: "Builds of other players from open videos: team, pet and talismans. Your settings here stay as they are",
+			NX_PRESETS_BUTTON_HINT: "Builds of other players from open videos: team, pet and emblems. Your settings here stay as they are",
 			NX_PRESETS_BUFF: "Your buff: {buff}",
 			NX_PRESETS_KEEP_COINS: "Keep extra coins (extra coins can both raise and lower the damage)",
-			NX_PRESETS_KEEP_COINS_HINT: "A build is made for as many coins as its author had: they set the Talisman of Wealth bonus. Checked: extra coins stay and the bonus is higher than the author had. Unchecked: the extra is spent on stall refreshes, 3 coins each, until the bonus matches the author",
+			NX_PRESETS_KEEP_COINS_HINT: "A build is made for as many coins as its author had: they set the Emblem of Capital bonus. Checked: extra coins stay and the bonus is higher than the author had. Unchecked: the extra is spent on stall refreshes, 3 coins each, until the bonus matches the author",
 			NX_PRESETS_SOURCES: "The builds come from open videos of players. Thanks to the sites that collected them:",
 			NX_PRESETS_SITE_HWDAILY: "guides and teams for Hero Wars events. Author Fragator, reachable on the official Hero Wars Discord",
 			NX_PRESETS_SITE_HWMAP: "game database and event teams. Author Kircheis",
@@ -250,7 +250,7 @@
 			NX_PRESETS_HEAD_DAMAGE: "Damage",
 			NX_PRESETS_HEAD_BUFF: "Buff",
 			NX_PRESETS_HEAD_COINS: "Coins",
-			NX_PRESETS_HEAD_TALISMANS: "Talismans",
+			NX_PRESETS_HEAD_TALISMANS: "Emblems",
 			NX_PRESETS_HEAD_PET: "Pet",
 			NX_PRESETS_HEAD_HEROES: "Heroes",
 			NX_PRESETS_HEAD_AUTHOR: "Author",
@@ -290,13 +290,13 @@
           The game data will now be synced so the client sees the real state.
           The page is <span style="color: LimeGreen;">not</span> reloaded.<br>
           After that, go in and look at the coins.`,
-			NX_BLOCK_TALISMAN_POINT: "Talisman {rollNumber}, before battle {bossNumber}",
-			NX_ERR_TALISMAN_DUP: "The same talisman cannot be taken on both points: the worn one is not offered again",
+			NX_BLOCK_TALISMAN_POINT: "Emblem {rollNumber}, before battle {bossNumber}",
+			NX_ERR_TALISMAN_DUP: "The same emblem cannot be taken on both points: the worn one is not offered again",
 			NX_ERR_NO_FREE_ABYSS: "This event has no free Abyss chapter",
 			NX_ERR_PAID_CHAPTER: "Entering this chapter now costs Abyss Seals. The run is stopped, nothing is spent",
 			NX_ERR_HELPER_OLD: "HeroWarsHelper {version} is too old for the add-on, missing: {list}. Update the helper: the add-on works with 2.459 and newer",
 			NX_ERR_RESULT_INVALID: "The game server did not accept a battle result and counted an auto-battle instead. The run is stopped",
-			NX_WEALTH_ONLY_NOTE: "Wealth strategy settings appear when the Talisman of Wealth is picked for point 1",
+			NX_WEALTH_ONLY_NOTE: "Capital strategy settings appear when the Emblem of Capital is picked for point 1",
 			NX_BLOCK_RANDOM_ANY: "Buy unknown cards at any price",
 			NX_BLOCK_RANDOM_ANY_HINT: "Unchecked: only when cheaper than {price}, then resale pays them back. Checked: always, in case needed heroes are inside",
 			NX_LOG_STOP: "Stop",
@@ -339,7 +339,7 @@
 			NX_NO_EVENT: "No Adventure is running right now",
 			NX_NO_ABYSS: "This Adventure has no Abyss and no Archdemon. The add-on works only in Adventures with the Abyss",
 			NX_FAILED: "The run broke down. Details are in the console",
-			NX_TALISMAN_TAKEN: "Talisman on: {name}",
+			NX_TALISMAN_TAKEN: "Emblem on: {name}",
 			NX_CHAPTER: "Chapter",
 			NX_CANCEL: "Cancel",
 			NX_ENTERING: "Entering the chapter",
@@ -357,7 +357,7 @@
 			NX_MIN_COINS_PLACEHOLDER: "пусто — без условия",
 			NX_MIN_COINS_BONUS: "{talisman}: +{percent}% к атаке",
 			NX_STALL_COIN: "Монета лавки",
-			NX_ANY_TALISMAN: "<span style=\"color: LimeGreen;\">Любой талисман</span>",
+			NX_ANY_TALISMAN: "<span style=\"color: LimeGreen;\">Любая эмблема</span>",
 			NX_ERR_NO_CHAPTER: "Выберите главу",
 			NX_ERR_BLOCKS: "Нужно от одного до пяти блоков вида 25/1/6001, 27/3/6002, ...",
 			NX_ERR_BLOCK_FORMAT: "Блок <span style=\"color: Red;\">{block}</span> кривой. Ожидается IdГероя/ранг/IdПитомца",
@@ -367,7 +367,7 @@
 			NX_ERR_PET: "Нет такого питомца в блоке <span style=\"color: Red;\">{block}</span>",
 			NX_ERR_PET_DUP: "Налажали: {pet} поставлен покровителем сразу двум героям",
 			NX_ERR_FAVOR: "{pet} не покровительствует герою {hero}",
-			NX_ERR_TALISMAN: "Выберите талисман",
+			NX_ERR_TALISMAN: "Выберите эмблему",
 			NX_ERR_MIN_COINS: "Минимум монет — целое число или пусто",
 			NX_ATTEMPT: "ArchRank — заход <span style=\"color: LimeGreen;\">{attempt}</span>",
 			NX_SHOPPING: "Закупка. Монет: <span style=\"color: LimeGreen;\">{coins}</span>, героев осталось {heroes}, питомцев {pets}",
@@ -375,14 +375,14 @@
 			NX_RETRY: "Заход {attempt} не сложился. {reason}<br>Сбрасываем главу",
 			NX_READY: `<span style="font-size: 25px;">Всё собрано на заходе <span style="color: LimeGreen;">{attempt}</span></span><br>
           Осталось монет: <span style="color: LimeGreen;">{coins}</span><br>
-          Бонус богатства: <span style="color: LimeGreen;">{percent}</span>%<br>
-          Все точки до Архидемона взяты, талисманы надеты. Зайдите и атакуйте Архидемона сами`,
+          Бонус капитала: <span style="color: LimeGreen;">{percent}</span>%<br>
+          Все точки до Архидемона взяты, эмблемы надеты. Зайдите и атакуйте Архидемона сами`,
 			NX_STOPPED: "Остановлено на заходе {attempt}",
 			NX_REASON_NOT_COLLECTED: "Не собрано: {list}",
 			NX_REASON_MIN_COINS: "Осталось {coins} монет (бонус {percent}%), нужно не меньше {min}",
 			NX_REASON_MIN_COINS_UNREACHABLE: "До минимума не дотянуть: {coins} + продажа {resale} + запас {slack} = {projected} < {min}",
 			NX_REASON_NO_LIVES: "Закончились жизни",
-			NX_REASON_NO_TALISMAN: "Нужный талисман не выпал",
+			NX_REASON_NO_TALISMAN: "Нужная эмблема не выпала",
 			NX_REASON_NO_MISSIONS: "В главе не осталось миссий",
 			NX_REASON_STOPPED: "Остановлено вами",
 			NX_COOLDOWN: "Перезапуск через {seconds} с",
@@ -419,10 +419,10 @@
 			NX_SPEND_EXTRA: "Тратим лишние монеты: {coins} ({percent}%), у автора {target}%",
 			NX_PRESETS_LINE: "Или выберите готовую сборку",
 			NX_PRESETS_BUTTON: "Готовые сборки",
-			NX_PRESETS_BUTTON_HINT: "Сборки других игроков из открытых видео: команда, питомец и талисманы. Ваши настройки здесь не меняются",
+			NX_PRESETS_BUTTON_HINT: "Сборки других игроков из открытых видео: команда, питомец и эмблемы. Ваши настройки здесь не меняются",
 			NX_PRESETS_BUFF: "Ваше усиление: {buff}",
 			NX_PRESETS_KEEP_COINS: "Оставлять лишние монеты (лишние монеты могут как увеличить урон, так и уменьшить)",
-			NX_PRESETS_KEEP_COINS_HINT: "Сборка рассчитана на столько монет, сколько было у автора: от них зависит бонус Талисмана капитала. С галкой лишние монеты остаются, бонус выше, чем у автора. Без галки лишнее тратится обновлениями лавки по 3 монеты, пока бонус не станет как у автора",
+			NX_PRESETS_KEEP_COINS_HINT: "Сборка рассчитана на столько монет, сколько было у автора: от них зависит бонус Эмблемы капитала. С галкой лишние монеты остаются, бонус выше, чем у автора. Без галки лишнее тратится обновлениями лавки по 3 монеты, пока бонус не станет как у автора",
 			NX_PRESETS_SOURCES: "Сборки взяты из открытых видео игроков. Спасибо сайтам, которые их собрали:",
 			NX_PRESETS_SITE_HWDAILY: "гайды и составы по событиям Hero Wars. Автор Fragator, связь — в официальном Discord Hero Wars",
 			NX_PRESETS_SITE_HWMAP: "база игры и команды по событиям. Автор Kircheis",
@@ -430,7 +430,7 @@
 			NX_PRESETS_HEAD_DAMAGE: "Урон",
 			NX_PRESETS_HEAD_BUFF: "Усиление",
 			NX_PRESETS_HEAD_COINS: "Монеты",
-			NX_PRESETS_HEAD_TALISMANS: "Талисманы",
+			NX_PRESETS_HEAD_TALISMANS: "Эмблемы",
 			NX_PRESETS_HEAD_PET: "Питомец",
 			NX_PRESETS_HEAD_HEROES: "Герои",
 			NX_PRESETS_HEAD_AUTHOR: "Автор",
@@ -470,13 +470,13 @@
           Сейчас данные игры синхронизируются, чтобы клиент увидел настоящее состояние.
           Страница при этом <span style="color: LimeGreen;">не</span> перезагружается.<br>
           После этого зайдите и посмотрите монеты.`,
-			NX_BLOCK_TALISMAN_POINT: "Талисман {rollNumber}, перед боем {bossNumber}",
-			NX_ERR_TALISMAN_DUP: "Один и тот же талисман на обе точки не взять: надетый второй раз не предлагают",
+			NX_BLOCK_TALISMAN_POINT: "Эмблема {rollNumber}, перед боем {bossNumber}",
+			NX_ERR_TALISMAN_DUP: "Одну и ту же эмблему на обе точки не взять: надетую второй раз не предлагают",
 			NX_ERR_NO_FREE_ABYSS: "В этом событии нет бесплатной главы Бездны",
 			NX_ERR_PAID_CHAPTER: "Вход в эту главу теперь стоит Печатей Бездны. Прогон остановлен, ничего не потрачено",
 			NX_ERR_HELPER_OLD: "HeroWarsHelper {version} слишком старый для дополнения, нет: {list}. Обновите помощника: дополнение работает с 2.459 и новее",
 			NX_ERR_RESULT_INVALID: "Сервер игры не принял результат боя и засчитал автобой. Прогон остановлен",
-			NX_WEALTH_ONLY_NOTE: "Настройки стратегии богатства появятся, если на первой точке выбрать Талисман богатства",
+			NX_WEALTH_ONLY_NOTE: "Настройки стратегии капитала появятся, если на первой точке выбрать Эмблему капитала",
 			NX_BLOCK_RANDOM_ANY: "Скупать неизвестные карты по любой цене",
 			NX_BLOCK_RANDOM_ANY_HINT: "Без галки: только дешевле {price}, тогда их окупает продажа. С галкой: всегда, вдруг там нужные герои",
 			NX_LOG_STOP: "Стоп",
@@ -519,7 +519,7 @@
 			NX_NO_EVENT: "Сейчас Приключение не идёт",
 			NX_NO_ABYSS: "В этом Приключении нет Бездны и Архидемона. Дополнение работает только в Приключениях с Бездной",
 			NX_FAILED: "Прогон сорвался. Подробности в консоли",
-			NX_TALISMAN_TAKEN: "Надели талисман: {name}",
+			NX_TALISMAN_TAKEN: "Надели эмблему: {name}",
 			NX_CHAPTER: "Глава",
 			NX_CANCEL: "Отмена",
 			NX_ENTERING: "Входим в главу",
@@ -671,13 +671,18 @@
 		return getEventUnitPool(event).filter((e) => e < 1e3);
 	}
 	function allTalismans() {
-		return Object.values(lib.data.invasion.talismans);
+		return Object.values(talismanTable());
 	}
 	function talismanById(id) {
-		return lib.data.invasion.talismans?.[id];
+		return talismanTable()[id];
 	}
 	function talismanTable() {
-		return lib.data.invasion?.talismans ?? {};
+		return lib.data.invasion?.emblems ?? {};
+	}
+	function emblemName(id) {
+		const key = `LIB_EMBLEM_NAME_${id}`;
+		const name = cheats.translate(key);
+		return name && name !== key ? name : cheats.translate(`LIB_TALISMAN_NAME_${id}`);
 	}
 	function allShops() {
 		return Object.values(lib.data.shop);
@@ -708,7 +713,7 @@
 		return text;
 	}
 	function getTalismanRollBosses(chapterId) {
-		const rollBosses = chapterById(chapterId)?.settings?.talismanRollBosses;
+		const rollBosses = chapterById(chapterId)?.settings?.emblemRollBosses;
 		return Array.isArray(rollBosses) && rollBosses.length ? rollBosses : [0];
 	}
 	function getAbyssChapters() {
@@ -784,13 +789,17 @@
 		const [min, max] = range;
 		return sleep(min + Math.random() * (max - min));
 	}
+	function emblemDrops(emblem) {
+		return (emblem.weight == null ? 100 : Number(emblem.weight)) > 0;
+	}
 	function offeredTalismans(answer) {
-		return (Array.isArray(answer?.talismanIds) ? answer.talismanIds : Object.values(answer ?? {})).map(Number).filter((id) => Number.isFinite(id) && id > 0 && id !== NX_SALE_TALISMAN_ID);
+		if (answer != null && !Array.isArray(answer.emblemIds)) console.warn("Выдача эмблем: нет emblemIds в ответе", answer);
+		return (Array.isArray(answer?.emblemIds) ? answer.emblemIds : []).map(Number).filter((id) => Number.isFinite(id) && id > 0 && id !== NX_SALE_TALISMAN_ID);
 	}
 	function pickTalisman(setup, offered, taken) {
 		const wanted = Number(setup.talismanIds?.[taken] ?? 0);
 		const pick = wanted ? offered.find((id) => id === wanted) : offered[0];
-		console.log("Талисманы на выбор", JSON.stringify(offered), "выдача", taken + 1, "нужен", wanted || "любой", "берём", pick ?? "ничего");
+		console.log("Эмблемы на выбор", JSON.stringify(offered), "выдача", taken + 1, "нужен", wanted || "любой", "берём", pick ?? "ничего");
 		return pick;
 	}
 	var STALL_COIN = 1080;
@@ -840,7 +849,7 @@
 				kind: "retry",
 				reason: I18N("NX_REASON_STOPPED")
 			};
-			const offered = offeredTalismans(await Caller.send("invasion_rollTalismans"));
+			const offered = offeredTalismans(await Caller.send("invasion_rollEmblems"));
 			if (offered.length > 0) {
 				await pause(NX_PACE.stallAll);
 				await Caller.send("shopGetAll");
@@ -997,11 +1006,11 @@
 			const pick = pickTalisman(setup, offered, this.talismans.length);
 			if (!pick) return I18N("NX_REASON_NO_TALISMAN");
 			await Caller.send({
-				name: "invasion_selectTalisman",
-				args: { talismanId: pick }
+				name: "invasion_selectEmblem",
+				args: { emblemId: pick }
 			});
 			this.talismans.push(pick);
-			this.progress(I18N("NX_TALISMAN_TAKEN", { name: cheats.translate(`LIB_TALISMAN_NAME_${pick}`) }));
+			this.progress(I18N("NX_TALISMAN_TAKEN", { name: emblemName(pick) }));
 			return null;
 		}
 	};
@@ -5643,7 +5652,7 @@
 		const [first, second] = preset.talismanIds;
 		const usable = (id, roll) => {
 			const talisman = Object.values(all).find((e) => Number(e.id) === id);
-			return Boolean(talisman) && !NX_EXCLUDED_TALISMAN_IDS.includes(id) && (roll === 1 || !talisman.firstChoiceOnly);
+			return Boolean(talisman) && emblemDrops(talisman) && !NX_EXCLUDED_TALISMAN_IDS.includes(id) && (roll === 1 || !talisman.firstChoiceOnly);
 		};
 		if (first === second || !usable(first, 1) || !usable(second, 2)) return null;
 		return parsed;
@@ -5692,7 +5701,7 @@
 	function talismanIconUrl(library, talismanId, size) {
 		const icon = talismanById(talismanId)?.clientData?.icon;
 		return icon ? renderGui(library, icon, {
-			file: "talisman_icons",
+			file: "emblem_icons",
 			width: size,
 			height: size
 		})?.url ?? "" : "";
@@ -5724,7 +5733,7 @@
 	function editButtonHtml(id, hint, label = I18N("NX_SQUAD_EDIT")) {
 		return `<div id="${id}" class="PopUp_btnSocket" title="${escapeAttr(hint)}" style="margin-left: auto; flex: none;"><div class="PopUp_btnRow"><div class="PopUp_btnGap green"><div class="PopUp_btnPlate">` + label + "</div></div></div></div>";
 	}
-	var GUI_FILES = [PET_HEAD_FILE, "talisman_icons"];
+	var GUI_FILES = [PET_HEAD_FILE, "emblem_icons"];
 	var SIZE = 36;
 	var TALISMAN = 30;
 	var COL = {
@@ -5783,7 +5792,7 @@
 		}) : `<div title="${escapeAttr(I18N("NX_PRESETS_NO_PET"))}" style="width: ${SIZE}px; height: ${SIZE}px; flex: none; text-align: center; line-height: ${SIZE}px; opacity: 0.5;">—</div>`;
 		const talismans = preset.talismanIds.map((id) => {
 			const url = talismanIconUrl(library, id, TALISMAN);
-			const title = escapeAttr(cheats.translate(`LIB_TALISMAN_NAME_${id}`));
+			const title = escapeAttr(emblemName(id));
 			return url ? `<img src="${url}" alt="" title="${title}" style="width: ${TALISMAN}px; height: ${TALISMAN}px; margin: 0 -6px; flex: none;">` : `<div title="${title}" style="width: 18px; flex: none;">?</div>`;
 		}).join("");
 		const authorText = preset.author ? escapeAttr(preset.author) : muted(I18N("NX_PRESETS_UNKNOWN_AUTHOR"));
@@ -5880,7 +5889,7 @@
 			});
 		}
 	}
-	var SETUP_GUI_FILES = [PET_HEAD_FILE, "talisman_icons"];
+	var SETUP_GUI_FILES = [PET_HEAD_FILE, "emblem_icons"];
 	var NO_PACE = () => Promise.resolve();
 	function section(title, hint) {
 		return `<div style="text-align: left; margin: 14px 0 4px; font-size: 19px; color: #ffcf84;">${title}` + (hint ? `<div style="font-size: 13px; color: #d8cbb8; opacity: 0.85;">${hint}</div>` : "") + "</div>";
@@ -5896,7 +5905,7 @@
 		};
 	}
 	function setupTalismans() {
-		return allTalismans().filter((e) => !NX_EXCLUDED_TALISMAN_IDS.includes(Number(e.id)));
+		return allTalismans().filter((e) => !NX_EXCLUDED_TALISMAN_IDS.includes(Number(e.id)) && emblemDrops(e));
 	}
 	function rowIconUrl(library, talismanId) {
 		return talismanIconUrl(library, talismanId, 30);
@@ -5923,7 +5932,7 @@
 	function talismanSlotsHtml(library, talismanIds) {
 		return talismanIds.map((id) => {
 			const url = id ? talismanIconUrl(library, id, 58) : "";
-			return url ? `<img src="${url}" alt="" title="${escapeAttr(cheats.translate(`LIB_TALISMAN_NAME_${id}`))}" style="width: 58px; height: 58px; margin: 0 -9px; flex: none;">` : `<div title="${escapeAttr(I18N("NX_ANY_TALISMAN"))}" style="width: 40px; height: 40px; margin: 9px 0; flex: none; border-radius: 50%; box-sizing: border-box; border: 2px dashed rgba(206, 151, 103, 0.45);"></div>`;
+			return url ? `<img src="${url}" alt="" title="${escapeAttr(emblemName(id))}" style="width: 58px; height: 58px; margin: 0 -9px; flex: none;">` : `<div title="${escapeAttr(I18N("NX_ANY_TALISMAN"))}" style="width: 40px; height: 40px; margin: 9px 0; flex: none; border-radius: 50%; box-sizing: border-box; border: 2px dashed rgba(206, 151, 103, 0.45);"></div>`;
 		}).join("");
 	}
 	async function archdemonNewSetup(chapters, buffAmount, relicLevel) {
@@ -5957,7 +5966,7 @@
 			}
 			return {
 				id: Number(e.id),
-				name: cheats.translate(`LIB_TALISMAN_NAME_${e.id}`),
+				name: emblemName(e.id),
 				description,
 				icon: rowIconUrl(library, Number(e.id))
 			};
@@ -6443,7 +6452,7 @@
 		const value = parseMinCoins(raw)?.value;
 		if (value == null) return "";
 		return escapeAttr(I18N("NX_MIN_COINS_BONUS", {
-			talisman: cheats.translate(`LIB_TALISMAN_NAME_${NX_WEALTH_TALISMAN_ID}`),
+			talisman: emblemName(NX_WEALTH_TALISMAN_ID),
 			percent: coinsToPercent(value)
 		}));
 	}
