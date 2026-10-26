@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         0.97-alpha
+// @version         0.98-alpha
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -157,6 +157,7 @@
 	var NX_SACRIFICE_MAX_REFRESHES = 30;
 	var NX_LOTS_PER_EARNED_REFRESH = 2;
 	var NX_POINT1_MAX_REFRESHES = 30;
+	var NX_CARRY_UNSEEN_LIMIT = 60;
 	var NX_RANDOM_LOT_FRAGMENTS = 2;
 	var NX_BATTLE_TIMER_RANGE = {
 		min: 1.3,
@@ -229,6 +230,8 @@
 			NX_SACRIFICE: "Throwing the point on purpose, <span style=\"color: LimeGreen;\">{number}</span> of {total}",
 			NX_REASON_SACRIFICE_WON: "The throwing lineup won, which breaks the plan",
 			NX_REASON_NO_CARRY: "Carry heroes were not on sale: {list}",
+			NX_ERR_CARRY_POINT1: "Carry heroes {list} cannot be had by point 1 of this chapter: they are neither starting heroes nor sold in the first stall. The Capital run would reset the chapter endlessly. Pick others. Starting heroes of the chapter: {start}",
+			NX_CARRY_NEVER_ON_SALE: "Carry heroes {list} were not on sale at point 1 even once in {attempts} runs in a row: it looks like they cannot be had by point 1. The run is stopped, pick other carry heroes",
 			NX_REASON_POINT_LOST: "Point {point} was not taken",
 			NX_REASON_POINT_LOST_REMEMBERED: "Point {point} was not taken, this team is remembered",
 			NX_EVENT_ENDING: "Less than {minutes} minutes are left until the event ends. No new runs are started",
@@ -270,6 +273,7 @@
 			NX_PRESETS_WAIT_SITES: "Websites",
 			NX_PRESETS_ERROR: "The request cannot be completed from your region. Please use additional tools",
 			NX_PRESETS_STALE: "The server did not answer, showing the saved copy",
+			NX_PRESETS_CARRY_POINT1: "Ready-made builds are made for the carry heroes {list} of the previous event: in this one they cannot be had by point 1. Wait for an add-on update or set the run up in the setup window",
 			NX_PRESETS_REFRESH: "Refresh the builds from the server, at most once a minute",
 			NX_PRESETS_REFRESH_WAIT: "You can refresh again in {seconds} s",
 			NX_REASON_POINT_KNOWN_LOSS: "Point {point}: this team has already lost it, and there is nobody to buy",
@@ -409,6 +413,8 @@
 			NX_SACRIFICE: "Намеренно сливаем точку, <span style=\"color: LimeGreen;\">{number}</span> из {total}",
 			NX_REASON_SACRIFICE_WON: "Сливающий состав выиграл, это ломает план",
 			NX_REASON_NO_CARRY: "Проходных не было в продаже: {list}",
+			NX_ERR_CARRY_POINT1: "Проходных {list} к точке 1 этой главы не взять: их нет ни среди стартовых героев, ни в первой лавке. Прогон под капитал сбрасывал бы главу без конца. Выберите других. Стартовые герои главы: {start}",
+			NX_CARRY_NEVER_ON_SALE: "Проходных {list} ни разу не было в лавке на точке 1 за {attempts} заходов подряд: похоже, к точке 1 их не взять. Прогон остановлен, выберите других проходных",
 			NX_REASON_POINT_LOST: "Точка {point} не взята",
 			NX_REASON_POINT_LOST_REMEMBERED: "Точка {point} не взята, состав запомнили",
 			NX_EVENT_ENDING: "До конца события меньше {minutes} минут. Новых заходов не начинаем",
@@ -450,6 +456,7 @@
 			NX_PRESETS_WAIT_SITES: "Сайты",
 			NX_PRESETS_ERROR: "Для вашего региона невозможно выполнить запрос. Воспользуйтесь дополнительными инструментами",
 			NX_PRESETS_STALE: "Сервер не ответил, показана сохранённая копия",
+			NX_PRESETS_CARRY_POINT1: "Готовые сборки рассчитаны на проходных {list} прошлого события, в этом их к точке 1 не взять. Дождитесь обновления дополнения или настройте прогон в окне настройки",
 			NX_PRESETS_REFRESH: "Обновить сборки с сервера, не чаще раза в минуту",
 			NX_PRESETS_REFRESH_WAIT: "Обновить можно через {seconds} с",
 			NX_REASON_POINT_KNOWN_LOSS: "Точка {point}: этот состав её уже не брал, а докупить некого",
@@ -684,6 +691,13 @@
 		const name = cheats.translate(key);
 		return name && name !== key ? name : cheats.translate(`LIB_TALISMAN_NAME_${id}`);
 	}
+	function stallShopId() {
+		const bound = allShops().filter((shop) => shop.requirements?.invasion?.id === currentEventId());
+		if (bound.length === 1) return bound[0].id;
+		const heroChapter = allChapters().find((chapter) => chapter.invasionId === currentEventId() && chapter.settings?.unitType === "hero" && chapter.settings?.stallShopId);
+		if (heroChapter) return heroChapter.settings.stallShopId;
+		return currentEvent()?.settings?.stallShopId ?? false;
+	}
 	function allShops() {
 		return Object.values(lib.data.shop);
 	}
@@ -826,13 +840,6 @@
 			return await this.load();
 		}
 	};
-	function stallShopId() {
-		const bound = allShops().filter((shop) => shop.requirements?.invasion?.id === currentEventId());
-		if (bound.length === 1) return bound[0].id;
-		const heroChapter = allChapters().find((chapter) => chapter.invasionId === currentEventId() && chapter.settings?.unitType === "hero" && chapter.settings?.stallShopId);
-		if (heroChapter) return heroChapter.settings.stallShopId;
-		return currentEvent()?.settings?.stallShopId ?? false;
-	}
 	var Stall = class {
 		shopId;
 		wallet;
@@ -1510,10 +1517,14 @@
 		waitingForPlayer = false;
 		lossStart = {};
 		pointMemory = {};
+		carryUnseen = {};
 		reporter;
 		holds = new Set();
 		constructor(reporter) {
 			this.reporter = reporter;
+		}
+		carryNeverOnSale() {
+			return Object.entries(this.carryUnseen).filter(([, count]) => count >= NX_CARRY_UNSEEN_LIMIT).map(([id]) => Number(id));
 		}
 		stop() {
 			this.stopped = true;
@@ -2359,6 +2370,11 @@
 				};
 			}
 			const missingMain = () => setup.carryHeroes.filter((id) => Number(fragments[id] ?? 0) <= 0);
+			const seen = new Set();
+			const look = (slots) => {
+				for (const slot of slots) for (const id of Object.keys(slot.reward?.invasionFragmentHero ?? {})) seen.add(Number(id));
+			};
+			look(shopSlots);
 			const needExtra = () => (setup.carryExtraHeroes ?? []).length > 0 && !carryExtraOwned(setup, fragments);
 			let refreshes = 0;
 			let budgetLeft = Number(setup.startRefreshes ?? 0);
@@ -2403,7 +2419,9 @@
 				attempt.ledger.add("обновления лавки", coins.value - beforeRefresh);
 				if (!refreshed) break;
 				shopSlots = refreshed;
+				look(shopSlots);
 			}
+			countUnseenCarry(attempt.session, setup, fragments, seen);
 			if (missingMain().length > 0) return {
 				kind: "retry",
 				reason: I18N("NX_REASON_NO_CARRY", { list: missingMain().map(unitLabel).join(", ") })
@@ -2422,6 +2440,9 @@
 			console.error(e);
 			return { kind: "fatal" };
 		}
+	}
+	function countUnseenCarry(session, setup, fragments, seen) {
+		for (const id of setup.carryHeroes) session.carryUnseen[id] = Number(fragments[id] ?? 0) > 0 || seen.has(id) ? 0 : (session.carryUnseen[id] ?? 0) + 1;
 	}
 	async function ensureSacrificeHero(attempt, stall, setup, visibleSlots, fragments) {
 		const coins = attempt.wallet;
@@ -2802,6 +2823,15 @@
 				return;
 			}
 			if (session.stopped) break;
+			const neverOnSale = session.carryNeverOnSale();
+			if (neverOnSale.length > 0) {
+				const list = neverOnSale.map(unitLabel).join(", ");
+				if (await session.notice(I18N("NX_CARRY_NEVER_ON_SALE", {
+					list,
+					attempts: NX_CARRY_UNSEEN_LIMIT
+				}))) syncAndReturnToMenu(reporter);
+				return;
+			}
 			reporter.fail(I18N("NX_RETRY", {
 				attempt,
 				reason: outcome.reason
@@ -4031,6 +4061,37 @@
 		return (...args) => {
 			handler(...args).catch((e) => console.error(e));
 		};
+	}
+	function startingHeroes(chapterId) {
+		return Object.entries(chapterById(chapterId)?.initialUnitFragments ?? {}).filter(([, fragments]) => Number(fragments) > 0).map(([id]) => Number(id));
+	}
+	function pointOneHeroes(chapterId) {
+		const chapter = chapterById(chapterId);
+		const shopId = stallShopId();
+		const shop = shopId === false ? void 0 : shopById(shopId);
+		if (!chapter?.initialUnitFragments && !shop?.slots) return null;
+		const heroes = new Set(startingHeroes(chapterId));
+		for (const template of Object.values(shop?.slots ?? {}).flat()) {
+			if (Number(template.level) !== 0) continue;
+			for (const id of Object.keys(template.reward?.invasionFragmentHero ?? {})) if (Number(id) > 0) heroes.add(Number(id));
+		}
+		return heroes;
+	}
+	function carryUnavailable(chapterId, carryHeroes, carryExtraHeroes = []) {
+		const heroes = pointOneHeroes(chapterId);
+		if (!heroes) return [];
+		const main = carryHeroes.filter((id) => !heroes.has(id));
+		const extras = carryExtraHeroes.length > 0 && !carryExtraHeroes.some((id) => heroes.has(id)) ? carryExtraHeroes : [];
+		return [...main, ...extras];
+	}
+	function carryPointOneError(setup) {
+		const missing = carryUnavailable(setup.chapterId, setup.carryHeroes, setup.carryExtraHeroes ?? []);
+		if (missing.length === 0) return null;
+		const start = startingHeroes(setup.chapterId);
+		return I18N("NX_ERR_CARRY_POINT1", {
+			list: missing.map(unitLabel).join(", "),
+			start: start.length ? start.map(unitLabel).join(", ") : "—"
+		});
 	}
 	var SHADOW_DY = 2;
 	var SHADOW_ALPHA = .5;
@@ -6141,6 +6202,15 @@
 				};
 				carryHeroes = carryList.map((e) => e.id);
 				carryTargets = Object.fromEntries(carryList.map((e) => [e.id, e.rank]));
+				const carryError = carryPointOneError({
+					chapterId: Number(chapterValue),
+					carryHeroes,
+					carryExtraHeroes
+				});
+				if (carryError) return {
+					kind: "error",
+					error: carryError
+				};
 				sacrificeHeroes = parseIdList(sacrificeRaw);
 				if (!sacrificeHeroes || sacrificeHeroes.length > NX_SACRIFICE_CANDIDATES) return {
 					kind: "error",
@@ -6346,6 +6416,7 @@
 					chapterNumber: chapterNumbers[chapterId] ?? 0,
 					keepExtraCoins
 				});
+				if (value.talismanId === NX_WEALTH_TALISMAN_ID && carryPointOneError(value)) return I18N("NX_PRESETS_CARRY_POINT1", { list: value.carryHeroes.map(unitLabel).join(", ") });
 				popup.hide();
 				complete(value);
 				return null;
