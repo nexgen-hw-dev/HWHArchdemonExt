@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         0.98-alpha
+// @version         0.99-alpha
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -308,6 +308,9 @@
 			NX_REPLACING: "Stopping the previous run…",
 			NX_LOG_LAST_FAIL: "Last failed run {attempt}: {reason}",
 			NX_TIMER_SEARCH: "Picking the battle timer {count} of {max}",
+			NX_WIN_FOUND_WAIT: "Winning battle found, sending it in {seconds} s",
+			NX_WIN_SENT: "Winning battle sent",
+			NX_WIN_NOT_FOUND: "No winning battle found, the plain auto battle goes",
 			NX_LOSS_SEARCH: "Looking for a losing battle to throw the point, {count} of {max}",
 			NX_LOSS_FOUND_WAIT: "Losing battle found, sending it in {seconds} s",
 			NX_LOSS_SENT: "Losing battle sent",
@@ -342,7 +345,8 @@
 			NX_ARCHDEMON_AUTO_SOON: "Coming later: the full run with battle emulation to pick the best teams",
 			NX_NO_EVENT: "No Adventure is running right now",
 			NX_NO_ABYSS: "This Adventure has no Abyss and no Archdemon. The add-on works only in Adventures with the Abyss",
-			NX_FAILED: "The run broke down. Details are in the console",
+			NX_FAILED: "The run broke down. Details are in the console<br>Add-on version {version}",
+			NX_START_FAILED: "Could not open the setup window. Details are in the console<br>Add-on version {version}",
 			NX_TALISMAN_TAKEN: "Emblem on: {name}",
 			NX_CHAPTER: "Chapter",
 			NX_CANCEL: "Cancel",
@@ -491,6 +495,9 @@
 			NX_REPLACING: "Останавливаем прошлый прогон…",
 			NX_LOG_LAST_FAIL: "Прошлый неудачный заход {attempt}: {reason}",
 			NX_TIMER_SEARCH: "Подбор таймера боя {count} из {max}",
+			NX_WIN_FOUND_WAIT: "Комбинация победы найдена, отправим через {seconds} с",
+			NX_WIN_SENT: "Победа отправлена",
+			NX_WIN_NOT_FOUND: "Победа не найдена, уходит обычный автобой",
 			NX_LOSS_SEARCH: "Ищем проигрыш для слива {count} из {max}",
 			NX_LOSS_FOUND_WAIT: "Комбинация проигрыша найдена, отправим через {seconds} с",
 			NX_LOSS_SENT: "Проигрыш отправлен",
@@ -525,7 +532,8 @@
 			NX_ARCHDEMON_AUTO_SOON: "Появится позже: полный прогон с эмуляцией боёв для подбора лучших команд",
 			NX_NO_EVENT: "Сейчас Приключение не идёт",
 			NX_NO_ABYSS: "В этом Приключении нет Бездны и Архидемона. Дополнение работает только в Приключениях с Бездной",
-			NX_FAILED: "Прогон сорвался. Подробности в консоли",
+			NX_FAILED: "Прогон сорвался. Подробности в консоли<br>Версия дополнения {version}",
+			NX_START_FAILED: "Не удалось открыть окно настройки. Подробности в консоли<br>Версия дополнения {version}",
 			NX_TALISMAN_TAKEN: "Надели эмблему: {name}",
 			NX_CHAPTER: "Глава",
 			NX_CANCEL: "Отмена",
@@ -1069,6 +1077,10 @@
 					max: this.maxCount
 				}));
 			}
+			checkResult() {
+				super.checkResult();
+				if (this.bestResult?.count === this.count) this.bestResult.battleTime = this.lastResult?.battleTime;
+			}
 		};
 	}
 	function lossTimerQueue(start, range = NX_LOSS_TIMER_RANGE, step = NX_LOSS_TIMER_STEP) {
@@ -1149,15 +1161,9 @@
 			effects: battle?.effects?.defenders ?? null
 		};
 	}
-	async function waitBattleTime(startedAt, improvedTimer = 0) {
-		const seconds = Number(improvedTimer);
-		let until;
-		if (Number.isFinite(seconds) && seconds > 0) until = startedAt + seconds * 1e3;
-		else {
-			const [min, max] = NX_PACE.autoBattle;
-			until = startedAt + min + Math.random() * (max - min);
-		}
-		const left = until - Date.now();
+	async function waitBattleTime(startedAt) {
+		const [min, max] = NX_PACE.autoBattle;
+		const left = startedAt + min + Math.random() * (max - min) - Date.now();
 		if (left > 0) await sleep(left);
 	}
 	async function sendBattleEnd(attempt, missionId, outcome) {
@@ -1192,7 +1198,11 @@
 			invalid
 		};
 	}
-	async function fightPoint(attempt, missionId, chapterId, heroes, pet, favor) {
+	function secondsText(value) {
+		const n = Number(value);
+		return Number.isFinite(n) ? n.toFixed(1) : "?";
+	}
+	async function fightPoint(attempt, missionId, chapterId, heroes, pet, favor, point) {
 		try {
 			const battle = await Caller.send({
 				name: "invasion_bossStart",
@@ -1207,8 +1217,12 @@
 			const startedAt = Date.now();
 			let outcome = await Calc(battle);
 			let improvedTimer = 0;
+			let story = `автобой выиграл, бой ${secondsText(outcome.battleTime)} с`;
 			if (!outcome.result.win) {
-				const found = await createPointTimerSearch(battle, NX_BATTLE_TIMER_RANGE, (text) => attempt.progress(text, "timer")).start(startedAt + NX_TIMER_SEARCH_BUDGET_MS, NX_TIMER_SEARCH_MAX_TRIES);
+				const searchStart = Date.now();
+				const search = createPointTimerSearch(battle, NX_BATTLE_TIMER_RANGE, (text) => attempt.progress(text, "timer"));
+				const found = await search.start(startedAt + NX_TIMER_SEARCH_BUDGET_MS, NX_TIMER_SEARCH_MAX_TRIES);
+				const searched = `перебор ${found.maxCount ?? search.count ?? 0} расчётов за ${secondsText((Date.now() - searchStart) / 1e3)} с`;
 				if (found.result?.win) {
 					outcome = {
 						...outcome,
@@ -1216,12 +1230,22 @@
 						progress: found.progress
 					};
 					improvedTimer = found.battleTimer ?? outcome.battleTimer;
+					story = `улучшен, победа на таймере ${Number(found.timer).toFixed(2)} с, ${searched}, бой ${secondsText(found.battleTime)} с`;
+				} else {
+					story = `победы не нашлось, ${searched}, уходит автобой, бой ${secondsText(outcome.battleTime)} с`;
+					attempt.progress(I18N("NX_WIN_NOT_FOUND"), "timer");
 				}
 			}
-			await waitBattleTime(startedAt, improvedTimer);
+			const improved = Number(improvedTimer) > 0;
+			if (improved) await waitWithCountdown(startedAt, Number(improvedTimer), (seconds) => attempt.progress(I18N("NX_WIN_FOUND_WAIT", { seconds }), "timer"));
+			else await waitBattleTime(startedAt);
+			const end = await sendBattleEnd(attempt, missionId, outcome);
+			if (improved) attempt.progress(I18N("NX_WIN_SENT"), "timer");
+			const where = point ? `точка ${point}` : `бой ${missionId}`;
+			console.log(`${NX_LOG_BATTLE} ${where}: ${story}, отправлен через ${secondsText((Date.now() - startedAt) / 1e3)} с от старта`);
 			return {
 				error: false,
-				...await sendBattleEnd(attempt, missionId, outcome)
+				...end
 			};
 		} catch (e) {
 			console.error(e);
@@ -1265,7 +1289,7 @@
 				}
 			}
 			if (lossTimer != null) await waitWithCountdown(startedAt, improvedTimer, (seconds) => attempt.progress(I18N("NX_LOSS_FOUND_WAIT", { seconds }), "timer"));
-			else await waitBattleTime(startedAt, improvedTimer);
+			else await waitBattleTime(startedAt);
 			const end = await sendBattleEnd(attempt, missionId, outcome);
 			if (lossTimer != null) attempt.progress(I18N("NX_LOSS_SENT"), "timer");
 			console.log("Слив, расчёт вернул", JSON.stringify(outcome.result));
@@ -2293,7 +2317,7 @@
 				missionNumber: point
 			}));
 			await pause(NX_PACE.beforeBattle);
-			const fight = await fightPoint(attempt, missionId, setup.chapterId, team.heroes, team.pet, team.favor);
+			const fight = await fightPoint(attempt, missionId, setup.chapterId, team.heroes, team.pet, team.favor, point);
 			if (fight.error || !fight.info) return { kind: "fatal" };
 			if (fight.invalid) return {
 				kind: "fatal",
@@ -2699,7 +2723,7 @@
 			const team = await buildCarryTeam(attempt, setup);
 			const fragmentsOwned = { ...(await attempt.units()).fragments };
 			const coinsBeforePoint = visit.coins;
-			const fight = await fightPoint(attempt, missionId, setup.chapterId, team.heroes, team.pet, team.favor);
+			const fight = await fightPoint(attempt, missionId, setup.chapterId, team.heroes, team.pet, team.favor, point);
 			if (fight.error || !fight.info) return { kind: "fatal" };
 			if (fight.invalid) return {
 				kind: "fatal",
@@ -2804,7 +2828,7 @@
 				return;
 			}
 			if (outcome.kind === "fatal") {
-				if (await session.notice(outcome.message ?? I18N("NX_FAILED"))) syncAndReturnToMenu(reporter);
+				if (await session.notice(outcome.message ?? I18N("NX_FAILED", { version: GM_info.script.version }))) syncAndReturnToMenu(reporter);
 				return;
 			}
 			if (outcome.kind === "ready") {
@@ -2848,7 +2872,7 @@
 				if (!await reporter.countdown(pause, () => session.stopped)) break;
 			} catch (e) {
 				console.error(e);
-				if (await session.notice(I18N("NX_FAILED"))) syncAndReturnToMenu(reporter);
+				if (await session.notice(I18N("NX_FAILED", { version: GM_info.script.version }))) syncAndReturnToMenu(reporter);
 				return;
 			}
 		}
@@ -6539,7 +6563,7 @@
 		} catch (e) {
 			console.error(e);
 			setProgress("", true);
-			await popup.confirm(I18N("NX_FAILED"));
+			await popup.confirm(I18N("NX_START_FAILED", { version: GM_info.script.version }));
 			syncGame();
 		} finally {
 			release?.();
@@ -6590,7 +6614,7 @@
 			await runArchdemonNewLoop(session, setup);
 		} catch (e) {
 			console.error(e);
-			if (await session.notice(I18N("NX_FAILED"))) syncGame();
+			if (await session.notice(I18N("NX_FAILED", { version: GM_info.script.version }))) syncGame();
 		} finally {
 			finished();
 			if (running === current) running = null;
@@ -6610,7 +6634,7 @@
 				} catch (e) {
 					console.error(e);
 					setProgress("", true);
-					await popup.confirm(I18N("NX_FAILED"));
+					await popup.confirm(I18N("NX_START_FAILED", { version: GM_info.script.version }));
 				}
 			},
 			color: "green"
@@ -6670,7 +6694,7 @@
 		} catch (e) {
 			console.error(e);
 			setProgress("", true);
-			await popup.confirm(I18N("NX_FAILED"));
+			await popup.confirm(I18N("NX_START_FAILED", { version: GM_info.script.version }));
 			syncGame();
 		}
 	}
