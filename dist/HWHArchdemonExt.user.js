@@ -345,8 +345,11 @@
 			NX_ARCHDEMON_AUTO_SOON: "Coming later: the full run with battle emulation to pick the best teams",
 			NX_NO_EVENT: "No Adventure is running right now",
 			NX_NO_ABYSS: "This Adventure has no Abyss and no Archdemon. The add-on works only in Adventures with the Abyss",
-			NX_FAILED: "The run broke down. Details are in the console<br>Add-on version {version}",
-			NX_START_FAILED: "Could not open the setup window. Details are in the console<br>Add-on version {version}",
+			NX_FAILED: "The run broke down<br>Add-on version {version}",
+			NX_START_FAILED: "Could not open the setup window<br>Add-on version {version}",
+			NX_DETAILS: "Details",
+			NX_FAIL_NO_STALL: "The event stall was not found in the game data",
+			NX_FAIL_NO_STATE: "The server did not send the chapter state after the battle",
 			NX_TALISMAN_TAKEN: "Emblem on: {name}",
 			NX_CHAPTER: "Chapter",
 			NX_CANCEL: "Cancel",
@@ -532,8 +535,11 @@
 			NX_ARCHDEMON_AUTO_SOON: "Появится позже: полный прогон с эмуляцией боёв для подбора лучших команд",
 			NX_NO_EVENT: "Сейчас Приключение не идёт",
 			NX_NO_ABYSS: "В этом Приключении нет Бездны и Архидемона. Дополнение работает только в Приключениях с Бездной",
-			NX_FAILED: "Прогон сорвался. Подробности в консоли<br>Версия дополнения {version}",
-			NX_START_FAILED: "Не удалось открыть окно настройки. Подробности в консоли<br>Версия дополнения {version}",
+			NX_FAILED: "Прогон сорвался<br>Версия дополнения {version}",
+			NX_START_FAILED: "Не удалось открыть окно настройки<br>Версия дополнения {version}",
+			NX_DETAILS: "Подробнее",
+			NX_FAIL_NO_STALL: "В данных игры не нашлась лавка события",
+			NX_FAIL_NO_STATE: "Сервер не прислал состояние главы после боя",
 			NX_TALISMAN_TAKEN: "Надели эмблему: {name}",
 			NX_CHAPTER: "Глава",
 			NX_CANCEL: "Отмена",
@@ -773,6 +779,44 @@
 			name = "";
 		}
 		return name && name !== key ? `${numeral}&nbsp;${name}` : `${I18N("NX_CHAPTER")}&nbsp;${numeral}`;
+	}
+	var STACK_LINES = 8;
+	var MESSAGE_CHARS = 600;
+	function clip(text, limit) {
+		return text.length > limit ? `${text.slice(0, limit)}…` : text;
+	}
+	function shortenStackLine(line) {
+		return line.replace(/[a-z][\w+.-]*:\/\/[^\s()]*?[?&]name=([^&\s():]+)[^\s():]*/gi, (_, name) => {
+			try {
+				return decodeURIComponent(name);
+			} catch {
+				return name;
+			}
+		}).replace(/[a-z][\w+.-]*:\/\/[^\s()]*\/([^/\s():?#]+)(?:[?#][^\s():]*)?/gi, "$1");
+	}
+	function describeError(error) {
+		if (error === null || error === void 0 || error === "") return "";
+		if (typeof error === "string") return error;
+		const err = error;
+		if (typeof err === "object" && typeof err.message === "string") {
+			const name = typeof err.name === "string" && err.name ? err.name : "Error";
+			const head = clip(`${name}: ${err.message}`.trim(), MESSAGE_CHARS);
+			const message = err.message;
+			return [head, ...String(err.stack ?? "").split("\n").map((line) => line.trim()).filter((line) => line && !line.startsWith(`${name}:`) && !message.includes(line)).slice(0, STACK_LINES).map((line) => `  ${shortenStackLine(line)}`)].join("\n");
+		}
+		try {
+			return clip(JSON.stringify(error) ?? String(error), MESSAGE_CHARS);
+		} catch {
+			return String(error);
+		}
+	}
+	function escapeAttr(value) {
+		return String(value ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+	}
+	function failureHtml(text, error) {
+		const details = describeError(error);
+		if (!details) return text;
+		return `${text}<details style="margin-top: 10px;"><summary style="cursor: pointer;">${escapeAttr(I18N("NX_DETAILS"))}</summary><pre style="margin: 6px 0 0; padding: 6px 8px; max-height: 220px; overflow: auto; text-align: left; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; background: rgba(0, 0, 0, 0.3); border-radius: 4px; user-select: text; -webkit-user-select: text;">${escapeAttr(details)}</pre></details>`;
 	}
 	function sleep(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
@@ -1249,7 +1293,10 @@
 			};
 		} catch (e) {
 			console.error(e);
-			return { error: true };
+			return {
+				error: true,
+				failure: e
+			};
 		}
 	}
 	async function loseBattleOnPurpose(attempt, missionId, chapterId, heroes, lossStart = NX_LOSS_TIMER_RANGE.min) {
@@ -1300,7 +1347,7 @@
 			};
 		} catch (e) {
 			console.error(e);
-			return null;
+			return { failure: e };
 		}
 	}
 	function rankStep(fragments) {
@@ -1572,13 +1619,13 @@
 				if (this.holds.delete(hold)) hold.release();
 			};
 		}
-		async notice(text) {
+		async notice(text, error) {
 			if (this.replaced) return false;
 			await this.windowsFree();
 			if (this.replaced) return false;
 			this.waitingForPlayer = true;
 			try {
-				await this.reporter.notice(text);
+				await this.reporter.notice(text, error);
 			} finally {
 				this.waitingForPlayer = false;
 			}
@@ -2225,7 +2272,10 @@
 	}
 	async function defaultShopPhase(attempt, setup, point, missionId) {
 		const stall = attempt.stall;
-		if (!stall) return { kind: "fatal" };
+		if (!stall) return {
+			kind: "fatal",
+			error: I18N("NX_FAIL_NO_STALL")
+		};
 		try {
 			const opened = await stall.open((offered) => attempt.takeTalisman(setup, offered));
 			if (opened.kind === "retry") return {
@@ -2260,7 +2310,10 @@
 			};
 		} catch (e) {
 			console.error(e);
-			return { kind: "fatal" };
+			return {
+				kind: "fatal",
+				error: e
+			};
 		}
 	}
 	async function runArchdemonNewChapterDefault(attempt, setup) {
@@ -2275,7 +2328,10 @@
 			});
 		} catch (e) {
 			console.error(e);
-			return { kind: "fatal" };
+			return {
+				kind: "fatal",
+				error: e
+			};
 		}
 		attempt.setFragments(chapterInfo.invasion.fragments);
 		await attempt.wallet.onChapterEntry(chapterInfo, attempt.number > 1);
@@ -2292,7 +2348,10 @@
 			};
 			if (point > 1) await pause(NX_PACE.afterBattle);
 			const visit = await defaultShopPhase(attempt, setup, point, missionId);
-			if (visit.kind === "fatal") return { kind: "fatal" };
+			if (visit.kind === "fatal") return {
+				kind: "fatal",
+				error: visit.error
+			};
 			if (visit.kind === "retry") return {
 				kind: "retry",
 				reason: visit.reason
@@ -2318,7 +2377,14 @@
 			}));
 			await pause(NX_PACE.beforeBattle);
 			const fight = await fightPoint(attempt, missionId, setup.chapterId, team.heroes, team.pet, team.favor, point);
-			if (fight.error || !fight.info) return { kind: "fatal" };
+			if (fight.error) return {
+				kind: "fatal",
+				error: fight.failure
+			};
+			if (!fight.info) return {
+				kind: "fatal",
+				error: I18N("NX_FAIL_NO_STATE")
+			};
 			if (fight.invalid) return {
 				kind: "fatal",
 				message: I18N("NX_ERR_RESULT_INVALID")
@@ -2338,7 +2404,10 @@
 		await pause(NX_PACE.afterBattle);
 		if (attempt.stopped) return stoppedOutcome();
 		const stall = attempt.stall;
-		if (!stall) return { kind: "fatal" };
+		if (!stall) return {
+			kind: "fatal",
+			error: I18N("NX_FAIL_NO_STALL")
+		};
 		try {
 			const finalVisit = await stall.open((offered) => attempt.takeTalisman(setup, offered));
 			if (finalVisit.kind === "retry") return {
@@ -2350,7 +2419,10 @@
 			await buyFinalDefault(attempt, stall, finalVisit.slots, setup, fragments);
 		} catch (e) {
 			console.error(e);
-			return { kind: "fatal" };
+			return {
+				kind: "fatal",
+				error: e
+			};
 		}
 		if (attempt.stopped) return stoppedOutcome();
 		const result = checkArchdemonNewConditions(setup, attempt.wallet.value, (await attempt.units()).fragments);
@@ -2362,7 +2434,10 @@
 	}
 	async function wealthShopPhase(attempt, setup, point, sacrificePoint = 0) {
 		const stall = attempt.stall;
-		if (!stall) return { kind: "fatal" };
+		if (!stall) return {
+			kind: "fatal",
+			error: I18N("NX_FAIL_NO_STALL")
+		};
 		try {
 			const opened = await stall.open((offered) => attempt.takeTalisman(setup, offered));
 			if (opened.kind === "retry") return {
@@ -2462,7 +2537,10 @@
 			};
 		} catch (e) {
 			console.error(e);
-			return { kind: "fatal" };
+			return {
+				kind: "fatal",
+				error: e
+			};
 		}
 	}
 	function countUnseenCarry(session, setup, fragments, seen) {
@@ -2503,7 +2581,10 @@
 			};
 		} catch (e) {
 			console.error(e);
-			return { kind: "fatal" };
+			return {
+				kind: "fatal",
+				error: e
+			};
 		}
 	}
 	async function wealthFinalShopping(attempt, stall, setup, shopSlots) {
@@ -2527,7 +2608,10 @@
 			return { kind: "done" };
 		} catch (e) {
 			console.error(e);
-			return { kind: "fatal" };
+			return {
+				kind: "fatal",
+				error: e
+			};
 		}
 	}
 	async function spendExtraCoins(attempt, setup) {
@@ -2536,7 +2620,10 @@
 		const fragments = (await attempt.units()).fragments;
 		if (!collectedState(setup, fragments).done) return { kind: "done" };
 		const stall = attempt.stall;
-		if (!stall) return { kind: "fatal" };
+		if (!stall) return {
+			kind: "fatal",
+			error: I18N("NX_FAIL_NO_STALL")
+		};
 		const wallet = attempt.wallet;
 		const startCoins = wallet.value;
 		let refreshes = 0;
@@ -2561,7 +2648,10 @@
 			}
 		} catch (e) {
 			console.error(e);
-			return { kind: "fatal" };
+			return {
+				kind: "fatal",
+				error: e
+			};
 		}
 		if (shown && !attempt.stopped) attempt.progress(spendLine(), "spend");
 		if (refreshes) console.log(`${NX_LOG_CASH} лишние монеты: было ${startCoins} (${coinsToPercent(startCoins)}%), обновлений ${refreshes}, стало ${wallet.value} (${coinsToPercent(wallet.value)}%), у автора ${target}%`);
@@ -2643,7 +2733,10 @@
 			await attempt.wallet.onChapterEntry(chapterInfo, attempt.number > 1);
 		} catch (e) {
 			console.error(e);
-			return { kind: "fatal" };
+			return {
+				kind: "fatal",
+				error: e
+			};
 		}
 		const actions = Object.values(chapterInfo.invasion.actions);
 		let lives = chapterInfo.invasion.lives;
@@ -2653,7 +2746,10 @@
 		const sacrificePoint = currentSacrificePoint(setup, lastPoint);
 		await pause(NX_PACE.chapterEnter);
 		let visit = await wealthShopPhase(attempt, setup, 1, sacrificePoint);
-		if (visit.kind === "fatal") return { kind: "fatal" };
+		if (visit.kind === "fatal") return {
+			kind: "fatal",
+			error: visit.error
+		};
 		if (visit.kind === "retry") return {
 			kind: "retry",
 			reason: visit.reason
@@ -2685,8 +2781,11 @@
 					const coinsBeforeLoss = visit.coins;
 					const teamKey = sacrificeTeam.join("+");
 					const loss = await loseBattleOnPurpose(attempt, missionId, setup.chapterId, sacrificeTeam, attempt.session.lossStart[teamKey]);
-					if (loss?.lossTimer != null) attempt.session.lossStart[teamKey] = nextLossStart(loss.lossTimer);
-					if (!loss?.info) return { kind: "fatal" };
+					if (loss.lossTimer != null) attempt.session.lossStart[teamKey] = nextLossStart(loss.lossTimer);
+					if (!loss.info) return {
+						kind: "fatal",
+						error: "failure" in loss ? loss.failure : I18N("NX_FAIL_NO_STATE")
+					};
 					if (loss.invalid) return {
 						kind: "fatal",
 						message: I18N("NX_ERR_RESULT_INVALID")
@@ -2707,7 +2806,10 @@
 					};
 					await pause(NX_PACE.afterBattle);
 					visit = await wealthShopPhase(attempt, setup, point, sacrificePoint);
-					if (visit.kind === "fatal") return { kind: "fatal" };
+					if (visit.kind === "fatal") return {
+						kind: "fatal",
+						error: visit.error
+					};
 					if (visit.kind === "retry") return {
 						kind: "retry",
 						reason: visit.reason
@@ -2724,7 +2826,14 @@
 			const fragmentsOwned = { ...(await attempt.units()).fragments };
 			const coinsBeforePoint = visit.coins;
 			const fight = await fightPoint(attempt, missionId, setup.chapterId, team.heroes, team.pet, team.favor, point);
-			if (fight.error || !fight.info) return { kind: "fatal" };
+			if (fight.error) return {
+				kind: "fatal",
+				error: fight.failure
+			};
+			if (!fight.info) return {
+				kind: "fatal",
+				error: I18N("NX_FAIL_NO_STATE")
+			};
 			if (fight.invalid) return {
 				kind: "fatal",
 				message: I18N("NX_ERR_RESULT_INVALID")
@@ -2748,7 +2857,10 @@
 			if (point < lastPoint) {
 				await pause(NX_PACE.afterBattle);
 				visit = await wealthShopPhase(attempt, setup, point + 1, sacrificePoint);
-				if (visit.kind === "fatal") return { kind: "fatal" };
+				if (visit.kind === "fatal") return {
+					kind: "fatal",
+					error: visit.error
+				};
 				if (visit.kind === "retry") return {
 					kind: "retry",
 					reason: visit.reason
@@ -2759,13 +2871,19 @@
 		await pause(NX_PACE.afterBattle);
 		if (attempt.stopped) return stoppedOutcome();
 		const stall = attempt.stall;
-		if (!stall) return { kind: "fatal" };
+		if (!stall) return {
+			kind: "fatal",
+			error: I18N("NX_FAIL_NO_STALL")
+		};
 		let finalVisit;
 		try {
 			finalVisit = await stall.open((offered) => attempt.takeTalisman(setup, offered));
 		} catch (e) {
 			console.error(e);
-			return { kind: "fatal" };
+			return {
+				kind: "fatal",
+				error: e
+			};
 		}
 		if (finalVisit.kind === "retry") return {
 			kind: "retry",
@@ -2781,13 +2899,20 @@
 			}
 		}
 		const finalOutcome = await wealthFinalShopping(attempt, stall, setup, finalVisit.slots);
-		if (finalOutcome.kind === "fatal") return { kind: "fatal" };
+		if (finalOutcome.kind === "fatal") return {
+			kind: "fatal",
+			error: finalOutcome.error
+		};
 		if (finalOutcome.kind === "retry") return {
 			kind: "retry",
 			reason: finalOutcome.reason
 		};
 		if (attempt.stopped) return stoppedOutcome();
-		if ((await spendExtraCoins(attempt, setup)).kind === "fatal") return { kind: "fatal" };
+		const spent = await spendExtraCoins(attempt, setup);
+		if (spent.kind === "fatal") return {
+			kind: "fatal",
+			error: spent.error
+		};
 		if (attempt.stopped) return stoppedOutcome();
 		return checkArchdemonNewConditions(setup, attempt.wallet.value, (await attempt.units()).fragments);
 	}
@@ -2828,7 +2953,7 @@
 				return;
 			}
 			if (outcome.kind === "fatal") {
-				if (await session.notice(outcome.message ?? I18N("NX_FAILED", { version: GM_info.script.version }))) syncAndReturnToMenu(reporter);
+				if (await session.notice(outcome.message ?? I18N("NX_FAILED", { version: GM_info.script.version }), outcome.error)) syncAndReturnToMenu(reporter);
 				return;
 			}
 			if (outcome.kind === "ready") {
@@ -2872,7 +2997,7 @@
 				if (!await reporter.countdown(pause, () => session.stopped)) break;
 			} catch (e) {
 				console.error(e);
-				if (await session.notice(I18N("NX_FAILED", { version: GM_info.script.version }))) syncAndReturnToMenu(reporter);
+				if (await session.notice(I18N("NX_FAILED", { version: GM_info.script.version }), e)) syncAndReturnToMenu(reporter);
 				return;
 			}
 		}
@@ -3031,9 +3156,9 @@
 		countdown(seconds, stopped) {
 			return this.log.countdown(seconds, stopped);
 		}
-		async notice(text) {
+		async notice(text, error) {
 			setProgress("", true);
-			await popup.confirm(text);
+			await popup.confirm(failureHtml(text, error));
 		}
 		async askAfterBoss(report) {
 			setProgress("", true);
@@ -3062,9 +3187,6 @@
 			this.log.line(I18N("NX_REPLACING"), null);
 		}
 	};
-	function escapeAttr(value) {
-		return String(value ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-	}
 	var CARD = 96;
 	var OCTAGON = "polygon(22% 0, 78% 0, 100% 22%, 100% 78%, 78% 100%, 22% 100%, 0 78%, 0 22%)";
 	var EMPTY_SLOT_FALLBACK = "linear-gradient(180deg, #4a3a5c 0%, #2a2038 100%)";
@@ -6563,7 +6685,7 @@
 		} catch (e) {
 			console.error(e);
 			setProgress("", true);
-			await popup.confirm(I18N("NX_START_FAILED", { version: GM_info.script.version }));
+			await popup.confirm(failureHtml(I18N("NX_START_FAILED", { version: GM_info.script.version }), e));
 			syncGame();
 		} finally {
 			release?.();
@@ -6614,7 +6736,7 @@
 			await runArchdemonNewLoop(session, setup);
 		} catch (e) {
 			console.error(e);
-			if (await session.notice(I18N("NX_FAILED", { version: GM_info.script.version }))) syncGame();
+			if (await session.notice(I18N("NX_FAILED", { version: GM_info.script.version }), e)) syncGame();
 		} finally {
 			finished();
 			if (running === current) running = null;
@@ -6634,7 +6756,7 @@
 				} catch (e) {
 					console.error(e);
 					setProgress("", true);
-					await popup.confirm(I18N("NX_START_FAILED", { version: GM_info.script.version }));
+					await popup.confirm(failureHtml(I18N("NX_START_FAILED", { version: GM_info.script.version }), e));
 				}
 			},
 			color: "green"
@@ -6694,7 +6816,7 @@
 		} catch (e) {
 			console.error(e);
 			setProgress("", true);
-			await popup.confirm(I18N("NX_START_FAILED", { version: GM_info.script.version }));
+			await popup.confirm(failureHtml(I18N("NX_START_FAILED", { version: GM_info.script.version }), e));
 			syncGame();
 		}
 	}
