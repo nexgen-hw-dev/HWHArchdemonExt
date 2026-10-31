@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.09-beta
+// @version         1.10-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -92,12 +92,12 @@
 	} };
 	var NX_PRESET_SITES = [{
 		name: "HWDaily",
-		url: "https://hwdaily.win/eva-event/archdemon",
+		url: "https://hwdaily.win/spooky-festival/archdemon",
 		author: "Fragator",
 		key: "NX_PRESETS_SITE_HWDAILY"
 	}, {
 		name: "HWMAP",
-		url: "https://hwmap.online/invasion/2999000034/teams",
+		url: "https://hwmap.online/invasion/3032000034/teams",
 		author: "Kircheis",
 		key: "NX_PRESETS_SITE_HWMAP"
 	}];
@@ -272,6 +272,7 @@
 			NX_PRESETS_NO_PET: "No main pet",
 			NX_PRESETS_GO: "Let's go",
 			NX_PRESETS_GO_HINT: "Run the chosen chapter with this build: carry {carry}, {sacrifice} throws point {point}, no spare refreshes and no unknown cards",
+			NX_PRESETS_GO_HINT_PLAIN: "Run the chosen chapter with this build",
 			NX_PRESETS_BACK: "Back",
 			NX_PRESETS_LOADING: "Loading the builds…",
 			NX_PRESETS_WAIT_SOON: "Ready-made builds for this event will appear on the last day of the Adventure. Until then, try it on your own: put a team together and grab your spot on the leaderboard!",
@@ -476,6 +477,7 @@
 			NX_PRESETS_NO_PET: "Без основного питомца",
 			NX_PRESETS_GO: "Поехали",
 			NX_PRESETS_GO_HINT: "Пройти выбранную главу по этой сборке: проходные {carry}, точку {point} сливает {sacrifice}, без запаса обновлений и без неизвестных карт",
+			NX_PRESETS_GO_HINT_PLAIN: "Пройти выбранную главу по этой сборке",
 			NX_PRESETS_BACK: "Назад",
 			NX_PRESETS_LOADING: "Загружаем сборки…",
 			NX_PRESETS_WAIT_SOON: "Готовые сборки для этого события появятся в последний день Приключения. А пока попробуйте свои силы: подберите команду сами и успейте занять место в рейтинге!",
@@ -6400,7 +6402,10 @@
 		};
 	}
 	function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = false, buff = preset.buff }) {
-		const { carry, sacrifice } = presetCarry(buff);
+		const { carry, sacrifice } = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? presetCarry(buff) : {
+			carry: [],
+			sacrifice: 0
+		};
 		const parsed = preset.parsed ?? parseArchdemonNewTeam(preset.teamRaw);
 		const targetPercent = preset.coins ? coinsToPercent(preset.coins) : 0;
 		return {
@@ -6421,7 +6426,7 @@
 			carryTargets: Object.fromEntries(carry.map((id) => [id, 1])),
 			carryExtraHeroes: [],
 			startRefreshes: 0,
-			sacrificeHeroes: [sacrifice],
+			sacrificeHeroes: sacrifice ? [sacrifice] : [],
 			sacrificeRefreshes: 0,
 			sacrificePoint: NX_PRESET_SACRIFICE_POINT,
 			pauseAfterBoss: false,
@@ -6626,9 +6631,10 @@
 		const author = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${authorText}</a>` : authorText;
 		const video = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(I18N("NX_PRESETS_VIDEO"))}" style="flex: none;">${PLAY_ICON}</a>` : "";
 		const matched = preset.buff === Number(buff);
-		return `<div style="display: flex; align-items: center; gap: 6px; padding: 5px 0; border-top: 1px solid rgba(206, 151, 103, 0.25);"><div style="width: ${COL.damage}px; flex: none; text-align: right; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="width: ${COL.buff}px; flex: none; text-align: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="width: ${COL.coins}px; flex: none; text-align: center; font-size: 13px;">${preset.coins || "—"}</div><div style="display: flex; width: ${COL.talismans}px; flex: none; justify-content: center;">${talismans}</div><div style="display: flex; width: ${COL.pet}px; flex: none; justify-content: center;">${pet}</div><div style="display: flex; gap: 3px; flex: none;">${heroes}</div><div style="flex: 1; min-width: 60px; display: flex; align-items: center; gap: 6px; overflow: hidden;"><span style="min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div>` + editButtonHtml(`nxPresetGo${index}`, goHint(buff), I18N("NX_PRESETS_GO")) + "</div>";
+		return `<div style="display: flex; align-items: center; gap: 6px; padding: 5px 0; border-top: 1px solid rgba(206, 151, 103, 0.25);"><div style="width: ${COL.damage}px; flex: none; text-align: right; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="width: ${COL.buff}px; flex: none; text-align: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="width: ${COL.coins}px; flex: none; text-align: center; font-size: 13px;">${preset.coins || "—"}</div><div style="display: flex; width: ${COL.talismans}px; flex: none; justify-content: center;">${talismans}</div><div style="display: flex; width: ${COL.pet}px; flex: none; justify-content: center;">${pet}</div><div style="display: flex; gap: 3px; flex: none;">${heroes}</div><div style="flex: 1; min-width: 60px; display: flex; align-items: center; gap: 6px; overflow: hidden;"><span style="min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div>` + editButtonHtml(`nxPresetGo${index}`, goHint(buff, preset.talismanIds[0]), I18N("NX_PRESETS_GO")) + "</div>";
 	}
-	function goHint(buff) {
+	function goHint(buff, firstEmblem) {
+		if (firstEmblem !== NX_WEALTH_TALISMAN_ID) return I18N("NX_PRESETS_GO_HINT_PLAIN");
 		const { carry, sacrifice } = presetCarry(buff);
 		return I18N("NX_PRESETS_GO_HINT", {
 			carry: carry.map(unitName).join(", "),
