@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.11-beta
+// @version         1.12-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -335,11 +335,9 @@
 			NX_REPLACING: "Stopping the previous run…",
 			NX_LOG_LAST_FAIL: "Last failed run {attempt}: {reason}",
 			NX_TIMER_SEARCH: "Picking the battle timer {count} of {max}",
-			NX_WIN_FOUND_WAIT: "Winning battle found, sending it in {seconds} s",
 			NX_WIN_SENT: "Winning battle sent",
 			NX_WIN_NOT_FOUND: "No winning battle found, the plain auto battle goes",
 			NX_LOSS_SEARCH: "Looking for a losing battle to throw the point, {count} of {max}",
-			NX_LOSS_FOUND_WAIT: "Losing battle found, sending it in {seconds} s",
 			NX_LOSS_SENT: "Losing battle sent",
 			NX_LOSS_NOT_FOUND: "No losing battle found, the plain auto battle goes",
 			NX_BLOCK_SQUAD: "Goal: collect this team",
@@ -540,11 +538,9 @@
 			NX_REPLACING: "Останавливаем прошлый прогон…",
 			NX_LOG_LAST_FAIL: "Прошлый неудачный заход {attempt}: {reason}",
 			NX_TIMER_SEARCH: "Подбор таймера боя {count} из {max}",
-			NX_WIN_FOUND_WAIT: "Комбинация победы найдена, отправим через {seconds} с",
 			NX_WIN_SENT: "Победа отправлена",
 			NX_WIN_NOT_FOUND: "Победа не найдена, уходит обычный автобой",
 			NX_LOSS_SEARCH: "Ищем проигрыш для слива {count} из {max}",
-			NX_LOSS_FOUND_WAIT: "Комбинация проигрыша найдена, отправим через {seconds} с",
 			NX_LOSS_SENT: "Проигрыш отправлен",
 			NX_LOSS_NOT_FOUND: "Проигрыш не найден, уходит обычный автобой",
 			NX_BLOCK_SQUAD: "Цель — собрать этот состав",
@@ -1551,25 +1547,6 @@
 			}
 		};
 	}
-	function lossSkipWait(timer, battleTimer, battleTime) {
-		const full = Number(battleTimer);
-		const length = Number(battleTime);
-		let k = 1 / 1.5;
-		if (Number.isFinite(full) && full > 1.5 && Number.isFinite(length) && length > 0) k = (full - 1.5) / length;
-		k = Math.min(1 / 1.5, Math.max(.2, k));
-		const [min, max] = NX_PACE.autoBattle;
-		const wait = Number(timer) * k + 1.5 + (min + Math.random() * (max - min)) / 1e3;
-		return Number.isFinite(full) && full > 0 ? Math.min(full, wait) : wait;
-	}
-	async function waitWithCountdown(startedAt, seconds, onTick) {
-		let left = startedAt + Number(seconds) * 1e3 - Date.now();
-		while (left > 0) {
-			onTick(Math.ceil(left / 1e3));
-			const step = Math.min(1e3, left);
-			await sleep(step);
-			left -= step;
-		}
-	}
 	function defendersSnapshot(battle) {
 		const team = battle?.defenders?.[0];
 		return {
@@ -1657,8 +1634,7 @@
 				}
 			}
 			const improved = Number(improvedTimer) > 0;
-			if (improved) await waitWithCountdown(startedAt, Number(improvedTimer), (seconds) => attempt.progress(I18N("NX_WIN_FOUND_WAIT", { seconds }), "timer", true));
-			else await waitBattleTime(startedAt);
+			await waitBattleTime(startedAt);
 			const end = await sendBattleEnd(attempt, missionId, outcome);
 			if (improved) attempt.progress(I18N("NX_WIN_SENT"), "timer", true);
 			const where = point ? `точка ${point}` : `бой ${missionId}`;
@@ -1689,7 +1665,6 @@
 			const startedAt = Date.now();
 			console.log(`Слив: противник на старте ${JSON.stringify(defendersSnapshot(battle))}`);
 			let outcome = await Calc(battle);
-			let improvedTimer = 0;
 			let lossTimer = null;
 			if (outcome.result?.win) {
 				const searchStart = Date.now();
@@ -1703,16 +1678,13 @@
 						progress: found.progress
 					};
 					lossTimer = found.timer;
-					const fullWait = found.battleTimer ?? outcome.battleTimer;
-					improvedTimer = lossSkipWait(lossTimer, fullWait, found.battleTime);
-					console.log(`Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, ждём ${improvedTimer.toFixed(1)} с как пропуск после «авто» (весь бой ${fullWait} с), перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`);
+					console.log(`Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, уходит как автобой, перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`);
 				} else {
 					console.log(`Слив: проигрыша не нашлось за ${tries} расчётов и ${Date.now() - searchStart} мс, уходит обычный автобой`);
 					attempt.progress(I18N("NX_LOSS_NOT_FOUND"), "timer", true);
 				}
 			}
-			if (lossTimer != null) await waitWithCountdown(startedAt, improvedTimer, (seconds) => attempt.progress(I18N("NX_LOSS_FOUND_WAIT", { seconds }), "timer", true));
-			else await waitBattleTime(startedAt);
+			await waitBattleTime(startedAt);
 			const end = await sendBattleEnd(attempt, missionId, outcome);
 			if (lossTimer != null) attempt.progress(I18N("NX_LOSS_SENT"), "timer", true);
 			console.log("Слив, расчёт вернул", JSON.stringify(outcome.result));
