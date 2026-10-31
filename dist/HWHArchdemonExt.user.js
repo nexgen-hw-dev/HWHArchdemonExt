@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.13-beta
+// @version         1.14-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -39,7 +39,7 @@
 		betweenActions: [230, 600],
 		beforeBattle: [530, 1e3],
 		chapterEnter: [400, 530],
-		autoBattle: [1200, 2e3]
+		autoBattle: [1400, 2e3]
 	};
 	var NX_SAVE_KEYS = {
 		chapter: "savedChapterForArchdemonNew",
@@ -340,6 +340,7 @@
 			NX_LOSS_SEARCH: "Looking for a losing battle to throw the point, {count} of {max}",
 			NX_LOSS_SENT: "Losing battle sent",
 			NX_LOSS_NOT_FOUND: "No losing battle found, the plain auto battle goes",
+			NX_POINT_BLOCKED: "Battle {id} is not a regular point: the game data marks it as the main boss, a rating battle or a battle that cannot be skipped. The run stopped so as not to send such a battle without waiting",
 			NX_BLOCK_SQUAD: "Goal: collect this team",
 			NX_SQUAD_EDIT: "Edit",
 			NX_SQUAD_EDIT_HINT: "Pick the heroes, their ranks and patrons, and the main pet",
@@ -543,6 +544,7 @@
 			NX_LOSS_SEARCH: "Ищем проигрыш для слива {count} из {max}",
 			NX_LOSS_SENT: "Проигрыш отправлен",
 			NX_LOSS_NOT_FOUND: "Проигрыш не найден, уходит обычный автобой",
+			NX_POINT_BLOCKED: "Бой {id} не похож на обычную точку: по данным игры это главный босс, бой рейтинга или бой без пропуска. Прогон остановлен, чтобы не отправить такой бой без ожидания",
 			NX_BLOCK_SQUAD: "Цель — собрать этот состав",
 			NX_SQUAD_EDIT: "Изменить",
 			NX_SQUAD_EDIT_HINT: "Выбрать героев, их ранги и покровителей, основного питомца",
@@ -706,6 +708,14 @@
 	}
 	function chapterById(id) {
 		return lib.data.invasion.chapter[id];
+	}
+	function phaseBoss(chapterId, missionId) {
+		for (const phase of Object.values(lib.data.invasion.phase ?? {})) {
+			if (Number(phase?.chapterId) !== Number(chapterId)) continue;
+			const boss = phase.phaseData?.boss?.[missionId];
+			if (boss) return boss;
+		}
+		return null;
 	}
 	function chapterDate(value) {
 		return Date.parse(String(value).replace(" ", "T") + "Z");
@@ -1446,6 +1456,7 @@
 		}
 	};
 	var NO_HELPER_BASE = class {};
+	var NEVER_STOPPED = () => false;
 	var searchClasses = null;
 	function timerSearchClasses() {
 		const Base = WinFixBattle ?? NO_HELPER_BASE;
@@ -1456,26 +1467,28 @@
 		};
 		return searchClasses;
 	}
-	function createPointTimerSearch(battle, range, report) {
-		return new (timerSearchClasses()).PointTimerSearch(battle, range, report);
+	function createPointTimerSearch(battle, range, report, stopped = NEVER_STOPPED) {
+		return new (timerSearchClasses()).PointTimerSearch(battle, range, report, stopped);
 	}
-	function createLossTimerSearch(battle, start, report, range) {
-		return new (timerSearchClasses()).LossTimerSearch(battle, start, report, range);
+	function createLossTimerSearch(battle, start, report, range, stopped = NEVER_STOPPED) {
+		return new (timerSearchClasses()).LossTimerSearch(battle, start, report, range, stopped);
 	}
-	function logTimerQueue(log, battleTime, min) {
-		const length = Number(battleTime);
-		if (!Array.isArray(log) || !Number.isFinite(length) || length - .1 < min) return [];
-		const end = length - .1;
+	function logTimerQueue(log, end, min) {
+		if (!Array.isArray(log) || !Number.isFinite(end)) return [];
 		const times = [...new Set(log.map((event) => Number(event?.time)))].filter((time) => Number.isFinite(time) && time >= min && time < end);
 		for (let i = times.length - 1; i > 0; i--) {
 			const j = Math.floor(Math.random() * (i + 1));
 			[times[i], times[j]] = [times[j], times[i]];
 		}
-		return [end, ...times];
+		return times;
+	}
+	function insideRange(timer, min, max) {
+		const reflected = timer > max ? 2 * max - timer : timer < min ? 2 * min - timer : timer;
+		return Math.min(max, Math.max(min, reflected));
 	}
 	function declarePointTimerSearch(Base) {
 		return class PointTimerSearch extends Base {
-			constructor(battle, range, report) {
+			constructor(battle, range, report, stopped = NEVER_STOPPED) {
 				super(battle);
 				this.isGetTimer = false;
 				this.minTimer = range.min;
@@ -1483,14 +1496,16 @@
 				this.pending = [];
 				this.depth = 0;
 				this.report = report;
+				this.stopped = stopped;
 				this.fromLog = false;
 			}
 			takeLogTimers() {
 				this.fromLog = true;
-				const queue = logTimerQueue(this.lastResult?.battleLogs?.[0], this.lastResult?.battleTime, this.minTimer);
-				if (!queue.length) return;
-				this.pending.push(...queue);
-				this.maxTimer = queue[0];
+				const log = this.lastResult?.battleLogs?.[0];
+				const end = Number(this.lastResult?.battleTime) - .1;
+				if (!Array.isArray(log) || !Number.isFinite(end) || end <= this.minTimer) return;
+				this.pending.push(...logTimerQueue(log, end, this.minTimer));
+				this.maxTimer = end;
 			}
 			addLayer() {
 				const parts = NX_TIMER_SEARCH_GRID * 2 ** this.depth;
@@ -1498,7 +1513,7 @@
 				const first = this.depth === 0;
 				for (let i = first ? 0 : 1; i <= parts; i += first ? 1 : 2) {
 					const timer = this.minTimer + i * step + (Math.random() - .5) * step * .5;
-					this.pending.push(Math.min(this.maxTimer, Math.max(this.minTimer, timer)));
+					this.pending.push(insideRange(timer, this.minTimer, this.maxTimer));
 				}
 				this.depth++;
 			}
@@ -1506,6 +1521,9 @@
 				if (!this.fromLog) this.takeLogTimers();
 				if (this.pending.length === 0) this.addLayer();
 				return this.pending.shift();
+			}
+			isEndLoop() {
+				return this.stopped() || super.isEndLoop();
 			}
 			showResult() {
 				this.report(I18N("NX_TIMER_SEARCH", {
@@ -1533,13 +1551,14 @@
 	}
 	function declareLossTimerSearch(Base) {
 		return class LossTimerSearch extends Base {
-			constructor(battle, start, report, range = NX_LOSS_TIMER_RANGE) {
+			constructor(battle, start, report, range = NX_LOSS_TIMER_RANGE, stopped = NEVER_STOPPED) {
 				super(battle);
 				this.isGetTimer = false;
 				this.minTimer = range.min;
 				this.maxTimer = range.max;
 				this.pending = lossTimerQueue(start, range);
 				this.report = report;
+				this.stopped = stopped;
 			}
 			randTimer() {
 				if (this.pending.length === 0) this.exhausted = true;
@@ -1557,7 +1576,7 @@
 				};
 			}
 			isEndLoop() {
-				return Boolean(this.bestResult?.result) && this.bestResult.result.win === false || this.exhausted || this.count >= this.maxCount || this.endTime < Date.now();
+				return Boolean(this.bestResult?.result) && this.bestResult.result.win === false || this.exhausted || this.stopped() || this.count >= this.maxCount || this.endTime < Date.now();
 			}
 			showResult() {
 				this.report(I18N("NX_LOSS_SEARCH", {
@@ -1578,10 +1597,16 @@
 			effects: battle?.effects?.defenders ?? null
 		};
 	}
-	async function waitBattleTime(startedAt) {
+	async function waitSkip(from) {
 		const [min, max] = NX_PACE.autoBattle;
-		const left = startedAt + min + Math.random() * (max - min) - Date.now();
+		const left = from + min + Math.random() * (max - min) - Date.now();
 		if (left > 0) await sleep(left);
+	}
+	function pointBattleBlock(chapterId, missionId) {
+		const boss = phaseBoss(chapterId, missionId);
+		if (!boss || boss.isMainBoss !== true && Number(boss.skip) === 1 && !boss.eventConfig) return null;
+		console.error(`Бой ${missionId} главы ${chapterId} не начинаем: главный босс ${boss.isMainBoss}, пропуск ${boss.skip}, рейтинг ${boss.eventConfig?.type ?? "нет"}`);
+		return I18N("NX_POINT_BLOCKED", { id: missionId });
 	}
 	async function sendBattleEnd(attempt, missionId, outcome) {
 		const call = new Caller([{
@@ -1621,6 +1646,11 @@
 	}
 	async function fightPoint(attempt, missionId, chapterId, heroes, pet, favor, point) {
 		try {
+			const blocked = pointBattleBlock(chapterId, missionId);
+			if (blocked) return {
+				error: true,
+				failure: new Error(blocked)
+			};
 			const battle = await Caller.send({
 				name: "invasion_bossStart",
 				args: {
@@ -1633,28 +1663,30 @@
 			});
 			const startedAt = Date.now();
 			let outcome = await Calc(battle);
-			let improvedTimer = 0;
+			let improved = false;
+			let skipFrom = startedAt;
 			let story = `автобой выиграл, бой ${secondsText(outcome.battleTime)} с`;
 			if (!outcome.result.win) {
 				const searchStart = Date.now();
-				const search = createPointTimerSearch(battle, NX_BATTLE_TIMER_RANGE, (text) => attempt.progress(text, "timer"));
+				const search = createPointTimerSearch(battle, NX_BATTLE_TIMER_RANGE, (text) => attempt.progress(text, "timer"), () => attempt.stopped);
 				const found = await search.start(startedAt + NX_TIMER_SEARCH_BUDGET_MS, NX_TIMER_SEARCH_MAX_TRIES);
-				const searched = `перебор ${found.maxCount ?? search.count ?? 0} расчётов за ${secondsText((Date.now() - searchStart) / 1e3)} с`;
+				skipFrom = Date.now();
+				const cut = attempt.stopped ? ", прерван «Стоп»" : "";
+				const searched = `перебор ${found.maxCount ?? search.count ?? 0} расчётов за ${secondsText((skipFrom - searchStart) / 1e3)} с${cut}`;
 				if (found.result?.win) {
 					outcome = {
 						...outcome,
 						result: found.result,
 						progress: found.progress
 					};
-					improvedTimer = found.battleTimer ?? outcome.battleTimer;
+					improved = true;
 					story = `улучшен, победа на таймере ${Number(found.timer).toFixed(2)} с, ${searched}, бой ${secondsText(found.battleTime)} с`;
 				} else {
 					story = `победы не нашлось, ${searched}, уходит автобой, бой ${secondsText(outcome.battleTime)} с`;
 					attempt.progress(I18N("NX_WIN_NOT_FOUND"), "timer", true);
 				}
 			}
-			const improved = Number(improvedTimer) > 0;
-			await waitBattleTime(startedAt);
+			await waitSkip(skipFrom);
 			const end = await sendBattleEnd(attempt, missionId, outcome);
 			if (improved) attempt.progress(I18N("NX_WIN_SENT"), "timer", true);
 			const where = point ? `точка ${point}` : `бой ${missionId}`;
@@ -1673,6 +1705,8 @@
 	}
 	async function loseBattleOnPurpose(attempt, missionId, chapterId, heroes, lossStart = NX_LOSS_TIMER_RANGE.min) {
 		try {
+			const blocked = pointBattleBlock(chapterId, missionId);
+			if (blocked) return { failure: new Error(blocked) };
 			const battle = await Caller.send({
 				name: "invasion_bossStart",
 				args: {
@@ -1686,10 +1720,12 @@
 			console.log(`Слив: противник на старте ${JSON.stringify(defendersSnapshot(battle))}`);
 			let outcome = await Calc(battle);
 			let lossTimer = null;
+			let skipFrom = startedAt;
 			if (outcome.result?.win) {
 				const searchStart = Date.now();
-				const search = createLossTimerSearch(battle, lossStart, (text) => attempt.progress(text, "timer"));
+				const search = createLossTimerSearch(battle, lossStart, (text) => attempt.progress(text, "timer"), void 0, () => attempt.stopped);
 				const found = await search.start(searchStart + NX_LOSS_SEARCH_BUDGET_MS, NX_LOSS_SEARCH_MAX_TRIES);
+				skipFrom = Date.now();
 				const tries = found.maxCount ?? search.count ?? 0;
 				if (found.result && found.result.win === false) {
 					outcome = {
@@ -1698,13 +1734,13 @@
 						progress: found.progress
 					};
 					lossTimer = found.timer;
-					console.log(`Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, уходит как автобой, перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`);
+					console.log(`Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, уходит после поиска и пропуска, перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`);
 				} else {
 					console.log(`Слив: проигрыша не нашлось за ${tries} расчётов и ${Date.now() - searchStart} мс, уходит обычный автобой`);
 					attempt.progress(I18N("NX_LOSS_NOT_FOUND"), "timer", true);
 				}
 			}
-			await waitBattleTime(startedAt);
+			await waitSkip(skipFrom);
 			const end = await sendBattleEnd(attempt, missionId, outcome);
 			if (lossTimer != null) attempt.progress(I18N("NX_LOSS_SENT"), "timer", true);
 			console.log("Слив, расчёт вернул", JSON.stringify(outcome.result));
