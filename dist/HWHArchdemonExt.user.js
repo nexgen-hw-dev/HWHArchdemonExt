@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.06-beta
+// @version         1.07-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -346,6 +346,7 @@
 			NX_PICK_TAB_HEROES: "Heroes",
 			NX_PICK_TAB_PETS: "Pet",
 			NX_PICK_HEROES_TITLE: "Pick heroes",
+			NX_PICK_SEARCH: "Search by name",
 			NX_PICK_PETS_TITLE: "Pick the main pet",
 			NX_PICK_SAVE: "Save",
 			NX_PICK_NEED: "At least one hero is needed",
@@ -548,6 +549,7 @@
 			NX_PICK_TAB_HEROES: "Герои",
 			NX_PICK_TAB_PETS: "Питомец",
 			NX_PICK_HEROES_TITLE: "Выбери героев",
+			NX_PICK_SEARCH: "Поиск по имени",
 			NX_PICK_PETS_TITLE: "Выбери основного питомца",
 			NX_PICK_SAVE: "Сохранить",
 			NX_PICK_NEED: "Нужен хотя бы один герой",
@@ -5291,6 +5293,10 @@
 		}) + win.label(text, x + fx, y + fy, fw, fh, 18, color, "", { place: "top" });
 	}
 	var TEAM_SIZE = 5;
+	function nameMatches(name, query) {
+		const needle = query.trim().toLocaleLowerCase();
+		return !needle || name.toLocaleLowerCase().includes(needle);
+	}
 	var PICKER_Z = 10050;
 	var STAGE_W = 940;
 	var STAGE_H = 680;
@@ -5436,6 +5442,7 @@
 		let patronFor = 0;
 		let texts = firstTexts;
 		let validate = firstValidate;
+		let searchText = "";
 		const pawHtml = () => {
 			const paw = anim(PAW_ANIM, 3, 3, { cls: "nxNoHit" });
 			if (!paw) return piece("icon_pet_favor_not_set", 2, 2, {
@@ -5502,7 +5509,14 @@
 				starKey: `grid-p${id}`
 			})
 		});
-		const cellHtml = (grid, id, index) => grid.card(id, GRID.padX + index % GRID.cols * GRID.step, GRID.padY + Math.floor(index / GRID.cols) * GRID.rowStep, grid.checked(id));
+		const slotX = (index) => GRID.padX + index % GRID.cols * GRID.step;
+		const slotY = (index) => GRID.padY + Math.floor(index / GRID.cols) * GRID.rowStep;
+		const cellHtml = (grid, id, index) => grid.card(id, slotX(index), slotY(index), grid.checked(id));
+		const shownIds = (grid) => grid.tab === "heroes" && searchText.trim() ? grid.ids.filter((id) => nameMatches(unitName(id), searchText)) : grid.ids;
+		const positionOf = (grid, id) => {
+			const shown = shownIds(grid).indexOf(id);
+			return shown >= 0 ? shown : grid.ids.indexOf(id);
+		};
 		const gridHtml = (grid) => {
 			const cells = grid.ids.map((id, index) => win.part(`data-cell="${id}"`, cellHtml(grid, id, index))).join("");
 			const rows = Math.ceil(grid.ids.length / GRID.cols);
@@ -5667,6 +5681,16 @@
 			}) + items + "</div></div>";
 		};
 		const tabsHtml = () => tabHtml("heroes", texts.tabHeroes, 181) + (withPets ? tabHtml("pets", texts.tabPets, 229) : "");
+		const SEARCH = {
+			w: 210,
+			h: 28,
+			y: 67
+		};
+		const searchHtml = () => {
+			if (!texts.search || tab !== "heroes") return "";
+			const left = OX + GRID.x + GRID.w - SEARCH.w;
+			return `<style>.nxSearchInput::placeholder { color: #b89a74; opacity: 1; }</style><input data-search type="text" class="nxSearchInput" value="${escapeAttr(searchText)}" placeholder="${escapeAttr(texts.search)}" autocomplete="off" spellcheck="false" style="position: absolute; left: ${left}px; top: ${SEARCH.y}px; width: ${SEARCH.w}px; height: ${SEARCH.h}px; box-sizing: border-box; padding: 0 28px 0 12px; border: 2px solid #ce9767; border-radius: 14px; background: rgba(25, 14, 8, 0.92); color: #fbe0ac; font: 600 15px sans-serif; outline: none; z-index: 2;"><div data-search-clear class="nxBox" style="left: ${left + SEARCH.w - 26}px; top: ${SEARCH.y + 4}px; width: 20px; height: 20px; display: ${searchText ? "block" : "none"}; color: #fbe0ac; font: 700 18px/20px sans-serif; text-align: center; cursor: pointer; z-index: 3;">×</div>`;
+		};
 		const messageHtml = () => label(message, OX + GRID.x, 496, GRID.w, 26, 16, "#ffb347");
 		const teamKey = () => JSON.stringify([[...team], chosenMainPet]);
 		const built = new Set();
@@ -5687,6 +5711,12 @@
 				name: "tabs",
 				key: () => tab,
 				html: tabsHtml
+			},
+			{
+				name: "search",
+				key: () => texts.search && tab === "heroes" ? texts.search : "",
+				html: searchHtml,
+				after: () => bindSearch()
 			},
 			...grids.map((grid) => ({
 				name: `grid-${grid.tab}`,
@@ -5728,7 +5758,7 @@
 			const top = list.scrollTop - GRID.padY;
 			const first = Math.max(0, Math.floor((top - 22) / GRID.rowStep) + 1);
 			const last = Math.ceil((top + GRID.h + 18) / GRID.rowStep) - 1;
-			return grid.ids.slice(first * GRID.cols, (last + 1) * GRID.cols).map((id) => stage.querySelector(`[data-cell="${id}"]`)).filter((cell) => cell !== null);
+			return shownIds(grid).slice(first * GRID.cols, (last + 1) * GRID.cols).map((id) => stage.querySelector(`[data-cell="${id}"]`)).filter((cell) => cell !== null);
 		};
 		const quietScroll = new WeakSet();
 		const watchGrid = (grid) => {
@@ -5791,17 +5821,56 @@
 				changed.push(el);
 				part.after?.();
 			}
-			for (const grid of grids) grid.ids.forEach((id, index) => {
+			for (const grid of grids) grid.ids.forEach((id) => {
 				const checked = grid.checked(id);
 				if (shownChecks.get(id) === checked) return;
 				const cell = stage.querySelector(`[data-cell="${id}"]`);
 				if (!cell) return;
-				win.render(cellHtml(grid, id, index), cell);
+				win.render(cellHtml(grid, id, positionOf(grid, id)), cell);
 				shownChecks.set(id, checked);
 				changed.push(cell);
 			});
 			showTab();
 			if (changed.length) win.paintTexts(changed);
+		};
+		const applySearch = () => {
+			const clear = stage.querySelector("[data-search-clear]");
+			if (clear) clear.style.display = searchText ? "block" : "none";
+			const grid = grids[0];
+			const list = gridPart(grid)?.querySelector(".nxList");
+			if (!list) return;
+			const shown = shownIds(grid);
+			const place = new Map(shown.map((id, index) => [id, index]));
+			for (const id of grid.ids) {
+				const cell = stage.querySelector(`[data-cell="${id}"]`);
+				if (!cell) continue;
+				const index = place.get(id);
+				cell.style.display = index === void 0 ? "none" : "contents";
+				const card = cell.firstElementChild;
+				if (index === void 0 || !card) continue;
+				card.style.left = `${slotX(index)}px`;
+				card.style.top = `${slotY(index)}px`;
+			}
+			const body = list.firstElementChild;
+			if (body) body.style.height = `${GRID.padY + Math.ceil(shown.length / GRID.cols) * GRID.rowStep}px`;
+			if (list.scrollTop) {
+				quietScroll.add(list);
+				list.scrollTop = 0;
+			}
+			win.paintTexts(visibleCells(grid, list));
+		};
+		const bindSearch = () => {
+			const input = stage.querySelector("[data-search]");
+			if (!input) return;
+			input.addEventListener("input", () => {
+				searchText = input.value;
+				applySearch();
+			});
+			for (const type of [
+				"keydown",
+				"keyup",
+				"keypress"
+			]) input.addEventListener(type, (event) => event.stopPropagation());
 		};
 		const resetScroll = () => {
 			for (const grid of grids) {
@@ -5823,6 +5892,13 @@
 			event.stopPropagation();
 			event.preventDefault();
 			if (event.type !== "keyup") return;
+			const input = stage.querySelector("[data-search]");
+			if (input && event.target === input && searchText) {
+				searchText = "";
+				input.value = "";
+				applySearch();
+				return;
+			}
 			if (patronFor) {
 				patronFor = 0;
 				update();
@@ -5853,6 +5929,16 @@
 					patronFor = 0;
 					update();
 				}
+				return;
+			}
+			if (el = at("[data-search-clear]")) {
+				const input = stage.querySelector("[data-search]");
+				searchText = "";
+				if (input) {
+					input.value = "";
+					input.focus();
+				}
+				applySearch();
 				return;
 			}
 			if (el = at("[data-patron]")) {
@@ -5955,6 +6041,10 @@
 			patronFor = 0;
 			texts = openTexts;
 			validate = openValidate;
+			const hadSearch = Boolean(searchText);
+			searchText = "";
+			const input = stage.querySelector("[data-search]");
+			if (input) input.value = "";
 			return new Promise((resolve) => {
 				let done = false;
 				const finish = (value) => {
@@ -5977,6 +6067,7 @@
 				} else {
 					win.show();
 					update();
+					if (hadSearch) applySearch();
 					resetScroll();
 				}
 			});
@@ -6010,6 +6101,7 @@
 			tabHeroes: I18N("NX_PICK_TAB_HEROES"),
 			tabPets: I18N("NX_PICK_TAB_PETS"),
 			heroesTitle: I18N("NX_PICK_HEROES_TITLE"),
+			search: I18N("NX_PICK_SEARCH"),
 			petsTitle: I18N("NX_PICK_PETS_TITLE"),
 			save: I18N("NX_PICK_SAVE"),
 			cancel: I18N("NX_CANCEL"),
@@ -6652,7 +6744,9 @@
 		}).join("");
 	}
 	function versionLabelHtml(version, update) {
-		return `<span style="position: absolute; left: 14px; top: 2px; font-size: 11px; line-height: 14px; white-space: nowrap;">${`<span style="opacity: 0.6;">v${escapeAttr(version)}</span>`}${update ? ` <span style="color: LimeGreen;">· ${escapeAttr(I18N("NX_UPDATE_SHORT", { version: update }))}</span><a href="${NX_GREASYFORK_URL}" target="_blank" rel="noopener" title="${escapeAttr(I18N("NX_UPDATE_HINT"))}" style="display: inline-block; margin-left: 6px; padding: 0 6px; height: 14px; line-height: 14px; font-size: 10px; border-radius: 3px; background: #2e7d32; border: 1px solid #1b5e20; color: #fff; text-decoration: none; vertical-align: top;">${escapeAttr(I18N("NX_UPDATE_BUTTON"))}</a>` : ""}</span>`;
+		const current = `<span style="opacity: 0.6;">v${escapeAttr(version)}</span>`;
+		const button = `<a href="${NX_GREASYFORK_URL}" target="_blank" rel="noopener" title="${escapeAttr(I18N("NX_UPDATE_HINT"))}" style="display: inline-flex; padding: 0 1px 3px; border-radius: 4px; text-decoration: none; cursor: pointer; background: hsl(120, 60%, 10%); box-shadow: 0 0 2px 0 hsl(36, 88%, 7%), 0 -1px 2px 0 hsl(36, 88%, 7%), 0 1px 1px 0 hsl(120, 60%, 12%);"><span style="display: flex; align-items: center; justify-content: center; height: 16px; padding: 0 9px; border-radius: 3px; background: hsl(120, 60%, 50%); color: hsl(120, 60%, 90%); font: 700 11px Arial, sans-serif; letter-spacing: 0.3px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.92);">${escapeAttr(I18N("NX_UPDATE_BUTTON"))}</span></a>`;
+		return `<span style="position: absolute; left: 14px; top: 1px; display: flex; align-items: center; gap: 6px; font-size: 11px; line-height: 14px; white-space: nowrap;">${current}${update ? `<span style="color: LimeGreen;">· ${escapeAttr(I18N("NX_UPDATE_SHORT", { version: update }))}</span>${button}` : ""}</span>`;
 	}
 	async function archdemonNewSetup(chapters, buffAmount, relicLevel) {
 		const library = await loadGameGui(SETUP_GUI_FILES);
