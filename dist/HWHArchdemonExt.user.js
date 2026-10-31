@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.03-beta
+// @version         1.04-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -77,6 +77,11 @@
 	var NX_PRESETS_MIRROR_KEY = "HWHArchdemonExt.presets.mirror";
 	var NX_PRESETS_STORAGE_KEY = "HWHArchdemonExt.presets.v1";
 	var NX_PRESETS_TTL_MS = 72e5;
+	var NX_UPDATE_URLS = ["https://raw.githubusercontent.com/nexgen-hw-dev/HWHArchdemonExt/main/dist/HWHArchdemonExt.user.js", "https://cdn.jsdelivr.net/gh/nexgen-hw-dev/HWHArchdemonExt@main/dist/HWHArchdemonExt.user.js"];
+	var NX_UPDATE_TTL_MS = 216e5;
+	var NX_UPDATE_RETRY_MS = 36e5;
+	var NX_UPDATE_STORAGE_KEY = "HWHArchdemonExt.update.v1";
+	var NX_GREASYFORK_URL = "https://greasyfork.org/scripts/597541";
 	var NX_PRESETS_TIMEOUT_MS = 5e3;
 	var NX_PRESETS_FORCE_KEY = "HWHArchdemonExt.presets.forcedAt";
 	var NX_PRESETS_FORCE_INTERVAL_MS = 6e4;
@@ -316,6 +321,9 @@
 			NX_PROGRESS_SACRIFICE: "To throw",
 			NX_PROGRESS_PETS: "Pets",
 			NX_EVENT_PIN: "Pinned",
+			NX_UPDATE_AVAILABLE: "Version {version} is available. Reload the game page after updating",
+			NX_UPDATE_BUTTON: "Update",
+			NX_UPDATE_HINT: "Opens the add-on page on Greasy Fork",
 			NX_EVENT_UNPIN: "Unpinned",
 			NX_EVENT_BUY: "Bought for <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_EVENT_SELL: "Sold for <span style=\"color: LimeGreen;\">{coins}</span>",
@@ -519,6 +527,9 @@
 			NX_PROGRESS_SACRIFICE: "Для слива",
 			NX_PROGRESS_PETS: "Питомцы",
 			NX_EVENT_PIN: "Закрепили",
+			NX_UPDATE_AVAILABLE: "Доступна версия {version}. После обновления перезагрузите страницу игры",
+			NX_UPDATE_BUTTON: "Обновить",
+			NX_UPDATE_HINT: "Откроется страница дополнения на Greasy Fork",
 			NX_EVENT_UNPIN: "Сняли закреп",
 			NX_EVENT_BUY: "Купили за <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_EVENT_SELL: "Продали за <span style=\"color: LimeGreen;\">{coins}</span>",
@@ -845,6 +856,92 @@
 		const details = describeError(error);
 		if (!details) return text;
 		return `${text}<details style="margin-top: 10px;"><summary style="cursor: pointer;">${escapeAttr(I18N("NX_DETAILS"))}</summary><pre style="margin: 6px 0 0; padding: 6px 8px; max-height: 220px; overflow: auto; text-align: left; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; background: rgba(0, 0, 0, 0.3); border-radius: 4px; user-select: text; -webkit-user-select: text;">${escapeAttr(details)}</pre></details>`;
+	}
+	var STAGES = {
+		alpha: 0,
+		beta: 1,
+		rc: 2
+	};
+	function parseVersion(version) {
+		const m = /^\s*(\d+)\.(\d+)(?:\.(\d+))?(?:-([a-z]+))?/i.exec(String(version ?? ""));
+		if (!m) return null;
+		const stage = m[4] ? STAGES[m[4].toLowerCase()] ?? 0 : 3;
+		return [
+			Number(m[1]),
+			Number(m[2]),
+			Number(m[3] ?? 0),
+			stage
+		];
+	}
+	function isNewer(candidate, current) {
+		const a = parseVersion(candidate);
+		const b = parseVersion(current);
+		if (!a || !b) return false;
+		for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];
+		return false;
+	}
+	function versionFromHeader(text) {
+		return /\/\/\s*@version\s+(\S+)/.exec(text)?.[1] ?? null;
+	}
+	function readCache$1(storage) {
+		try {
+			const cached = JSON.parse(storage?.getItem(NX_UPDATE_STORAGE_KEY) ?? "null");
+			return cached && Number.isFinite(cached.exp) ? cached : null;
+		} catch {
+			return null;
+		}
+	}
+	function writeCache$1(storage, cache) {
+		try {
+			storage?.setItem(NX_UPDATE_STORAGE_KEY, JSON.stringify(cache));
+		} catch (e) {
+			console.error(e);
+		}
+	}
+	async function fetchVersion(fetchImpl, url) {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), NX_PRESETS_TIMEOUT_MS);
+		try {
+			const response = await fetchImpl(url, {
+				headers: { Range: `bytes=0-1023` },
+				cache: "no-store",
+				signal: controller.signal
+			});
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			const version = versionFromHeader(await response.text());
+			if (!version) throw new Error("нет @version в шапке");
+			return version;
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+	async function checkForUpdate(options = {}) {
+		const { storage = globalThis.localStorage, clock = Date.now, fetchImpl = globalThis.fetch, urls = NX_UPDATE_URLS } = options;
+		const now = clock();
+		const cached = readCache$1(storage);
+		if (cached && cached.exp > now) return cached.version;
+		for (const url of urls) try {
+			const version = await fetchVersion(fetchImpl, url);
+			writeCache$1(storage, {
+				exp: now + NX_UPDATE_TTL_MS,
+				version
+			});
+			return version;
+		} catch (e) {
+			console.log(`Проверка версии: ${new URL(url).hostname} не ответил`, e);
+		}
+		writeCache$1(storage, {
+			exp: now + NX_UPDATE_RETRY_MS,
+			version: null
+		});
+		return null;
+	}
+	function availableUpdate(current, storage = globalThis.localStorage) {
+		const version = readCache$1(storage)?.version ?? null;
+		return isNewer(version, current) ? version : null;
+	}
+	function onGamePage() {
+		return typeof location !== "undefined" && typeof fetch === "function" && /(^|\.)(hero-wars\.com|hero-wars\.cn|fbsbx\.com)$/.test(location.hostname);
 	}
 	function rankStep(fragments) {
 		if (fragments >= 7) return 7;
@@ -7199,11 +7296,25 @@
 			result: false,
 			color: "green"
 		}];
+		const update = availableUpdate(GM_info.script.version);
+		if (update) popupButtons.push({
+			get msg() {
+				return I18N("NX_UPDATE_BUTTON");
+			},
+			get title() {
+				return I18N("NX_UPDATE_HINT");
+			},
+			result: function() {
+				window.open(NX_GREASYFORK_URL, "_blank", "noopener");
+			},
+			color: "green"
+		});
 		popupButtons.push({
 			result: false,
 			isClose: true
 		});
-		const answerPromise = popup.confirm(I18N("NX_ARCHDEMON"), popupButtons);
+		const message = update ? `${I18N("NX_ARCHDEMON")}<br><span style="font-size: 14px; color: LimeGreen;">${I18N("NX_UPDATE_AVAILABLE", { version: escapeAttr(update) })}</span>` : I18N("NX_ARCHDEMON");
+		const answerPromise = popup.confirm(message, popupButtons);
 		const autoName = I18N("NX_ARCHDEMON_AUTO");
 		for (const button of popup.buttons ?? []) if (button?.textContent?.includes(autoName)) {
 			button.style.opacity = "0.45";
@@ -7266,6 +7377,7 @@
 		registerTexts();
 		addMenuEntry();
 		preloadWindows().catch((e) => console.error(e));
+		if (onGamePage()) checkForUpdate().catch((e) => console.error(e));
 	}
 	var helperReady = () => typeof HWHClasses !== "undefined" && typeof HWHFuncs !== "undefined" && typeof HWHData !== "undefined";
 	async function waitForHelper() {
