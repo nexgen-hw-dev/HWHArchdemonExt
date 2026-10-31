@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         0.99-alpha
+// @version         1.00-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -57,7 +57,9 @@
 		randomAny: "savedBuyAnyRandomLotsForArchdemonNew",
 		stopIncomplete: "savedStopIfIncompleteForArchdemonNew",
 		sacrificePoint: "savedSacrificePointForArchdemonNew",
-		keepExtraCoins: "savedKeepExtraCoinsForArchdemonNew"
+		keepExtraCoins: "savedKeepExtraCoinsForArchdemonNew",
+		logPosition: "savedRunLogPositionForArchdemonNew",
+		logCollapsed: "savedRunLogCollapsedForArchdemonNew"
 	};
 	var NX_HELPER_POLL_MS = 200;
 	var NX_HELPER_WAIT_MS = 6e4;
@@ -304,6 +306,11 @@
 			NX_BLOCK_RANDOM_ANY: "Buy unknown cards at any price",
 			NX_BLOCK_RANDOM_ANY_HINT: "Unchecked: only when cheaper than {price}, then resale pays them back. Checked: always, in case needed heroes are inside",
 			NX_LOG_STOP: "Stop",
+			NX_LOG_COLLAPSE: "Collapse the log to two lines",
+			NX_LOG_EXPAND: "Expand the log",
+			NX_LOG_POINT: "point {point}",
+			NX_LOG_COINS: "{coins} coins",
+			NX_POINT_TAKEN: "Point {point} taken",
 			NX_LOG_STOPPING: "Stopping…",
 			NX_REPLACING: "Stopping the previous run…",
 			NX_LOG_LAST_FAIL: "Last failed run {attempt}: {reason}",
@@ -494,6 +501,11 @@
 			NX_BLOCK_RANDOM_ANY: "Скупать неизвестные карты по любой цене",
 			NX_BLOCK_RANDOM_ANY_HINT: "Без галки: только дешевле {price}, тогда их окупает продажа. С галкой: всегда, вдруг там нужные герои",
 			NX_LOG_STOP: "Стоп",
+			NX_LOG_COLLAPSE: "Свернуть журнал до двух строк",
+			NX_LOG_EXPAND: "Развернуть журнал",
+			NX_LOG_POINT: "точка {point}",
+			NX_LOG_COINS: "монет {coins}",
+			NX_POINT_TAKEN: "Точка {point} взята",
 			NX_LOG_STOPPING: "Останавливаем…",
 			NX_REPLACING: "Останавливаем прошлый прогон…",
 			NX_LOG_LAST_FAIL: "Прошлый неудачный заход {attempt}: {reason}",
@@ -1033,6 +1045,7 @@
 		talismans = [];
 		session;
 		number;
+		point = null;
 		live = null;
 		eventStall = void 0;
 		constructor(session, number) {
@@ -1049,8 +1062,13 @@
 			this.eventStall.shopId = shopId;
 			return this.eventStall;
 		}
-		progress(text, liveKey = null) {
-			this.session.reporter.line(text, liveKey);
+		progress(text, liveKey = null, important = false) {
+			const reporter = this.session.reporter;
+			reporter.status?.({
+				point: this.point,
+				coins: this.wallet.value
+			});
+			reporter.line(text, liveKey, important);
 		}
 		setFragments(fragments) {
 			const next = nonZeroFragments(fragments);
@@ -1069,7 +1087,7 @@
 				args: { emblemId: pick }
 			});
 			this.talismans.push(pick);
-			this.progress(I18N("NX_TALISMAN_TAKEN", { name: emblemName(pick) }));
+			this.progress(I18N("NX_TALISMAN_TAKEN", { name: emblemName(pick) }), null, true);
 			return null;
 		}
 	};
@@ -1277,14 +1295,14 @@
 					story = `улучшен, победа на таймере ${Number(found.timer).toFixed(2)} с, ${searched}, бой ${secondsText(found.battleTime)} с`;
 				} else {
 					story = `победы не нашлось, ${searched}, уходит автобой, бой ${secondsText(outcome.battleTime)} с`;
-					attempt.progress(I18N("NX_WIN_NOT_FOUND"), "timer");
+					attempt.progress(I18N("NX_WIN_NOT_FOUND"), "timer", true);
 				}
 			}
 			const improved = Number(improvedTimer) > 0;
-			if (improved) await waitWithCountdown(startedAt, Number(improvedTimer), (seconds) => attempt.progress(I18N("NX_WIN_FOUND_WAIT", { seconds }), "timer"));
+			if (improved) await waitWithCountdown(startedAt, Number(improvedTimer), (seconds) => attempt.progress(I18N("NX_WIN_FOUND_WAIT", { seconds }), "timer", true));
 			else await waitBattleTime(startedAt);
 			const end = await sendBattleEnd(attempt, missionId, outcome);
-			if (improved) attempt.progress(I18N("NX_WIN_SENT"), "timer");
+			if (improved) attempt.progress(I18N("NX_WIN_SENT"), "timer", true);
 			const where = point ? `точка ${point}` : `бой ${missionId}`;
 			console.log(`${NX_LOG_BATTLE} ${where}: ${story}, отправлен через ${secondsText((Date.now() - startedAt) / 1e3)} с от старта`);
 			return {
@@ -1332,13 +1350,13 @@
 					console.log(`Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, ждём ${improvedTimer.toFixed(1)} с как пропуск после «авто» (весь бой ${fullWait} с), перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`);
 				} else {
 					console.log(`Слив: проигрыша не нашлось за ${tries} расчётов и ${Date.now() - searchStart} мс, уходит обычный автобой`);
-					attempt.progress(I18N("NX_LOSS_NOT_FOUND"), "timer");
+					attempt.progress(I18N("NX_LOSS_NOT_FOUND"), "timer", true);
 				}
 			}
-			if (lossTimer != null) await waitWithCountdown(startedAt, improvedTimer, (seconds) => attempt.progress(I18N("NX_LOSS_FOUND_WAIT", { seconds }), "timer"));
+			if (lossTimer != null) await waitWithCountdown(startedAt, improvedTimer, (seconds) => attempt.progress(I18N("NX_LOSS_FOUND_WAIT", { seconds }), "timer", true));
 			else await waitBattleTime(startedAt);
 			const end = await sendBattleEnd(attempt, missionId, outcome);
-			if (lossTimer != null) attempt.progress(I18N("NX_LOSS_SENT"), "timer");
+			if (lossTimer != null) attempt.progress(I18N("NX_LOSS_SENT"), "timer", true);
 			console.log("Слив, расчёт вернул", JSON.stringify(outcome.result));
 			return {
 				calcSaysWin: outcome.result?.win === true,
@@ -1764,7 +1782,7 @@
 			heroes: state.heroesLeft.length,
 			pets: state.petsLeft.length
 		});
-		attempt.progress(tick === null ? text : text + ".".repeat(tick % 3 + 1), "shopping");
+		attempt.progress(tick === null ? text : text + ".".repeat(tick % 3 + 1), "shopping", true);
 	}
 	async function buyForArchdemonNew(attempt, setup, { discountPets = false, minCoins = null, shopSlots: openedSlots = null, onTalismans = null } = {}) {
 		const coins = attempt.wallet;
@@ -2271,6 +2289,7 @@
 		return `${missionId}|${heroes}|${team.pet ?? 0}|${favor}`;
 	}
 	async function defaultShopPhase(attempt, setup, point, missionId) {
+		attempt.point = point;
 		const stall = attempt.stall;
 		if (!stall) return {
 			kind: "fatal",
@@ -2340,6 +2359,7 @@
 		const lastPoint = actions.length - 1;
 		await pause(NX_PACE.chapterEnter);
 		for (let point = 1; point <= lastPoint; point++) {
+			attempt.point = point;
 			if (attempt.stopped) return stoppedOutcome();
 			const missionId = actions[point - 1]?.payload?.id;
 			if (!missionId) return {
@@ -2399,10 +2419,12 @@
 				};
 			}
 			attempt.session.pointMemory[key] = "won";
+			attempt.progress(I18N("NX_POINT_TAKEN", { point }), null, true);
 			if (attempt.stopped) return stoppedOutcome();
 		}
 		await pause(NX_PACE.afterBattle);
 		if (attempt.stopped) return stoppedOutcome();
+		attempt.point = lastPoint + 1;
 		const stall = attempt.stall;
 		if (!stall) return {
 			kind: "fatal",
@@ -2414,7 +2436,7 @@
 				kind: "retry",
 				reason: finalVisit.reason
 			};
-			attempt.progress(I18N("NX_DEFAULT_FINAL", { attempt: attempt.number }));
+			attempt.progress(I18N("NX_DEFAULT_FINAL", { attempt: attempt.number }), null, true);
 			const fragments = (await attempt.units()).fragments;
 			await buyFinalDefault(attempt, stall, finalVisit.slots, setup, fragments);
 		} catch (e) {
@@ -2433,6 +2455,7 @@
 		return result;
 	}
 	async function wealthShopPhase(attempt, setup, point, sacrificePoint = 0) {
+		attempt.point = point;
 		const stall = attempt.stall;
 		if (!stall) return {
 			kind: "fatal",
@@ -2512,7 +2535,7 @@
 					refreshes,
 					bought: random.cheap,
 					coins: coins.value
-				}));
+				}), null, true);
 				const beforeRefresh = coins.value;
 				const refreshed = await stall.refresh();
 				attempt.ledger.add("обновления лавки", coins.value - beforeRefresh);
@@ -2566,7 +2589,7 @@
 					attempt: attempt.number,
 					refreshes,
 					max: limit
-				}));
+				}), null, true);
 				await applyStallPins(attempt, stall, shopSlots, setup, fragments);
 				const beforeRefresh = coins.value;
 				const refreshed = await stall.refresh();
@@ -2590,7 +2613,7 @@
 	async function wealthFinalShopping(attempt, stall, setup, shopSlots) {
 		try {
 			const fragments = (await attempt.units()).fragments;
-			attempt.progress(I18N("NX_WEALTH_FINAL", { attempt: attempt.number }));
+			attempt.progress(I18N("NX_WEALTH_FINAL", { attempt: attempt.number }), null, true);
 			await sellUnneededFragments(attempt, stall, setup, fragments, false);
 			const shopping = await buyForArchdemonNew(attempt, setup, {
 				discountPets: true,
@@ -2638,7 +2661,7 @@
 			while (coinsToPercent(wallet.value) > target && wallet.value >= NX_STALL_REFRESH_COST) {
 				if (attempt.stopped) break;
 				if (coinsToPercent(wallet.value - NX_STALL_REFRESH_COST) < target) break;
-				attempt.progress(spendLine(), "spend");
+				attempt.progress(spendLine(), "spend", true);
 				shown = true;
 				const before = wallet.value;
 				const refreshed = await stall.refresh();
@@ -2653,7 +2676,7 @@
 				error: e
 			};
 		}
-		if (shown && !attempt.stopped) attempt.progress(spendLine(), "spend");
+		if (shown && !attempt.stopped) attempt.progress(spendLine(), "spend", true);
 		if (refreshes) console.log(`${NX_LOG_CASH} лишние монеты: было ${startCoins} (${coinsToPercent(startCoins)}%), обновлений ${refreshes}, стало ${wallet.value} (${coinsToPercent(wallet.value)}%), у автора ${target}%`);
 		return { kind: "done" };
 	}
@@ -2755,6 +2778,7 @@
 			reason: visit.reason
 		};
 		for (let point = 1; point <= lastPoint; point++) {
+			attempt.point = point;
 			if (attempt.stopped) return stoppedOutcome();
 			const action = actions[point - 1];
 			if (!action) return {
@@ -2776,7 +2800,7 @@
 						attempt: attempt.number,
 						number,
 						total: NX_SACRIFICE_LOSSES
-					}));
+					}), null, true);
 					await pause(NX_PACE.beforeBattle);
 					const coinsBeforeLoss = visit.coins;
 					const teamKey = sacrificeTeam.join("+");
@@ -2849,6 +2873,7 @@
 					reason: I18N("NX_REASON_POINT_LOST", { point })
 				};
 			}
+			if (passed) attempt.progress(I18N("NX_POINT_TAKEN", { point }), null, true);
 			if (lives === 0) return {
 				kind: "retry",
 				reason: I18N("NX_REASON_NO_LIVES")
@@ -2870,6 +2895,7 @@
 		}
 		await pause(NX_PACE.afterBattle);
 		if (attempt.stopped) return stoppedOutcome();
+		attempt.point = lastPoint + 1;
 		const stall = attempt.stall;
 		if (!stall) return {
 			kind: "fatal",
@@ -3004,12 +3030,31 @@
 		if (await session.notice(I18N("NX_STOPPED", { attempt }))) syncAndReturnToMenu(reporter);
 	}
 	var NX_RUN_LOG_ID = "nxRunLog";
+	var EDGE = 4;
+	function clampToViewport(position, width, height, viewWidth, viewHeight) {
+		const fit = (value, size, view) => {
+			const max = Math.max(EDGE, (Number.isFinite(view) ? view : 0) - (Number.isFinite(size) ? size : 0) - EDGE);
+			return Math.round(Math.min(max, Math.max(EDGE, Number.isFinite(value) ? value : EDGE)));
+		};
+		return {
+			left: fit(position.left, width, viewWidth),
+			top: fit(position.top, height, viewHeight)
+		};
+	}
+	function savedPosition() {
+		const saved = typeof getSaveVal === "function" ? getSaveVal(NX_SAVE_KEYS.logPosition, null) : null;
+		if (!saved || !Number.isFinite(saved.left) || !Number.isFinite(saved.top)) return null;
+		return {
+			left: Number(saved.left),
+			top: Number(saved.top)
+		};
+	}
 	var PANEL_STYLE = [
 		"position: fixed",
 		"right: 110px",
 		"top: 60px",
-		"width: 360px",
-		"max-height: 60vh",
+		"width: 420px",
+		"max-height: calc(100vh * 2 / 3)",
 		"display: flex",
 		"flex-direction: column",
 		"box-sizing: border-box",
@@ -3022,7 +3067,7 @@
 		"letter-spacing: 0.5px",
 		"z-index: 10000"
 	].join("; ");
-	var STOP_STYLE = [
+	var BUTTON_STYLE = [
 		"background: #3a2414",
 		"color: #fbe0ac",
 		"border: 1px solid #ce9767",
@@ -3034,29 +3079,46 @@
 	var RunLog = class {
 		box = null;
 		live = null;
+		titleHtml = "";
+		briefHtml = "";
+		lastHtml = "";
+		collapsed = false;
+		position = null;
+		detach = [];
 		open(onStop) {
 			document.getElementById(NX_RUN_LOG_ID)?.remove();
 			const root = document.createElement("div");
 			root.id = NX_RUN_LOG_ID;
 			root.setAttribute("style", PANEL_STYLE);
-			root.innerHTML = `<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;"><div data-part="title" style="flex: 1; font-size: 15px; color: #ffcf84;"></div><button data-part="stop" type="button" style="${STOP_STYLE}"></button></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div>`;
+			root.innerHTML = `<div data-part="head" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: move; user-select: none; touch-action: none;"><div data-part="title" style="flex: 1; min-width: 0; font-size: 15px; color: #ffcf84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><button data-part="collapse" type="button" style="${BUTTON_STYLE}; padding: 2px 8px;"></button><button data-part="stop" type="button" style="${BUTTON_STYLE}"></button></div><div data-part="brief" style="display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div>`;
 			document.body.append(root);
 			const part = (name) => root.querySelector(`[data-part="${name}"]`);
 			const box = {
 				root,
+				head: part("head"),
 				title: part("title"),
+				collapse: part("collapse"),
+				stop: part("stop"),
+				brief: part("brief"),
 				last: part("last"),
 				list: part("list"),
-				footer: part("footer"),
-				stop: part("stop")
+				footer: part("footer")
 			};
 			this.box = box;
 			this.live = null;
+			this.titleHtml = "";
+			this.briefHtml = "";
 			box.stop.textContent = I18N("NX_LOG_STOP");
 			box.stop.addEventListener("click", () => {
 				this.stopping();
 				onStop();
 			});
+			box.collapse.addEventListener("click", () => this.setCollapsed(!this.collapsed, true));
+			this.setCollapsed(typeof getSaveVal === "function" && getSaveVal(NX_SAVE_KEYS.logCollapsed, false) === true, false);
+			this.enableDrag(box);
+			const saved = savedPosition();
+			if (saved) this.place(saved);
+			this.keepOnScreen(box);
 		}
 		stopping() {
 			if (!this.box) return;
@@ -3069,15 +3131,27 @@
 		startAttempt(attempt, lastFailure) {
 			const box = this.box;
 			if (!box) return;
-			box.title.innerHTML = I18N("NX_ATTEMPT", { attempt });
+			this.titleHtml = I18N("NX_ATTEMPT", { attempt });
+			box.title.innerHTML = this.titleHtml;
 			box.list.innerHTML = "";
 			box.footer.innerHTML = "";
 			box.footer.style.display = "none";
 			this.live = null;
+			this.lastHtml = "";
+			this.setBrief("");
 			if (lastFailure) {
 				box.last.innerHTML = I18N("NX_LOG_LAST_FAIL", lastFailure);
-				box.last.style.display = "";
-			} else box.last.style.display = "none";
+				box.last.style.display = this.collapsed ? "none" : "";
+			} else {
+				box.last.innerHTML = "";
+				box.last.style.display = "none";
+			}
+		}
+		status(point, coins) {
+			const box = this.box;
+			if (!box || !this.titleHtml) return;
+			const parts = [point ? I18N("NX_LOG_POINT", { point }) : "", I18N("NX_LOG_COINS", { coins })].filter(Boolean);
+			box.title.innerHTML = `${this.titleHtml}<span style="font-size: 12px; color: #e8c9a0;"> · ${parts.join(" · ")}</span>`;
 		}
 		addLine(box, html) {
 			const line = document.createElement("div");
@@ -3087,9 +3161,12 @@
 			box.list.scrollTop = box.list.scrollHeight;
 			return line;
 		}
-		line(html, liveKey = null) {
+		line(html, liveKey = null, important = false) {
 			const box = this.box;
 			if (!box) return;
+			this.lastHtml = html;
+			if (important) this.setBrief(html);
+			else if (!this.briefHtml) box.brief.innerHTML = html;
 			if (liveKey) {
 				const live = this.live;
 				if (live && live.key === liveKey && live.element.isConnected) {
@@ -3110,23 +3187,96 @@
 			if (!box) return;
 			this.live = null;
 			box.footer.innerHTML = `<div style="color: #ff6b6b;">${html}</div><div data-part="timer" style="margin-top: 4px;"></div>`;
-			box.footer.style.display = "";
+			box.footer.style.display = this.collapsed ? "none" : "";
+			this.setBrief(`<span style="color: #ff6b6b;">${html}</span>`);
 		}
 		async countdown(seconds, stopped) {
 			const finish = Date.now() + seconds * 1e3;
 			const timer = this.box?.footer.querySelector("[data-part=\"timer\"]") ?? null;
+			const reason = this.briefHtml;
 			while (Date.now() < finish) {
 				if (stopped()) return false;
-				if (timer) timer.textContent = I18N("NX_COOLDOWN", { seconds: ((finish - Date.now()) / 1e3).toFixed(1) });
+				const text = I18N("NX_COOLDOWN", { seconds: ((finish - Date.now()) / 1e3).toFixed(1) });
+				if (timer) timer.textContent = text;
+				if (this.collapsed && this.box) this.box.brief.innerHTML = reason ? `${reason} · ${text}` : text;
 				await sleep(100);
 			}
 			if (timer) timer.textContent = "";
+			if (this.box) this.box.brief.innerHTML = this.briefHtml || this.lastHtml;
 			return !stopped();
 		}
 		close() {
+			for (const undo of this.detach.splice(0)) undo();
 			this.box?.root.remove();
 			this.box = null;
 			this.live = null;
+		}
+		setBrief(html) {
+			this.briefHtml = html;
+			if (this.box) this.box.brief.innerHTML = html || this.lastHtml;
+		}
+		setCollapsed(collapsed, save) {
+			const box = this.box;
+			if (!box) return;
+			this.collapsed = collapsed;
+			const shown = (element, visible) => {
+				element.style.display = visible ? "" : "none";
+			};
+			shown(box.brief, collapsed);
+			shown(box.list, !collapsed);
+			shown(box.last, !collapsed && Boolean(box.last.innerHTML));
+			shown(box.footer, !collapsed && Boolean(box.footer.innerHTML));
+			box.collapse.textContent = collapsed ? "+" : "−";
+			box.collapse.title = I18N(collapsed ? "NX_LOG_EXPAND" : "NX_LOG_COLLAPSE");
+			if (save && typeof setSaveVal === "function") setSaveVal(NX_SAVE_KEYS.logCollapsed, collapsed);
+			if (this.position) this.place(this.position);
+		}
+		place(position) {
+			const box = this.box;
+			if (!box || typeof window === "undefined") return;
+			const next = clampToViewport(position, box.root.offsetWidth, box.root.offsetHeight, window.innerWidth, window.innerHeight);
+			box.root.style.right = "auto";
+			box.root.style.left = `${next.left}px`;
+			box.root.style.top = `${next.top}px`;
+			this.position = next;
+		}
+		enableDrag(box) {
+			box.head.addEventListener("pointerdown", (event) => {
+				if (event.button !== 0 || event.target?.closest?.("button")) return;
+				const rect = box.root.getBoundingClientRect();
+				const dx = event.clientX - rect.left;
+				const dy = event.clientY - rect.top;
+				try {
+					box.head.setPointerCapture?.(event.pointerId);
+				} catch {}
+				event.preventDefault();
+				const move = (e) => this.place({
+					left: e.clientX - dx,
+					top: e.clientY - dy
+				});
+				const end = () => {
+					box.head.removeEventListener("pointermove", move);
+					box.head.removeEventListener("pointerup", end);
+					box.head.removeEventListener("pointercancel", end);
+					if (this.position && typeof setSaveVal === "function") setSaveVal(NX_SAVE_KEYS.logPosition, this.position);
+				};
+				box.head.addEventListener("pointermove", move);
+				box.head.addEventListener("pointerup", end);
+				box.head.addEventListener("pointercancel", end);
+			});
+		}
+		keepOnScreen(box) {
+			if (typeof window === "undefined") return;
+			const refit = () => {
+				if (this.position && this.box === box) this.place(this.position);
+			};
+			window.addEventListener("resize", refit);
+			this.detach.push(() => window.removeEventListener("resize", refit));
+			if (typeof ResizeObserver === "function") {
+				const observer = new ResizeObserver(refit);
+				observer.observe(box.root);
+				this.detach.push(() => observer.disconnect());
+			}
 		}
 	};
 	function afterBossReportHtml(report) {
@@ -3143,12 +3293,15 @@
 		attemptStart(attempt, lastFailure) {
 			this.log.startAttempt(attempt, lastFailure);
 		}
-		line(text, liveKey) {
+		line(text, liveKey, important = false) {
 			if (this.log.isOpen()) {
-				this.log.line(text, liveKey);
+				this.log.line(text, liveKey, important);
 				return;
 			}
 			setProgress(text, false, this.onStop);
+		}
+		status(status) {
+			this.log.status(status.point, status.coins);
 		}
 		fail(text) {
 			this.log.fail(text);
