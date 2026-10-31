@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.01-beta
+// @version         1.02-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -315,6 +315,10 @@
 			NX_PROGRESS_CARRY: "Carry",
 			NX_PROGRESS_SACRIFICE: "To throw",
 			NX_PROGRESS_PETS: "Pets",
+			NX_EVENT_PIN: "Pinned",
+			NX_EVENT_UNPIN: "Unpinned",
+			NX_EVENT_BUY: "Bought for <span style=\"color: LimeGreen;\">{coins}</span>",
+			NX_EVENT_SELL: "Sold for <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_LOG_STOPPING: "Stopping…",
 			NX_REPLACING: "Stopping the previous run…",
 			NX_LOG_LAST_FAIL: "Last failed run {attempt}: {reason}",
@@ -514,6 +518,10 @@
 			NX_PROGRESS_CARRY: "Проходные",
 			NX_PROGRESS_SACRIFICE: "Для слива",
 			NX_PROGRESS_PETS: "Питомцы",
+			NX_EVENT_PIN: "Закрепили",
+			NX_EVENT_UNPIN: "Сняли закреп",
+			NX_EVENT_BUY: "Купили за <span style=\"color: LimeGreen;\">{coins}</span>",
+			NX_EVENT_SELL: "Продали за <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_LOG_STOPPING: "Останавливаем…",
 			NX_REPLACING: "Останавливаем прошлый прогон…",
 			NX_LOG_LAST_FAIL: "Прошлый неудачный заход {attempt}: {reason}",
@@ -1070,6 +1078,11 @@
 		if (setup.targets[fragmentId]) return setup.targets[fragmentId];
 		return 0;
 	}
+	function rewardUnits(reward) {
+		const out = {};
+		applyReward(out, reward);
+		return out;
+	}
 	function progressPlan(setup) {
 		const seen = new Set();
 		const take = (ids, need) => {
@@ -1263,6 +1276,8 @@
 				}
 			});
 			this.pinnedIds.delete(slot.id);
+			const units = rewardUnits(reward);
+			this.tell("buy", Object.keys(units).length ? units : rewardUnits(slot.reward), coinsOf(slot.cost));
 			return reward;
 		}
 		async pin(slot) {
@@ -1277,6 +1292,7 @@
 			slot.pinned = true;
 			this.pinnedIds.add(slot.id);
 			this.onChange();
+			this.tell("pin", rewardUnits(slot.reward), coinsOf(slot.cost));
 		}
 		async unpin(slot) {
 			await this.beforeAction();
@@ -1290,6 +1306,7 @@
 			slot.pinned = false;
 			this.pinnedIds.delete(slot.id);
 			this.onChange();
+			this.tell("unpin", rewardUnits(slot.reward), coinsOf(slot.cost));
 		}
 		async sell(fragments, unitId, amount) {
 			await this.beforeAction();
@@ -1302,7 +1319,9 @@
 			});
 			fragments[unitId] = 0;
 			this.onChange();
-			return coinsOf(answer);
+			const income = coinsOf(answer);
+			this.tell("sell", { [unitId]: amount }, income);
+			return income;
 		}
 		async get() {
 			const answer = await Caller.send({
@@ -1312,6 +1331,13 @@
 			const bonus = this.wallet.addReward(answer?.bonusReward);
 			if (bonus) console.log(`${NX_LOG_CASH} +${bonus} бонус за открытие лавки, монет ${this.wallet.value}`);
 			return this.see(Object.values(answer?.slots ?? {}));
+		}
+		tell(kind, units, coins) {
+			this.session.reporter.unitEvent?.({
+				kind,
+				units,
+				coins
+			});
 		}
 		see(slots) {
 			this.view = slots;
@@ -3411,6 +3437,28 @@
 		const picture = icon ? `<img src="${escapeAttr(icon)}" alt="" style="display: block; width: ${ICON}px; height: ${ICON}px; border-radius: 6px; ${filter}">` : `<div style="width: ${ICON}px; height: ${ICON}px; border-radius: 6px; background: #3a2414; ${filter}"></div>`;
 		return `<div data-unit="${id}" title="${escapeAttr(unitName(id))}" style="width: 44px; text-align: center;"><div style="position: relative; width: ${ICON}px; height: ${ICON}px; margin: 0 auto; border: 1px solid #ce976799; border-radius: 7px;">${picture}${isPinned ? PIN_SVG : ""}</div><div style="font-size: 11px; line-height: 14px; color: ${color};">${have}/${need}</div></div>`;
 	}
+	function smallIconHtml(id, icon) {
+		const box = "display: inline-block; width: 22px; height: 22px; border-radius: 4px; vertical-align: middle;";
+		if (id <= 0) return `<span style="${box} background: #3a2414; text-align: center; line-height: 22px;">?</span>`;
+		if (!icon) return `<span data-icon="${id}" style="${box} background: #3a2414;"></span>`;
+		return `<img data-icon="${id}" src="${escapeAttr(icon)}" alt="" title="${escapeAttr(unitName(id))}" style="${box}">`;
+	}
+	function unitEventHtml(event, icons) {
+		return `${Object.entries(event.units).map(([raw, count]) => {
+			const id = Number(raw);
+			const many = Number(count) > 1 ? `<span style="font-size: 11px; vertical-align: middle;">×${Number(count)}</span>` : "";
+			return smallIconHtml(id, icons[id] ?? "") + many;
+		}).join(" ")} ${eventText(event)}`;
+	}
+	function eventText(event) {
+		const coins = event.coins;
+		switch (event.kind) {
+			case "pin": return I18N("NX_EVENT_PIN");
+			case "unpin": return I18N("NX_EVENT_UNPIN");
+			case "buy": return I18N("NX_EVENT_BUY", { coins });
+			case "sell": return I18N("NX_EVENT_SELL", { coins });
+		}
+	}
 	function progressColumnHtml(groups, state, icons) {
 		return groups.map((group) => `<div style="margin-bottom: 6px;"><div style="font-size: 11px; color: #e8c9a0; margin-bottom: 3px;">${groupTitle(group.kind)}</div><div style="display: flex; flex-wrap: wrap; gap: 4px;">` + group.units.map((unit) => progressTileHtml(unit.id, unit.need, state, icons[unit.id] ?? "")).join("") + "</div></div>").join("");
 	}
@@ -3560,17 +3608,36 @@
 			this.drawn = "";
 			this.drawProgress();
 			if (this.position) this.place(this.position);
-			const ids = groups.flatMap((group) => group.units.map((unit) => unit.id));
 			if (!shown) return;
-			const heroes = ids.filter((id) => id < NX_PET_ID_THRESHOLD);
-			const pets = ids.filter((id) => id > NX_PET_ID_THRESHOLD);
-			Promise.all([loadHeroIcons(heroes, 80), loadUnitIcons(pets)]).then(([heroIcons, petIcons]) => {
-				this.icons = {
-					...heroIcons,
-					...petIcons
-				};
-				this.drawn = "";
-				this.drawProgress();
+			this.loadIcons(groups.flatMap((group) => group.units.map((unit) => unit.id))).catch((e) => console.error(e));
+		}
+		async loadIcons(ids) {
+			const missing = [...new Set(ids)].filter((id) => id > 0 && !(id in this.icons));
+			if (!missing.length) return;
+			const heroes = missing.filter((id) => id < NX_PET_ID_THRESHOLD);
+			const pets = missing.filter((id) => id > NX_PET_ID_THRESHOLD);
+			const [heroIcons, petIcons] = await Promise.all([loadHeroIcons(heroes, 80), loadUnitIcons(pets)]);
+			this.icons = {
+				...this.icons,
+				...heroIcons,
+				...petIcons
+			};
+			this.drawn = "";
+			this.drawProgress();
+		}
+		unitEvent(event) {
+			const box = this.box;
+			if (!box) return;
+			const html = unitEventHtml(event, this.icons);
+			const element = this.addLine(box, html);
+			this.lastHtml = html;
+			this.setBrief(html);
+			const ids = Object.keys(event.units).map(Number);
+			if (ids.every((id) => id <= 0 || id in this.icons)) return;
+			this.loadIcons(ids).then(() => {
+				const fresh = unitEventHtml(event, this.icons);
+				element.innerHTML = fresh;
+				if (this.briefHtml === html) this.setBrief(fresh);
 			}).catch((e) => console.error(e));
 		}
 		units(state) {
@@ -3757,6 +3824,9 @@
 		}
 		units(state) {
 			this.log.units(state);
+		}
+		unitEvent(event) {
+			this.log.unitEvent(event);
 		}
 		fail(text) {
 			this.log.fail(text);
