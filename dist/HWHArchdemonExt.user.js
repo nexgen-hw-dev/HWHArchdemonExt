@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.08-beta
+// @version         1.09-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -78,8 +78,9 @@
 	var NX_PRESETS_STORAGE_KEY = "HWHArchdemonExt.presets.v1";
 	var NX_PRESETS_TTL_MS = 72e5;
 	var NX_UPDATE_URLS = ["https://raw.githubusercontent.com/nexgen-hw-dev/HWHArchdemonExt/main/dist/HWHArchdemonExt.user.js", "https://cdn.jsdelivr.net/gh/nexgen-hw-dev/HWHArchdemonExt@main/dist/HWHArchdemonExt.user.js"];
-	var NX_UPDATE_TTL_MS = 216e5;
-	var NX_UPDATE_RETRY_MS = 36e5;
+	var NX_UPDATE_TTL_MS = 18e5;
+	var NX_UPDATE_RETRY_MS = 18e5;
+	var NX_UPDATE_BUST_MS = 3e5;
 	var NX_UPDATE_STORAGE_KEY = "HWHArchdemonExt.update.v1";
 	var NX_GREASYFORK_URL = "https://greasyfork.org/scripts/597541";
 	var NX_PRESETS_TIMEOUT_MS = 5e3;
@@ -3436,7 +3437,7 @@
 	var TILE = 44;
 	var GAP = 4;
 	var PROGRESS_WIDTH = 236;
-	var PIN_SVG = "<svg width=\"15\" height=\"15\" viewBox=\"0 0 16 16\" style=\"position: absolute; right: -4px; top: -5px;\"><path d=\"M10.5 1.5l4 4-1.6.6-2.7 2.7.5 3.3-1.4 1.4-2.8-2.8-3.6 3.6-.9-.9 3.6-3.6-2.8-2.8 1.4-1.4 3.3.5 2.7-2.7z\" fill=\"#e5533d\" stroke=\"#3a1a0e\" stroke-width=\"0.8\" stroke-linejoin=\"round\"/></svg>";
+	var PIN_SVG = "<svg width=\"15\" height=\"15\" viewBox=\"0 0 16 16\" style=\"position: absolute; right: -1px; top: -5px;\"><path d=\"M10.5 1.5l4 4-1.6.6-2.7 2.7.5 3.3-1.4 1.4-2.8-2.8-3.6 3.6-.9-.9 3.6-3.6-2.8-2.8 1.4-1.4 3.3.5 2.7-2.7z\" fill=\"#e5533d\" stroke=\"#3a1a0e\" stroke-width=\"0.8\" stroke-linejoin=\"round\"/></svg>";
 	function groupTitle(kind) {
 		switch (kind) {
 			case "team": return I18N("NX_PROGRESS_TEAM");
@@ -3568,7 +3569,7 @@
 			const root = document.createElement("div");
 			root.id = NX_RUN_LOG_ID;
 			root.setAttribute("style", PANEL_STYLE);
-			root.innerHTML = `<div data-part="head" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: move; user-select: none; touch-action: none;"><div data-part="title" style="flex: 1; min-width: 0; font-size: 15px; color: #ffcf84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><button data-part="collapse" type="button" style="${BUTTON_STYLE}; padding: 2px 8px;"></button><button data-part="stop" type="button" style="${BUTTON_STYLE}"></button></div><div data-part="brief" style="display: none; height: ${BRIEF_HEIGHT}px; line-height: ${BRIEF_HEIGHT}px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="body" style="flex: 1; min-height: 0; display: flex; gap: ${BODY_GAP}px; margin-top: 8px;"><div data-part="progress" style="display: none; flex: none; width: ${PROGRESS_WIDTH}px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column;"><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div></div></div>`;
+			root.innerHTML = `<div data-part="head" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: move; user-select: none; touch-action: none;"><div data-part="title" style="flex: 1; min-width: 0; font-size: 15px; color: #ffcf84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><button data-part="collapse" type="button" style="${BUTTON_STYLE}; padding: 2px 8px;"></button><button data-part="stop" type="button" style="${BUTTON_STYLE}"></button></div><div data-part="brief" style="display: none; height: ${BRIEF_HEIGHT}px; line-height: ${BRIEF_HEIGHT}px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="body" style="flex: 1; min-height: 0; display: flex; gap: ${BODY_GAP}px; margin-top: 8px;"><div data-part="progress" style="display: none; flex: none; width: ${PROGRESS_WIDTH}px; overflow-x: hidden; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column;"><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div></div></div>`;
 			document.body.append(root);
 			const part = (name) => root.querySelector(`[data-part="${name}"]`);
 			const box = {
@@ -6476,6 +6477,9 @@
 			console.error(e);
 		}
 	}
+	function cacheBustedUrl(url, now) {
+		return `${url}${url.includes("?") ? "&" : "?"}t=${Math.floor(now / NX_UPDATE_BUST_MS)}`;
+	}
 	async function fetchVersion(fetchImpl, url) {
 		const controller = new AbortController();
 		const timer = setTimeout(() => controller.abort(), NX_PRESETS_TIMEOUT_MS);
@@ -6497,9 +6501,9 @@
 		const { storage = globalThis.localStorage, clock = Date.now, fetchImpl = globalThis.fetch, urls = NX_UPDATE_URLS } = options;
 		const now = clock();
 		const cached = readCache(storage);
-		if (cached && cached.exp > now) return cached.version;
+		if (cached && cached.exp > now && cached.exp - now <= Math.max(NX_UPDATE_TTL_MS, NX_UPDATE_RETRY_MS)) return cached.version;
 		for (const url of urls) try {
-			const version = await fetchVersion(fetchImpl, url);
+			const version = await fetchVersion(fetchImpl, cacheBustedUrl(url, now));
 			writeCache(storage, {
 				exp: now + NX_UPDATE_TTL_MS,
 				version
@@ -6770,10 +6774,19 @@
 			return url ? `<img src="${url}" alt="" title="${escapeAttr(emblemName(id))}" style="width: 58px; height: 58px; margin: 0 -9px; flex: none;">` : `<div title="${escapeAttr(I18N("NX_ANY_TALISMAN"))}" style="width: 40px; height: 40px; margin: 9px 0; flex: none; border-radius: 50%; box-sizing: border-box; border: 2px dashed rgba(206, 151, 103, 0.45);"></div>`;
 		}).join("");
 	}
+	var VERSION_LABEL_ID = "nxVersionLabel";
 	function versionLabelHtml(version, update) {
 		const current = `<span style="opacity: 0.6;">v${escapeAttr(version)}</span>`;
 		const button = `<a href="${NX_GREASYFORK_URL}" target="_blank" rel="noopener" title="${escapeAttr(I18N("NX_UPDATE_HINT"))}" style="display: inline-flex; padding: 0 1px 3px; border-radius: 4px; text-decoration: none; cursor: pointer; background: hsl(120, 60%, 10%); box-shadow: 0 0 2px 0 hsl(36, 88%, 7%), 0 -1px 2px 0 hsl(36, 88%, 7%), 0 1px 1px 0 hsl(120, 60%, 12%);"><span style="display: flex; align-items: center; justify-content: center; height: 16px; padding: 0 9px; border-radius: 3px; background: hsl(120, 60%, 50%); color: hsl(120, 60%, 90%); font: 700 11px Arial, sans-serif; letter-spacing: 0.3px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.92);">${escapeAttr(I18N("NX_UPDATE_BUTTON"))}</span></a>`;
-		return `<span style="position: absolute; left: 14px; top: 1px; display: flex; align-items: center; gap: 6px; font-size: 11px; line-height: 14px; white-space: nowrap;">${current}${update ? `<span style="color: LimeGreen;">· ${escapeAttr(I18N("NX_UPDATE_SHORT", { version: update }))}</span>${button}` : ""}</span>`;
+		return `<span id="${VERSION_LABEL_ID}" style="position: absolute; left: 14px; top: 5px; display: flex; align-items: center; gap: 6px; font-size: 11px; line-height: 14px; white-space: nowrap;">${current}${update ? `<span style="color: LimeGreen;">· ${escapeAttr(I18N("NX_UPDATE_SHORT", { version: update }))}</span>${button}` : ""}</span>`;
+	}
+	function refreshVersionLabel(version, shown) {
+		if (!onGamePage()) return;
+		checkForUpdate().then(() => {
+			const update = availableUpdate(version);
+			const label = document.getElementById(VERSION_LABEL_ID);
+			if (update !== shown && label) label.outerHTML = versionLabelHtml(version, update);
+		}).catch((e) => console.error(e));
 	}
 	async function archdemonNewSetup(chapters, buffAmount, relicLevel) {
 		const library = await loadGameGui(SETUP_GUI_FILES);
@@ -7060,7 +7073,10 @@
 				answer(value);
 			};
 			popup.custom.insertAdjacentHTML("beforeend", html);
-			popup.setMsgText(I18N("NX_SETUP_MESSAGE") + versionLabelHtml(GM_info.script.version, availableUpdate(GM_info.script.version)));
+			const version = GM_info.script.version;
+			const update = availableUpdate(version);
+			popup.setMsgText(I18N("NX_SETUP_MESSAGE") + versionLabelHtml(version, update));
+			refreshVersionLabel(version, update);
 			popup.custom.querySelectorAll("input.hwhNewRadio").forEach((checkbox) => {
 				checkbox.addEventListener("change", function() {
 					if (!this.checked) {
