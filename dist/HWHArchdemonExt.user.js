@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.12-beta
+// @version         1.13-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -1462,6 +1462,17 @@
 	function createLossTimerSearch(battle, start, report, range) {
 		return new (timerSearchClasses()).LossTimerSearch(battle, start, report, range);
 	}
+	function logTimerQueue(log, battleTime, min) {
+		const length = Number(battleTime);
+		if (!Array.isArray(log) || !Number.isFinite(length) || length - .1 < min) return [];
+		const end = length - .1;
+		const times = [...new Set(log.map((event) => Number(event?.time)))].filter((time) => Number.isFinite(time) && time >= min && time < end);
+		for (let i = times.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[times[i], times[j]] = [times[j], times[i]];
+		}
+		return [end, ...times];
+	}
 	function declarePointTimerSearch(Base) {
 		return class PointTimerSearch extends Base {
 			constructor(battle, range, report) {
@@ -1472,6 +1483,14 @@
 				this.pending = [];
 				this.depth = 0;
 				this.report = report;
+				this.fromLog = false;
+			}
+			takeLogTimers() {
+				this.fromLog = true;
+				const queue = logTimerQueue(this.lastResult?.battleLogs?.[0], this.lastResult?.battleTime, this.minTimer);
+				if (!queue.length) return;
+				this.pending.push(...queue);
+				this.maxTimer = queue[0];
 			}
 			addLayer() {
 				const parts = NX_TIMER_SEARCH_GRID * 2 ** this.depth;
@@ -1484,6 +1503,7 @@
 				this.depth++;
 			}
 			randTimer() {
+				if (!this.fromLog) this.takeLogTimers();
 				if (this.pending.length === 0) this.addLayer();
 				return this.pending.shift();
 			}
