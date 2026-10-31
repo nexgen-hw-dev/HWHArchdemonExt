@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.14-beta
+// @version         1.15-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -1343,7 +1343,7 @@
 					amount
 				}
 			});
-			fragments[unitId] = 0;
+			fragments[unitId] = Math.max(0, Number(fragments[unitId] ?? 0) - amount);
 			this.onChange();
 			const income = coinsOf(answer);
 			this.tell("sell", { [unitId]: amount }, income);
@@ -2081,6 +2081,37 @@
 		}
 		return sold;
 	}
+	function surplusParts(setup, fragments) {
+		return setup.heroes.map((heroId) => [heroId, Number(fragments[heroId] ?? 0) - Number(setup.targets[heroId] ?? 0)]).filter(([, extra]) => extra > 0);
+	}
+	function surplusPartsNeeded(short, price, available) {
+		if (!(short > 0) || !(price > 0)) return 0;
+		const need = Math.ceil(short / price);
+		return need <= available ? need : 0;
+	}
+	async function sellSurplusToTarget(attempt, stall, setup, fragments) {
+		const target = setup.minCoins;
+		if (target == null || setup.talismanId !== NX_WEALTH_TALISMAN_ID) return 0;
+		const coins = attempt.wallet;
+		const short = target - coins.value;
+		if (short <= 0) return 0;
+		const parts = surplusParts(setup, fragments);
+		const available = parts.reduce((sum, [, extra]) => sum + extra, 0);
+		if (!surplusPartsNeeded(short, fragmentSellPrice("hero"), available)) {
+			if (available > 0) console.log(`${NX_LOG_CASH} до минимума ${target} не хватает ${short}, лишних частей ${available} — не продаём`);
+			return 0;
+		}
+		let income = 0;
+		for (const [heroId, extra] of parts) for (let i = 0; i < extra && coins.value < target && !attempt.stopped; i++) {
+			const got = await stall.sell(fragments, heroId, 1);
+			coins.value += got;
+			income += got;
+			console.log(`Продали лишнюю часть героя ${heroId}, осталось ${fragments[heroId]}`);
+		}
+		attempt.ledger.add("продажа лишних частей", income);
+		console.log(`${NX_LOG_CASH} +${income} лишние части до минимума ${target}, остаток ${coins.value}`);
+		return income;
+	}
 	async function sellExtraPets(attempt, stall, setup, fragments) {
 		const coins = attempt.wallet;
 		const extra = Object.entries(fragments).map(([id, count]) => [Number(id), Number(count)]).filter(([id, count]) => id >= NX_PET_ID_THRESHOLD && count > 0 && !setup.petsToCollect.includes(id));
@@ -2780,6 +2811,7 @@
 			};
 			await sellUnneededFragments(attempt, stall, setup, fragments, false);
 			await sellExtraPets(attempt, stall, setup, fragments);
+			await sellSurplusToTarget(attempt, stall, setup, fragments);
 			if (shopping.shown && !attempt.stopped) showShopping(attempt, setup, fragments);
 			console.log(`Финальная закупка закончена, монет осталось ${attempt.wallet.value}`);
 			return { kind: "done" };
