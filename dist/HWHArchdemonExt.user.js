@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.07-beta
+// @version         1.08-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -315,12 +315,13 @@
 			NX_LOG_COLLAPSE: "Collapse the log to two lines",
 			NX_LOG_EXPAND: "Expand the log",
 			NX_LOG_POINT: "point {point}",
-			NX_LOG_COINS: "{coins} coins",
+			NX_LOG_COINS: "<span style=\"font-size: 15px; color: LimeGreen;\">{coins}</span> coins",
 			NX_POINT_TAKEN: "Point {point} taken",
 			NX_PROGRESS_TEAM: "Team",
 			NX_PROGRESS_CARRY: "Carry",
 			NX_PROGRESS_SACRIFICE: "To throw",
 			NX_PROGRESS_PETS: "Pets",
+			NX_PROGRESS_EXTRA: "Extra for sale",
 			NX_EVENT_PIN: "Pinned",
 			NX_UPDATE_SHORT: "{version} is out",
 			NX_UPDATE_BUTTON: "Update",
@@ -518,12 +519,13 @@
 			NX_LOG_COLLAPSE: "Свернуть журнал до двух строк",
 			NX_LOG_EXPAND: "Развернуть журнал",
 			NX_LOG_POINT: "точка {point}",
-			NX_LOG_COINS: "монет {coins}",
+			NX_LOG_COINS: "монет <span style=\"font-size: 15px; color: LimeGreen;\">{coins}</span>",
 			NX_POINT_TAKEN: "Точка {point} взята",
 			NX_PROGRESS_TEAM: "Состав",
 			NX_PROGRESS_CARRY: "Проходные",
 			NX_PROGRESS_SACRIFICE: "Для слива",
 			NX_PROGRESS_PETS: "Питомцы",
+			NX_PROGRESS_EXTRA: "Экстра на продажу",
 			NX_EVENT_PIN: "Закрепили",
 			NX_UPDATE_SHORT: "доступна {version}",
 			NX_UPDATE_BUTTON: "Обновить",
@@ -1123,6 +1125,13 @@
 				units: take(setup.petsToCollect, () => 1)
 			}
 		].filter((group) => group.units.length > 0);
+	}
+	function extraPets(groups, owned) {
+		const planned = new Set(groups.flatMap((group) => group.units.map((unit) => unit.id)));
+		return Object.entries(owned).map(([id, count]) => ({
+			id: Number(id),
+			count: Number(count)
+		})).filter((unit) => unit.id >= NX_PET_ID_THRESHOLD && unit.count > 0 && !planned.has(unit.id));
 	}
 	function pinnedFragments(slots, pinned) {
 		const out = {};
@@ -3436,15 +3445,21 @@
 			case "pets": return I18N("NX_PROGRESS_PETS");
 		}
 	}
+	function tileHtml(id, icon, label, color, dim, pin) {
+		const filter = dim ? "filter: grayscale(0.8) brightness(0.6);" : "";
+		const picture = icon ? `<img src="${escapeAttr(icon)}" alt="" style="display: block; width: ${ICON}px; height: ${ICON}px; border-radius: 6px; ${filter}">` : `<div style="width: ${ICON}px; height: ${ICON}px; border-radius: 6px; background: #3a2414; ${filter}"></div>`;
+		return `<div data-unit="${id}" title="${escapeAttr(unitName(id))}" style="width: ${TILE}px; text-align: center;"><div style="position: relative; width: ${ICON}px; height: ${ICON}px; margin: 0 auto; border: 1px solid #ce976799; border-radius: 7px;">${picture}${pin ? PIN_SVG : ""}</div><div style="font-size: 11px; line-height: 14px; color: ${color};">${label}</div></div>`;
+	}
 	function progressTileHtml(id, need, state, icon) {
 		const owned = Number(state.owned[id] ?? 0);
 		const pinned = Number(state.pinned[id] ?? 0);
 		const isPinned = pinned > 0;
 		const have = isPinned ? owned + pinned : owned;
 		const color = isPinned ? "#c9b18a" : have >= need ? "LimeGreen" : "#fbe0ac";
-		const filter = isPinned ? "filter: grayscale(0.8) brightness(0.6);" : "";
-		const picture = icon ? `<img src="${escapeAttr(icon)}" alt="" style="display: block; width: ${ICON}px; height: ${ICON}px; border-radius: 6px; ${filter}">` : `<div style="width: ${ICON}px; height: ${ICON}px; border-radius: 6px; background: #3a2414; ${filter}"></div>`;
-		return `<div data-unit="${id}" title="${escapeAttr(unitName(id))}" style="width: ${TILE}px; text-align: center;"><div style="position: relative; width: ${ICON}px; height: ${ICON}px; margin: 0 auto; border: 1px solid #ce976799; border-radius: 7px;">${picture}${isPinned ? PIN_SVG : ""}</div><div style="font-size: 11px; line-height: 14px; color: ${color};">${have}/${need}</div></div>`;
+		return tileHtml(id, icon, `${have}/${need}`, color, isPinned || owned <= 0, isPinned);
+	}
+	function extraTileHtml(id, count, icon) {
+		return tileHtml(id, icon, `×${count}`, "#fbe0ac", false, false);
 	}
 	function smallIconHtml(id, icon) {
 		const box = "display: inline-block; width: 22px; height: 22px; border-radius: 4px; vertical-align: middle;";
@@ -3468,12 +3483,21 @@
 			case "sell": return I18N("NX_EVENT_SELL", { coins });
 		}
 	}
+	function groupHtml(title, tiles) {
+		return `<div style="margin-bottom: 6px;"><div style="font-size: 11px; color: #e8c9a0; margin-bottom: 3px;">${title}</div><div style="display: grid; grid-template-columns: repeat(${PROGRESS_PER_ROW}, ${TILE}px); gap: ${GAP}px;">${tiles}</div></div>`;
+	}
 	function progressColumnHtml(groups, state, icons) {
-		return groups.map((group) => `<div style="margin-bottom: 6px;"><div style="font-size: 11px; color: #e8c9a0; margin-bottom: 3px;">${groupTitle(group.kind)}</div><div style="display: grid; grid-template-columns: repeat(${PROGRESS_PER_ROW}, ${TILE}px); gap: ${GAP}px;">` + group.units.map((unit) => progressTileHtml(unit.id, unit.need, state, icons[unit.id] ?? "")).join("") + "</div></div>").join("");
+		const plan = groups.map((group) => groupHtml(groupTitle(group.kind), group.units.map((unit) => progressTileHtml(unit.id, unit.need, state, icons[unit.id] ?? "")).join(""))).join("");
+		const extra = extraPets(groups, state.owned);
+		if (extra.length === 0) return plan;
+		return plan + groupHtml(I18N("NX_PROGRESS_EXTRA"), extra.map((unit) => extraTileHtml(unit.id, unit.count, icons[unit.id] ?? "")).join(""));
 	}
 	var NX_RUN_LOG_ID = "nxRunLog";
 	var WIDTH = 420;
-	var WIDTH_WITH_PROGRESS = WIDTH + PROGRESS_WIDTH + 10;
+	var CHROME = 24;
+	var BODY_GAP = 18;
+	var WIDTH_WITH_PROGRESS = CHROME + PROGRESS_WIDTH + BODY_GAP + 320;
+	var BRIEF_HEIGHT = 24;
 	var EDGE = 4;
 	function clampToViewport(position, width, height, viewWidth, viewHeight) {
 		const fit = (value, size, view) => {
@@ -3512,7 +3536,7 @@
 		"color: #fbe0ac",
 		"font: 600 13px sans-serif",
 		"letter-spacing: 0.5px",
-		"z-index: 10000"
+		"z-index: 9999"
 	].join("; ");
 	var BUTTON_STYLE = [
 		"background: #3a2414",
@@ -3544,7 +3568,7 @@
 			const root = document.createElement("div");
 			root.id = NX_RUN_LOG_ID;
 			root.setAttribute("style", PANEL_STYLE);
-			root.innerHTML = `<div data-part="head" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: move; user-select: none; touch-action: none;"><div data-part="title" style="flex: 1; min-width: 0; font-size: 15px; color: #ffcf84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><button data-part="collapse" type="button" style="${BUTTON_STYLE}; padding: 2px 8px;"></button><button data-part="stop" type="button" style="${BUTTON_STYLE}"></button></div><div data-part="brief" style="display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="body" style="flex: 1; min-height: 0; display: flex; gap: 10px;"><div data-part="progress" style="display: none; flex: none; width: ${PROGRESS_WIDTH}px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column;"><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div></div></div>`;
+			root.innerHTML = `<div data-part="head" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: move; user-select: none; touch-action: none;"><div data-part="title" style="flex: 1; min-width: 0; font-size: 15px; color: #ffcf84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><button data-part="collapse" type="button" style="${BUTTON_STYLE}; padding: 2px 8px;"></button><button data-part="stop" type="button" style="${BUTTON_STYLE}"></button></div><div data-part="brief" style="display: none; height: ${BRIEF_HEIGHT}px; line-height: ${BRIEF_HEIGHT}px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="body" style="flex: 1; min-height: 0; display: flex; gap: ${BODY_GAP}px; margin-top: 8px;"><div data-part="progress" style="display: none; flex: none; width: ${PROGRESS_WIDTH}px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column;"><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div></div></div>`;
 			document.body.append(root);
 			const part = (name) => root.querySelector(`[data-part="${name}"]`);
 			const box = {
@@ -3655,6 +3679,9 @@
 				pinned: { ...state.pinned }
 			};
 			this.drawProgress();
+			if (this.groups.length === 0) return;
+			const missing = extraPets(this.groups, this.state.owned).map((unit) => unit.id).filter((id) => !(id in this.icons));
+			if (missing.length) this.loadIcons(missing).catch((e) => console.error(e));
 		}
 		drawProgress() {
 			const box = this.box;
