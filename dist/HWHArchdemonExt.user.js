@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.02-beta
+// @version         1.03-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -3418,6 +3418,10 @@
 		return out;
 	}
 	var ICON = 40;
+	var PROGRESS_PER_ROW = 5;
+	var TILE = 44;
+	var GAP = 4;
+	var PROGRESS_WIDTH = 236;
 	var PIN_SVG = "<svg width=\"15\" height=\"15\" viewBox=\"0 0 16 16\" style=\"position: absolute; right: -4px; top: -5px;\"><path d=\"M10.5 1.5l4 4-1.6.6-2.7 2.7.5 3.3-1.4 1.4-2.8-2.8-3.6 3.6-.9-.9 3.6-3.6-2.8-2.8 1.4-1.4 3.3.5 2.7-2.7z\" fill=\"#e5533d\" stroke=\"#3a1a0e\" stroke-width=\"0.8\" stroke-linejoin=\"round\"/></svg>";
 	function groupTitle(kind) {
 		switch (kind) {
@@ -3435,7 +3439,7 @@
 		const color = isPinned ? "#c9b18a" : have >= need ? "LimeGreen" : "#fbe0ac";
 		const filter = isPinned ? "filter: grayscale(0.8) brightness(0.6);" : "";
 		const picture = icon ? `<img src="${escapeAttr(icon)}" alt="" style="display: block; width: ${ICON}px; height: ${ICON}px; border-radius: 6px; ${filter}">` : `<div style="width: ${ICON}px; height: ${ICON}px; border-radius: 6px; background: #3a2414; ${filter}"></div>`;
-		return `<div data-unit="${id}" title="${escapeAttr(unitName(id))}" style="width: 44px; text-align: center;"><div style="position: relative; width: ${ICON}px; height: ${ICON}px; margin: 0 auto; border: 1px solid #ce976799; border-radius: 7px;">${picture}${isPinned ? PIN_SVG : ""}</div><div style="font-size: 11px; line-height: 14px; color: ${color};">${have}/${need}</div></div>`;
+		return `<div data-unit="${id}" title="${escapeAttr(unitName(id))}" style="width: ${TILE}px; text-align: center;"><div style="position: relative; width: ${ICON}px; height: ${ICON}px; margin: 0 auto; border: 1px solid #ce976799; border-radius: 7px;">${picture}${isPinned ? PIN_SVG : ""}</div><div style="font-size: 11px; line-height: 14px; color: ${color};">${have}/${need}</div></div>`;
 	}
 	function smallIconHtml(id, icon) {
 		const box = "display: inline-block; width: 22px; height: 22px; border-radius: 4px; vertical-align: middle;";
@@ -3460,11 +3464,11 @@
 		}
 	}
 	function progressColumnHtml(groups, state, icons) {
-		return groups.map((group) => `<div style="margin-bottom: 6px;"><div style="font-size: 11px; color: #e8c9a0; margin-bottom: 3px;">${groupTitle(group.kind)}</div><div style="display: flex; flex-wrap: wrap; gap: 4px;">` + group.units.map((unit) => progressTileHtml(unit.id, unit.need, state, icons[unit.id] ?? "")).join("") + "</div></div>").join("");
+		return groups.map((group) => `<div style="margin-bottom: 6px;"><div style="font-size: 11px; color: #e8c9a0; margin-bottom: 3px;">${groupTitle(group.kind)}</div><div style="display: grid; grid-template-columns: repeat(${PROGRESS_PER_ROW}, ${TILE}px); gap: ${GAP}px;">` + group.units.map((unit) => progressTileHtml(unit.id, unit.need, state, icons[unit.id] ?? "")).join("") + "</div></div>").join("");
 	}
 	var NX_RUN_LOG_ID = "nxRunLog";
 	var WIDTH = 420;
-	var WIDTH_WITH_PROGRESS = 578;
+	var WIDTH_WITH_PROGRESS = WIDTH + PROGRESS_WIDTH + 10;
 	var EDGE = 4;
 	function clampToViewport(position, width, height, viewWidth, viewHeight) {
 		const fit = (value, size, view) => {
@@ -3535,7 +3539,7 @@
 			const root = document.createElement("div");
 			root.id = NX_RUN_LOG_ID;
 			root.setAttribute("style", PANEL_STYLE);
-			root.innerHTML = `<div data-part="head" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: move; user-select: none; touch-action: none;"><div data-part="title" style="flex: 1; min-width: 0; font-size: 15px; color: #ffcf84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><button data-part="collapse" type="button" style="${BUTTON_STYLE}; padding: 2px 8px;"></button><button data-part="stop" type="button" style="${BUTTON_STYLE}"></button></div><div data-part="brief" style="display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="body" style="flex: 1; min-height: 0; display: flex; gap: 10px;"><div data-part="progress" style="display: none; flex: none; width: 148px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column;"><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div></div></div>`;
+			root.innerHTML = `<div data-part="head" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: move; user-select: none; touch-action: none;"><div data-part="title" style="flex: 1; min-width: 0; font-size: 15px; color: #ffcf84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><button data-part="collapse" type="button" style="${BUTTON_STYLE}; padding: 2px 8px;"></button><button data-part="stop" type="button" style="${BUTTON_STYLE}"></button></div><div data-part="brief" style="display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="body" style="flex: 1; min-height: 0; display: flex; gap: 10px;"><div data-part="progress" style="display: none; flex: none; width: ${PROGRESS_WIDTH}px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column;"><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div></div></div>`;
 			document.body.append(root);
 			const part = (name) => root.querySelector(`[data-part="${name}"]`);
 			const box = {
