@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.05-beta
+// @version         1.06-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -145,9 +145,12 @@
 			key: "NX_PRESETS_SITE_HWMAP"
 		}]
 	};
-	var NX_PRESET_CARRY = [44, 75];
-	var NX_PRESET_SACRIFICE = 44;
-	var NX_PRESET_SACRIFICE_POINT = 7;
+	var NX_PRESET_CARRY = [46, 72];
+	var NX_PRESET_SACRIFICE = 46;
+	var NX_PRESET_STRONG_BUFF = 200;
+	var NX_PRESET_STRONG_CARRY = [72];
+	var NX_PRESET_STRONG_SACRIFICE = 72;
+	var NX_PRESET_SACRIFICE_POINT = 5;
 	var NX_SACRIFICE_POINTS = [5, 7];
 	var NX_WEALTH_TALISMAN_ID = 8008;
 	var NX_EXCLUDED_TALISMAN_IDS = [8005, 8009];
@@ -267,7 +270,7 @@
 			NX_PRESETS_VIDEO: "Open the video",
 			NX_PRESETS_NO_PET: "No main pet",
 			NX_PRESETS_GO: "Let's go",
-			NX_PRESETS_GO_HINT: "Run the chosen chapter with this build: carry Astrid and Lucas and Eva, Astrid and Lucas throws point 7, no spare refreshes and no unknown cards",
+			NX_PRESETS_GO_HINT: "Run the chosen chapter with this build: carry {carry}, {sacrifice} throws point {point}, no spare refreshes and no unknown cards",
 			NX_PRESETS_BACK: "Back",
 			NX_PRESETS_LOADING: "Loading the builds…",
 			NX_PRESETS_WAIT_SOON: "Ready-made builds for this event will appear on the last day of the Adventure. Until then, try it on your own: put a team together and grab your spot on the leaderboard!",
@@ -469,7 +472,7 @@
 			NX_PRESETS_VIDEO: "Открыть видео",
 			NX_PRESETS_NO_PET: "Без основного питомца",
 			NX_PRESETS_GO: "Поехали",
-			NX_PRESETS_GO_HINT: "Пройти выбранную главу по этой сборке: проходные Astrid and Lucas и Eva, Astrid and Lucas сливает точку 7, без запаса обновлений и без неизвестных карт",
+			NX_PRESETS_GO_HINT: "Пройти выбранную главу по этой сборке: проходные {carry}, точку {point} сливает {sacrifice}, без запаса обновлений и без неизвестных карт",
 			NX_PRESETS_BACK: "Назад",
 			NX_PRESETS_LOADING: "Загружаем сборки…",
 			NX_PRESETS_WAIT_SOON: "Готовые сборки для этого события появятся в последний день Приключения. А пока попробуйте свои силы: подберите команду сами и успейте занять место в рейтинге!",
@@ -6267,7 +6270,17 @@
 			return (a.buff === buff ? 0 : 1) - (b.buff === buff ? 0 : 1) || a.buff - b.buff || b.damage - a.damage;
 		});
 	}
-	function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = false }) {
+	function presetCarry(buff) {
+		return Number(buff) >= NX_PRESET_STRONG_BUFF ? {
+			carry: [...NX_PRESET_STRONG_CARRY],
+			sacrifice: NX_PRESET_STRONG_SACRIFICE
+		} : {
+			carry: [...NX_PRESET_CARRY],
+			sacrifice: NX_PRESET_SACRIFICE
+		};
+	}
+	function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = false, buff = preset.buff }) {
+		const { carry, sacrifice } = presetCarry(buff);
 		const parsed = preset.parsed ?? parseArchdemonNewTeam(preset.teamRaw);
 		const targetPercent = preset.coins ? coinsToPercent(preset.coins) : 0;
 		return {
@@ -6284,11 +6297,11 @@
 			minCoins: targetPercent ? minCoinsForPercent(targetPercent) : null,
 			presetPercent: targetPercent || null,
 			keepExtraCoins,
-			carryHeroes: [...NX_PRESET_CARRY],
-			carryTargets: Object.fromEntries(NX_PRESET_CARRY.map((id) => [id, 1])),
+			carryHeroes: carry,
+			carryTargets: Object.fromEntries(carry.map((id) => [id, 1])),
 			carryExtraHeroes: [],
 			startRefreshes: 0,
-			sacrificeHeroes: [NX_PRESET_SACRIFICE],
+			sacrificeHeroes: [sacrifice],
 			sacrificeRefreshes: 0,
 			sacrificePoint: NX_PRESET_SACRIFICE_POINT,
 			pauseAfterBoss: false,
@@ -6490,7 +6503,15 @@
 		const author = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${authorText}</a>` : authorText;
 		const video = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(I18N("NX_PRESETS_VIDEO"))}" style="flex: none;">${PLAY_ICON}</a>` : "";
 		const matched = preset.buff === Number(buff);
-		return `<div style="display: flex; align-items: center; gap: 6px; padding: 5px 0; border-top: 1px solid rgba(206, 151, 103, 0.25);"><div style="width: ${COL.damage}px; flex: none; text-align: right; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="width: ${COL.buff}px; flex: none; text-align: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="width: ${COL.coins}px; flex: none; text-align: center; font-size: 13px;">${preset.coins || "—"}</div><div style="display: flex; width: ${COL.talismans}px; flex: none; justify-content: center;">${talismans}</div><div style="display: flex; width: ${COL.pet}px; flex: none; justify-content: center;">${pet}</div><div style="display: flex; gap: 3px; flex: none;">${heroes}</div><div style="flex: 1; min-width: 60px; display: flex; align-items: center; gap: 6px; overflow: hidden;"><span style="min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div>` + editButtonHtml(`nxPresetGo${index}`, I18N("NX_PRESETS_GO_HINT"), I18N("NX_PRESETS_GO")) + "</div>";
+		return `<div style="display: flex; align-items: center; gap: 6px; padding: 5px 0; border-top: 1px solid rgba(206, 151, 103, 0.25);"><div style="width: ${COL.damage}px; flex: none; text-align: right; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="width: ${COL.buff}px; flex: none; text-align: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="width: ${COL.coins}px; flex: none; text-align: center; font-size: 13px;">${preset.coins || "—"}</div><div style="display: flex; width: ${COL.talismans}px; flex: none; justify-content: center;">${talismans}</div><div style="display: flex; width: ${COL.pet}px; flex: none; justify-content: center;">${pet}</div><div style="display: flex; gap: 3px; flex: none;">${heroes}</div><div style="flex: 1; min-width: 60px; display: flex; align-items: center; gap: 6px; overflow: hidden;"><span style="min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div>` + editButtonHtml(`nxPresetGo${index}`, goHint(buff), I18N("NX_PRESETS_GO")) + "</div>";
+	}
+	function goHint(buff) {
+		const { carry, sacrifice } = presetCarry(buff);
+		return I18N("NX_PRESETS_GO_HINT", {
+			carry: carry.map(unitName).join(", "),
+			sacrifice: unitName(sacrifice),
+			point: NX_PRESET_SACRIFICE_POINT
+		});
 	}
 	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, client = new PresetsClient() }) {
 		root.querySelector("#nxPresetsView")?.remove();
@@ -6585,14 +6606,18 @@
 	function section(title, hint) {
 		return `<div style="text-align: left; margin: 14px 0 4px; font-size: 19px; color: #ffcf84;">${title}` + (hint ? `<div style="font-size: 13px; color: #d8cbb8; opacity: 0.85;">${hint}</div>` : "") + "</div>";
 	}
+	function savedSacrificePointChoice() {
+		const saved = Number(getSaveVal(NX_SAVE_KEYS.sacrificePoint, NX_SACRIFICE_POINTS[0]));
+		return NX_SACRIFICE_POINTS.includes(saved) ? saved : NX_SACRIFICE_POINTS[0];
+	}
 	function savedChoice() {
 		const talismansRaw = getSaveVal(NX_SAVE_KEYS.talismans, [Number(getSaveVal(NX_SAVE_KEYS.talisman, 0))]);
 		return {
 			team: String(getSaveVal(NX_SAVE_KEYS.team, "")),
 			mainPet: Number(getSaveVal(NX_SAVE_KEYS.mainPet, 0)),
 			talismans: (Array.isArray(talismansRaw) ? talismansRaw : [talismansRaw]).map(Number),
-			carry: String(getSaveVal(NX_SAVE_KEYS.carry, "40, 16")),
-			sacrifice: (parseIdList(String(getSaveVal(NX_SAVE_KEYS.sacrifice, "40"))) ?? []).slice(0, NX_SACRIFICE_CANDIDATES).join(", ")
+			carry: String(getSaveVal(NX_SAVE_KEYS.carry, "")),
+			sacrifice: (parseIdList(String(getSaveVal(NX_SAVE_KEYS.sacrifice, ""))) ?? []).slice(0, NX_SACRIFICE_CANDIDATES).join(", ")
 		};
 	}
 	function setupTalismans() {
@@ -6648,8 +6673,7 @@
 		const savedRandomAny = savedRandomAnyRaw === true || savedRandomAnyRaw === "true";
 		const savedStopIncompleteRaw = getSaveVal(NX_SAVE_KEYS.stopIncomplete, false);
 		const savedStopIncomplete = savedStopIncompleteRaw === true || savedStopIncompleteRaw === "true";
-		const savedSacrificePointRaw = Number(getSaveVal(NX_SAVE_KEYS.sacrificePoint, NX_SACRIFICE_POINTS[NX_SACRIFICE_POINTS.length - 1]));
-		const savedSacrificePoint = NX_SACRIFICE_POINTS.includes(savedSacrificePointRaw) ? savedSacrificePointRaw : NX_SACRIFICE_POINTS[NX_SACRIFICE_POINTS.length - 1];
+		const savedSacrificePoint = savedSacrificePointChoice();
 		const talismanRowsFor = (rollNumber) => setupTalismans().filter((e) => rollNumber === 1 || !e.firstChoiceOnly).map((e) => {
 			let description = "";
 			try {
@@ -7047,7 +7071,8 @@
 				const value = presetSetup(preset, {
 					chapterId,
 					chapterNumber: chapterNumbers[chapterId] ?? 0,
-					keepExtraCoins
+					keepExtraCoins,
+					buff: buffAmount
 				});
 				if (value.talismanId === NX_WEALTH_TALISMAN_ID && carryPointOneError(value)) return I18N("NX_PRESETS_CARRY_POINT1", { list: value.carryHeroes.map(unitLabel).join(", ") });
 				popup.hide();
