@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.15-beta
+// @version         1.16-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -77,9 +77,9 @@
 	var NX_PRESETS_MIRROR_KEY = "HWHArchdemonExt.presets.mirror";
 	var NX_PRESETS_STORAGE_KEY = "HWHArchdemonExt.presets.v1";
 	var NX_PRESETS_TTL_MS = 72e5;
-	var NX_UPDATE_URLS = ["https://raw.githubusercontent.com/nexgen-hw-dev/HWHArchdemonExt/main/dist/HWHArchdemonExt.user.js", "https://cdn.jsdelivr.net/gh/nexgen-hw-dev/HWHArchdemonExt@main/dist/HWHArchdemonExt.user.js"];
-	var NX_UPDATE_TTL_MS = 18e5;
-	var NX_UPDATE_RETRY_MS = 18e5;
+	var NX_UPDATE_URLS = ["https://update.greasyfork.org/scripts/597541/HWHArchdemonExt.meta.js", "https://raw.githubusercontent.com/nexgen-hw-dev/HWHArchdemonExt/main/dist/HWHArchdemonExt.user.js"];
+	var NX_UPDATE_TTL_MS = 3e5;
+	var NX_UPDATE_RETRY_MS = 3e5;
 	var NX_UPDATE_BUST_MS = 3e5;
 	var NX_UPDATE_STORAGE_KEY = "HWHArchdemonExt.update.v1";
 	var NX_GREASYFORK_URL = "https://greasyfork.org/scripts/597541";
