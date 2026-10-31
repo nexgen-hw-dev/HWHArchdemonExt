@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.04-beta
+// @version         1.05-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -176,8 +176,6 @@
 	var NX_TEXTS = {
 		en: {
 			NX_LANG: "en",
-			NX_ARCHDEMON: "ArchRank",
-			NX_ARCHDEMON_HINT: "Farm the chapter over and over until the setup is collected, then stop before the Archdemon",
 			NX_SETUP_MESSAGE: "<span style=\"font-size: 25px;\">ArchRank</span><br><span style=\"font-size: 14px;\">Check the settings and press Start</span>",
 			NX_BLOCK_CHAPTER: "Chapter",
 			NX_BLOCK_MIN_COINS: "{coin}: minimum, inclusive",
@@ -321,9 +319,9 @@
 			NX_PROGRESS_SACRIFICE: "To throw",
 			NX_PROGRESS_PETS: "Pets",
 			NX_EVENT_PIN: "Pinned",
-			NX_UPDATE_AVAILABLE: "Version {version} is available. Reload the game page after updating",
+			NX_UPDATE_SHORT: "{version} is out",
 			NX_UPDATE_BUTTON: "Update",
-			NX_UPDATE_HINT: "Opens the add-on page on Greasy Fork",
+			NX_UPDATE_HINT: "Opens the add-on page on Greasy Fork. Reload the game page after updating",
 			NX_EVENT_UNPIN: "Unpinned",
 			NX_EVENT_BUY: "Bought for <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_EVENT_SELL: "Sold for <span style=\"color: LimeGreen;\">{coins}</span>",
@@ -364,8 +362,6 @@
 			NX_SQUAD_REQUIRED: "First pick the goal team with «Edit»",
 			NX_MENU_ENTRY: "Adventure (Arch)",
 			NX_MENU_TITLE: "Abyss run up to the Archdemon",
-			NX_ARCHDEMON_AUTO: "ArchRank(auto)",
-			NX_ARCHDEMON_AUTO_SOON: "Coming later: the full run with battle emulation to pick the best teams",
 			NX_NO_EVENT: "No Adventure is running right now",
 			NX_NO_ABYSS: "This Adventure has no Abyss and no Archdemon. The add-on works only in Adventures with the Abyss",
 			NX_FAILED: "The run broke down<br>Add-on version {version}",
@@ -382,8 +378,6 @@
 		},
 		ru: {
 			NX_LANG: "ru",
-			NX_ARCHDEMON: "ArchRank",
-			NX_ARCHDEMON_HINT: "Крутить главу по кругу, пока не соберётся связка, и остановиться перед Архидемоном",
 			NX_SETUP_MESSAGE: "<span style=\"font-size: 25px;\">ArchRank</span><br><span style=\"font-size: 14px;\">Проверьте настройки и нажмите Начать</span>",
 			NX_BLOCK_CHAPTER: "Глава",
 			NX_BLOCK_MIN_COINS: "{coin}: минимум, включительно",
@@ -527,9 +521,9 @@
 			NX_PROGRESS_SACRIFICE: "Для слива",
 			NX_PROGRESS_PETS: "Питомцы",
 			NX_EVENT_PIN: "Закрепили",
-			NX_UPDATE_AVAILABLE: "Доступна версия {version}. После обновления перезагрузите страницу игры",
+			NX_UPDATE_SHORT: "доступна {version}",
 			NX_UPDATE_BUTTON: "Обновить",
-			NX_UPDATE_HINT: "Откроется страница дополнения на Greasy Fork",
+			NX_UPDATE_HINT: "Откроется страница дополнения на Greasy Fork. После обновления перезагрузите страницу игры",
 			NX_EVENT_UNPIN: "Сняли закреп",
 			NX_EVENT_BUY: "Купили за <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_EVENT_SELL: "Продали за <span style=\"color: LimeGreen;\">{coins}</span>",
@@ -570,8 +564,6 @@
 			NX_SQUAD_REQUIRED: "Сначала выберите целевой состав кнопкой «Изменить»",
 			NX_MENU_ENTRY: "Приключение (Arch)",
 			NX_MENU_TITLE: "Прогон Бездны до Архидемона",
-			NX_ARCHDEMON_AUTO: "ArchRank(auto)",
-			NX_ARCHDEMON_AUTO_SOON: "Появится позже: полный прогон с эмуляцией боёв для подбора лучших команд",
 			NX_NO_EVENT: "Сейчас Приключение не идёт",
 			NX_NO_ABYSS: "В этом Приключении нет Бездны и Архидемона. Дополнение работает только в Приключениях с Бездной",
 			NX_FAILED: "Прогон сорвался<br>Версия дополнения {version}",
@@ -856,92 +848,6 @@
 		const details = describeError(error);
 		if (!details) return text;
 		return `${text}<details style="margin-top: 10px;"><summary style="cursor: pointer;">${escapeAttr(I18N("NX_DETAILS"))}</summary><pre style="margin: 6px 0 0; padding: 6px 8px; max-height: 220px; overflow: auto; text-align: left; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; background: rgba(0, 0, 0, 0.3); border-radius: 4px; user-select: text; -webkit-user-select: text;">${escapeAttr(details)}</pre></details>`;
-	}
-	var STAGES = {
-		alpha: 0,
-		beta: 1,
-		rc: 2
-	};
-	function parseVersion(version) {
-		const m = /^\s*(\d+)\.(\d+)(?:\.(\d+))?(?:-([a-z]+))?/i.exec(String(version ?? ""));
-		if (!m) return null;
-		const stage = m[4] ? STAGES[m[4].toLowerCase()] ?? 0 : 3;
-		return [
-			Number(m[1]),
-			Number(m[2]),
-			Number(m[3] ?? 0),
-			stage
-		];
-	}
-	function isNewer(candidate, current) {
-		const a = parseVersion(candidate);
-		const b = parseVersion(current);
-		if (!a || !b) return false;
-		for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];
-		return false;
-	}
-	function versionFromHeader(text) {
-		return /\/\/\s*@version\s+(\S+)/.exec(text)?.[1] ?? null;
-	}
-	function readCache$1(storage) {
-		try {
-			const cached = JSON.parse(storage?.getItem(NX_UPDATE_STORAGE_KEY) ?? "null");
-			return cached && Number.isFinite(cached.exp) ? cached : null;
-		} catch {
-			return null;
-		}
-	}
-	function writeCache$1(storage, cache) {
-		try {
-			storage?.setItem(NX_UPDATE_STORAGE_KEY, JSON.stringify(cache));
-		} catch (e) {
-			console.error(e);
-		}
-	}
-	async function fetchVersion(fetchImpl, url) {
-		const controller = new AbortController();
-		const timer = setTimeout(() => controller.abort(), NX_PRESETS_TIMEOUT_MS);
-		try {
-			const response = await fetchImpl(url, {
-				headers: { Range: `bytes=0-1023` },
-				cache: "no-store",
-				signal: controller.signal
-			});
-			if (!response.ok) throw new Error(`HTTP ${response.status}`);
-			const version = versionFromHeader(await response.text());
-			if (!version) throw new Error("нет @version в шапке");
-			return version;
-		} finally {
-			clearTimeout(timer);
-		}
-	}
-	async function checkForUpdate(options = {}) {
-		const { storage = globalThis.localStorage, clock = Date.now, fetchImpl = globalThis.fetch, urls = NX_UPDATE_URLS } = options;
-		const now = clock();
-		const cached = readCache$1(storage);
-		if (cached && cached.exp > now) return cached.version;
-		for (const url of urls) try {
-			const version = await fetchVersion(fetchImpl, url);
-			writeCache$1(storage, {
-				exp: now + NX_UPDATE_TTL_MS,
-				version
-			});
-			return version;
-		} catch (e) {
-			console.log(`Проверка версии: ${new URL(url).hostname} не ответил`, e);
-		}
-		writeCache$1(storage, {
-			exp: now + NX_UPDATE_RETRY_MS,
-			version: null
-		});
-		return null;
-	}
-	function availableUpdate(current, storage = globalThis.localStorage) {
-		const version = readCache$1(storage)?.version ?? null;
-		return isNewer(version, current) ? version : null;
-	}
-	function onGamePage() {
-		return typeof location !== "undefined" && typeof fetch === "function" && /(^|\.)(hero-wars\.com|hero-wars\.cn|fbsbx\.com)$/.test(location.hostname);
 	}
 	function rankStep(fragments) {
 		if (fragments >= 7) return 7;
@@ -3145,9 +3051,6 @@
 		if (attempt.stopped) return stoppedOutcome();
 		return checkArchdemonNewConditions(setup, attempt.wallet.value, (await attempt.units()).fragments);
 	}
-	function syncAndReturnToMenu(reporter) {
-		if (syncGame()) reporter.backToMenu();
-	}
 	async function runArchdemonNewChapter(attempt, setup) {
 		if (setup.talismanId === NX_WEALTH_TALISMAN_ID) return await runArchdemonNewChapterWealth(attempt, setup);
 		return await runArchdemonNewChapterDefault(attempt, setup);
@@ -3169,11 +3072,11 @@
 		while (!session.stopped) {
 			attempt++;
 			if (chapterEndsAt(setup.chapterId) - Date.now() < NX_EVENT_END_MARGIN_MINUTES * 6e4) {
-				if (await session.notice(I18N("NX_EVENT_ENDING", { minutes: NX_EVENT_END_MARGIN_MINUTES }))) syncAndReturnToMenu(reporter);
+				if (await session.notice(I18N("NX_EVENT_ENDING", { minutes: NX_EVENT_END_MARGIN_MINUTES }))) syncGame();
 				return;
 			}
 			if (isPaidChapter(setup.chapterId)) {
-				if (await session.notice(I18N("NX_ERR_PAID_CHAPTER"))) syncAndReturnToMenu(reporter);
+				if (await session.notice(I18N("NX_ERR_PAID_CHAPTER"))) syncGame();
 				return;
 			}
 			reporter.attemptStart(attempt, lastFailure);
@@ -3183,7 +3086,7 @@
 				return;
 			}
 			if (outcome.kind === "fatal") {
-				if (await session.notice(outcome.message ?? I18N("NX_FAILED", { version: GM_info.script.version }), outcome.error)) syncAndReturnToMenu(reporter);
+				if (await session.notice(outcome.message ?? I18N("NX_FAILED", { version: GM_info.script.version }), outcome.error)) syncGame();
 				return;
 			}
 			if (outcome.kind === "ready") {
@@ -3208,7 +3111,7 @@
 				if (await session.notice(I18N("NX_CARRY_NEVER_ON_SALE", {
 					list,
 					attempts: NX_CARRY_UNSEEN_LIMIT
-				}))) syncAndReturnToMenu(reporter);
+				}))) syncGame();
 				return;
 			}
 			reporter.fail(I18N("NX_RETRY", {
@@ -3227,11 +3130,11 @@
 				if (!await reporter.countdown(pause, () => session.stopped)) break;
 			} catch (e) {
 				console.error(e);
-				if (await session.notice(I18N("NX_FAILED", { version: GM_info.script.version }), e)) syncAndReturnToMenu(reporter);
+				if (await session.notice(I18N("NX_FAILED", { version: GM_info.script.version }), e)) syncGame();
 				return;
 			}
 		}
-		if (await session.notice(I18N("NX_STOPPED", { attempt }))) syncAndReturnToMenu(reporter);
+		if (await session.notice(I18N("NX_STOPPED", { attempt }))) syncGame();
 	}
 	function openCache() {
 		return new Promise((resolve) => {
@@ -3957,9 +3860,6 @@
 		}
 		close() {
 			this.log.close();
-		}
-		backToMenu() {
-			returnToMenu();
 		}
 		replacing() {
 			this.log.stopping();
@@ -6181,7 +6081,7 @@
 		};
 	}
 	var petId = (n) => n > 0 && n < 100 ? 6e3 + n : n;
-	function readCache(storage) {
+	function readCache$1(storage) {
 		try {
 			const cached = JSON.parse(storage.getItem(NX_PRESETS_STORAGE_KEY) ?? "null");
 			return cached && Array.isArray(cached.data) ? cached : null;
@@ -6189,7 +6089,7 @@
 			return null;
 		}
 	}
-	function writeCache(storage, data, now) {
+	function writeCache$1(storage, data, now) {
 		try {
 			storage.setItem(NX_PRESETS_STORAGE_KEY, JSON.stringify({
 				exp: now + NX_PRESETS_TTL_MS,
@@ -6207,7 +6107,7 @@
 		async loadRows({ force = false } = {}) {
 			const { storage = globalThis.localStorage, clock = Date.now, fetchImpl = globalThis.fetch, urls = NX_PRESETS_URLS } = this.options;
 			const now = clock();
-			const cached = storage ? readCache(storage) : null;
+			const cached = storage ? readCache$1(storage) : null;
 			if (cached && cached.exp > now && !force && cached.data.length) return {
 				rows: cached.data,
 				source: "cache"
@@ -6216,7 +6116,7 @@
 			for (const url of mirrorOrder(storage, urls)) try {
 				const data = await fetchRows(fetchImpl, url);
 				if (storage) {
-					writeCache(storage, data, now);
+					writeCache$1(storage, data, now);
 					rememberMirror(storage, url);
 				}
 				return {
@@ -6402,6 +6302,92 @@
 				coins: preset.coins
 			}
 		};
+	}
+	var STAGES = {
+		alpha: 0,
+		beta: 1,
+		rc: 2
+	};
+	function parseVersion(version) {
+		const m = /^\s*(\d+)\.(\d+)(?:\.(\d+))?(?:-([a-z]+))?/i.exec(String(version ?? ""));
+		if (!m) return null;
+		const stage = m[4] ? STAGES[m[4].toLowerCase()] ?? 0 : 3;
+		return [
+			Number(m[1]),
+			Number(m[2]),
+			Number(m[3] ?? 0),
+			stage
+		];
+	}
+	function isNewer(candidate, current) {
+		const a = parseVersion(candidate);
+		const b = parseVersion(current);
+		if (!a || !b) return false;
+		for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];
+		return false;
+	}
+	function versionFromHeader(text) {
+		return /\/\/\s*@version\s+(\S+)/.exec(text)?.[1] ?? null;
+	}
+	function readCache(storage) {
+		try {
+			const cached = JSON.parse(storage?.getItem(NX_UPDATE_STORAGE_KEY) ?? "null");
+			return cached && Number.isFinite(cached.exp) ? cached : null;
+		} catch {
+			return null;
+		}
+	}
+	function writeCache(storage, cache) {
+		try {
+			storage?.setItem(NX_UPDATE_STORAGE_KEY, JSON.stringify(cache));
+		} catch (e) {
+			console.error(e);
+		}
+	}
+	async function fetchVersion(fetchImpl, url) {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), NX_PRESETS_TIMEOUT_MS);
+		try {
+			const response = await fetchImpl(url, {
+				headers: { Range: `bytes=0-1023` },
+				cache: "no-store",
+				signal: controller.signal
+			});
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			const version = versionFromHeader(await response.text());
+			if (!version) throw new Error("нет @version в шапке");
+			return version;
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+	async function checkForUpdate(options = {}) {
+		const { storage = globalThis.localStorage, clock = Date.now, fetchImpl = globalThis.fetch, urls = NX_UPDATE_URLS } = options;
+		const now = clock();
+		const cached = readCache(storage);
+		if (cached && cached.exp > now) return cached.version;
+		for (const url of urls) try {
+			const version = await fetchVersion(fetchImpl, url);
+			writeCache(storage, {
+				exp: now + NX_UPDATE_TTL_MS,
+				version
+			});
+			return version;
+		} catch (e) {
+			console.log(`Проверка версии: ${new URL(url).hostname} не ответил`, e);
+		}
+		writeCache(storage, {
+			exp: now + NX_UPDATE_RETRY_MS,
+			version: null
+		});
+		return null;
+	}
+	function availableUpdate(current, storage = globalThis.localStorage) {
+		const version = readCache(storage)?.version ?? null;
+		return isNewer(version, current) ? version : null;
+	}
+	function onGamePage() {
+		return typeof location !== "undefined" && typeof fetch === "function" && /(^|\.)(hero-wars\.com|hero-wars\.cn|fbsbx\.com)$/.test(location.hostname);
 	}
 	function talismanIconUrl(library, talismanId, size) {
 		const icon = talismanById(talismanId)?.clientData?.icon;
@@ -6639,6 +6625,9 @@
 			const url = id ? talismanIconUrl(library, id, 58) : "";
 			return url ? `<img src="${url}" alt="" title="${escapeAttr(emblemName(id))}" style="width: 58px; height: 58px; margin: 0 -9px; flex: none;">` : `<div title="${escapeAttr(I18N("NX_ANY_TALISMAN"))}" style="width: 40px; height: 40px; margin: 9px 0; flex: none; border-radius: 50%; box-sizing: border-box; border: 2px dashed rgba(206, 151, 103, 0.45);"></div>`;
 		}).join("");
+	}
+	function versionLabelHtml(version, update) {
+		return `<span style="position: absolute; left: 14px; top: 2px; font-size: 11px; line-height: 14px; white-space: nowrap;">${`<span style="opacity: 0.6;">v${escapeAttr(version)}</span>`}${update ? ` <span style="color: LimeGreen;">· ${escapeAttr(I18N("NX_UPDATE_SHORT", { version: update }))}</span><a href="${NX_GREASYFORK_URL}" target="_blank" rel="noopener" title="${escapeAttr(I18N("NX_UPDATE_HINT"))}" style="display: inline-block; margin-left: 6px; padding: 0 6px; height: 14px; line-height: 14px; font-size: 10px; border-radius: 3px; background: #2e7d32; border: 1px solid #1b5e20; color: #fff; text-decoration: none; vertical-align: top;">${escapeAttr(I18N("NX_UPDATE_BUTTON"))}</a>` : ""}</span>`;
 	}
 	async function archdemonNewSetup(chapters, buffAmount, relicLevel) {
 		const library = await loadGameGui(SETUP_GUI_FILES);
@@ -6926,7 +6915,7 @@
 				answer(value);
 			};
 			popup.custom.insertAdjacentHTML("beforeend", html);
-			popup.setMsgText(I18N("NX_SETUP_MESSAGE") + `<span style="position: absolute; left: 14px; top: 2px; font-size: 11px; line-height: 12px; opacity: 0.6;">v${escapeAttr(GM_info.script.version)}</span>`);
+			popup.setMsgText(I18N("NX_SETUP_MESSAGE") + versionLabelHtml(GM_info.script.version, availableUpdate(GM_info.script.version)));
 			popup.custom.querySelectorAll("input.hwhNewRadio").forEach((checkbox) => {
 				checkbox.addEventListener("change", function() {
 					if (!this.checked) {
@@ -7196,7 +7185,7 @@
 				version: helperVersion,
 				list: missing.join(", ")
 			}));
-			return returnToMenu();
+			return;
 		}
 		const relicId = currentEvent()?.settings?.relicId;
 		const relic = (await Caller.send("workshop_getInfo")).relics.find((e) => e.id == relicId);
@@ -7205,7 +7194,7 @@
 		const chapters = getAbyssChapters().filter((e) => !isPaidChapter(e.id));
 		if (chapters.length === 0) {
 			await popup.confirm(I18N("NX_ERR_NO_FREE_ABYSS"));
-			return returnToMenu();
+			return;
 		}
 		const setup = await archdemonNewSetup(chapters, buffAmount, relicLevel);
 		if (setup === "cancel" || !setup) return;
@@ -7272,68 +7261,7 @@
 			confShow(I18N("NX_NO_ABYSS"));
 			return;
 		}
-		await showArchdemonNewMenu();
-	}
-	async function showArchdemonNewMenu() {
-		const popupButtons = [{
-			get msg() {
-				return I18N("NX_ARCHDEMON");
-			},
-			get title() {
-				return I18N("NX_ARCHDEMON_HINT");
-			},
-			result: async function() {
-				await attackArchdemonNew();
-			},
-			color: "green"
-		}, {
-			get msg() {
-				return I18N("NX_ARCHDEMON_AUTO");
-			},
-			get title() {
-				return I18N("NX_ARCHDEMON_AUTO_SOON");
-			},
-			result: false,
-			color: "green"
-		}];
-		const update = availableUpdate(GM_info.script.version);
-		if (update) popupButtons.push({
-			get msg() {
-				return I18N("NX_UPDATE_BUTTON");
-			},
-			get title() {
-				return I18N("NX_UPDATE_HINT");
-			},
-			result: function() {
-				window.open(NX_GREASYFORK_URL, "_blank", "noopener");
-			},
-			color: "green"
-		});
-		popupButtons.push({
-			result: false,
-			isClose: true
-		});
-		const message = update ? `${I18N("NX_ARCHDEMON")}<br><span style="font-size: 14px; color: LimeGreen;">${I18N("NX_UPDATE_AVAILABLE", { version: escapeAttr(update) })}</span>` : I18N("NX_ARCHDEMON");
-		const answerPromise = popup.confirm(message, popupButtons);
-		const autoName = I18N("NX_ARCHDEMON_AUTO");
-		for (const button of popup.buttons ?? []) if (button?.textContent?.includes(autoName)) {
-			button.style.opacity = "0.45";
-			button.style.pointerEvents = "none";
-			button.title = I18N("NX_ARCHDEMON_AUTO_SOON");
-		}
-		const answer = await answerPromise;
-		if (typeof answer !== "function") return;
-		try {
-			await answer();
-		} catch (e) {
-			console.error(e);
-			setProgress("", true);
-			await popup.confirm(failureHtml(I18N("NX_START_FAILED", { version: GM_info.script.version }), e));
-			syncGame();
-		}
-	}
-	function returnToMenu() {
-		showArchdemonNewMenu().catch((e) => console.error(e));
+		await attackArchdemonNew();
 	}
 	function gameReady() {
 		if (typeof lib === "undefined" || typeof selfGame === "undefined" || !selfGame) return false;
