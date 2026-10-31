@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.00-beta
+// @version         1.01-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -311,6 +311,10 @@
 			NX_LOG_POINT: "point {point}",
 			NX_LOG_COINS: "{coins} coins",
 			NX_POINT_TAKEN: "Point {point} taken",
+			NX_PROGRESS_TEAM: "Team",
+			NX_PROGRESS_CARRY: "Carry",
+			NX_PROGRESS_SACRIFICE: "To throw",
+			NX_PROGRESS_PETS: "Pets",
 			NX_LOG_STOPPING: "Stopping…",
 			NX_REPLACING: "Stopping the previous run…",
 			NX_LOG_LAST_FAIL: "Last failed run {attempt}: {reason}",
@@ -506,6 +510,10 @@
 			NX_LOG_POINT: "точка {point}",
 			NX_LOG_COINS: "монет {coins}",
 			NX_POINT_TAKEN: "Точка {point} взята",
+			NX_PROGRESS_TEAM: "Состав",
+			NX_PROGRESS_CARRY: "Проходные",
+			NX_PROGRESS_SACRIFICE: "Для слива",
+			NX_PROGRESS_PETS: "Питомцы",
 			NX_LOG_STOPPING: "Останавливаем…",
 			NX_REPLACING: "Останавливаем прошлый прогон…",
 			NX_LOG_LAST_FAIL: "Прошлый неудачный заход {attempt}: {reason}",
@@ -830,6 +838,277 @@
 		if (!details) return text;
 		return `${text}<details style="margin-top: 10px;"><summary style="cursor: pointer;">${escapeAttr(I18N("NX_DETAILS"))}</summary><pre style="margin: 6px 0 0; padding: 6px 8px; max-height: 220px; overflow: auto; text-align: left; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; background: rgba(0, 0, 0, 0.3); border-radius: 4px; user-select: text; -webkit-user-select: text;">${escapeAttr(details)}</pre></details>`;
 	}
+	function rankStep(fragments) {
+		if (fragments >= 7) return 7;
+		if (fragments >= 3) return 3;
+		return 1;
+	}
+	function rankToFragments(rank) {
+		if (rank >= 7) return 7;
+		if (rank >= 3) return 3;
+		if (rank >= 1) return 1;
+		return 0;
+	}
+	function normalizePetId(raw) {
+		const value = String(raw ?? "").trim();
+		if (value === "" || value === "-") return 0;
+		if (!/^\d+$/.test(value)) return -1;
+		let id = Number(value);
+		if (id < 100) id = 6e3 + id;
+		return getPetLib()[id] ? id : -1;
+	}
+	function minCoinsForPercent(percent) {
+		const target = Number(percent);
+		if (!Number.isFinite(target) || target <= 0) return 0;
+		let low = 0;
+		let high = 1e6;
+		while (low < high) {
+			const middle = Math.floor((low + high) / 2);
+			if (coinsToPercent(middle) >= target) high = middle;
+			else low = middle + 1;
+		}
+		return low;
+	}
+	function parseMinCoins(raw) {
+		const value = String(raw ?? "").replace(/\s+/g, "");
+		if (value === "") return { value: null };
+		if (!/^\d+$/.test(value)) return null;
+		return { value: Number(value) };
+	}
+	function coinsToPercent(coins) {
+		let multiplier = .3;
+		try {
+			const talisman = allTalismans().find((e) => Number(e.id) === NX_WEALTH_TALISMAN_ID);
+			multiplier = Number(talisman?.effectConfig?.attackBonusMultiplier ?? multiplier);
+		} catch (e) {
+			console.error(e);
+		}
+		return Math.floor(Number(coins) * multiplier);
+	}
+	function parseArchdemonNewTeam(raw) {
+		const petLib = getPetLib();
+		const eventHeroes = getEventHeroIds();
+		const blocks = String(raw ?? "").split(",").map((e) => e.trim()).filter((e) => e !== "");
+		if (blocks.length < 1 || blocks.length > NX_TEAM_SIZE) return {
+			kind: "error",
+			error: I18N("NX_ERR_BLOCKS")
+		};
+		const heroes = [];
+		const targets = {};
+		const favor = {};
+		const favorPets = [];
+		for (const block of blocks) {
+			const parts = block.split("/").map((e) => e.trim());
+			if (parts.length !== 3) return {
+				kind: "error",
+				error: I18N("NX_ERR_BLOCK_FORMAT", { block })
+			};
+			const heroId = Number(parts[0]);
+			if (!Number.isInteger(heroId) || heroId <= 0) return {
+				kind: "error",
+				error: I18N("NX_ERR_BLOCK_FORMAT", { block })
+			};
+			if (heroes.includes(heroId)) return {
+				kind: "error",
+				error: I18N("NX_ERR_HERO_DUP", { hero: unitLabel(heroId) })
+			};
+			if (eventHeroes.length > 0 && !eventHeroes.includes(heroId)) return {
+				kind: "error",
+				error: I18N("NX_ERR_HERO", { hero: unitLabel(heroId) })
+			};
+			const rank = Number(parts[1]);
+			if (!Number.isInteger(rank) || rank < 1 || rank > 7) return {
+				kind: "error",
+				error: I18N("NX_ERR_RANK", { block })
+			};
+			const petId = normalizePetId(parts[2]);
+			if (petId === -1) return {
+				kind: "error",
+				error: I18N("NX_ERR_PET", { block })
+			};
+			if (petId > 0) {
+				if (favorPets.includes(petId)) return {
+					kind: "error",
+					error: I18N("NX_ERR_PET_DUP", { pet: unitLabel(petId) })
+				};
+				if (!(petLib[petId]?.favorHeroes ?? []).map(Number).includes(heroId)) return {
+					kind: "error",
+					error: I18N("NX_ERR_FAVOR", {
+						pet: unitLabel(petId),
+						hero: unitLabel(heroId)
+					})
+				};
+				favorPets.push(petId);
+				favor[heroId] = petId;
+			}
+			heroes.push(heroId);
+			targets[heroId] = rankToFragments(rank);
+		}
+		return {
+			kind: "team",
+			heroes,
+			targets,
+			favor,
+			favorPets
+		};
+	}
+	function parseRankedIdList(raw) {
+		const parts = String(raw ?? "").split(",").map((e) => e.trim()).filter((e) => e !== "");
+		if (parts.length === 0) return null;
+		const list = [];
+		for (const part of parts) {
+			const [idPart, rankPart] = part.split("/").map((e) => e.trim());
+			const id = Number(idPart);
+			const rank = rankPart === void 0 ? 1 : Number(rankPart);
+			if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(rank) || rank < 1 || rank > 7) return null;
+			if (!list.some((e) => e.id === id)) list.push({
+				id,
+				rank: rankToFragments(rank)
+			});
+		}
+		return list;
+	}
+	function parseIdList(raw) {
+		const ids = String(raw ?? "").split(/[,\s]+/).map((e) => e.trim()).filter((e) => e !== "").map(Number);
+		if (ids.length === 0) return null;
+		if (ids.some((e) => !Number.isInteger(e) || e <= 0)) return null;
+		return [...new Set(ids)];
+	}
+	function carryPackReady(setup, fragments) {
+		const mainReady = setup.carryHeroes.every((id) => Number(fragments[id] ?? 0) > 0);
+		const extras = setup.carryExtraHeroes ?? [];
+		return mainReady && (extras.length === 0 || carryExtraOwned(setup, fragments));
+	}
+	function carryExtraOwned(setup, fragments) {
+		return (setup.carryExtraHeroes ?? []).some((id) => Number(fragments[id] ?? 0) > 0);
+	}
+	function carryNeedFor(setup, fragments, heroId) {
+		const have = Number(fragments[heroId] ?? 0);
+		if (setup.carryHeroes.includes(heroId)) return Math.max(0, 1 - have);
+		const extras = setup.carryExtraHeroes ?? [];
+		if (extras.length > 0 && extras.includes(heroId) && !carryExtraOwned(setup, fragments)) return Math.max(0, 1 - have);
+		return 0;
+	}
+	function carryRankNeedFor(setup, fragments, heroId) {
+		if (!setup.carryHeroes.includes(heroId)) return 0;
+		return Math.max(0, Number(setup.carryTargets?.[heroId] ?? 1) - Number(fragments[heroId] ?? 0));
+	}
+	function sacrificeOwned(setup, fragments) {
+		return (setup.sacrificeHeroes ?? []).some((id) => Number(fragments[id] ?? 0) > 0);
+	}
+	function sacrificeNeeded(setup, fragments) {
+		const candidates = setup.sacrificeHeroes ?? [];
+		return candidates.length > 0 && !candidates.some((id) => setup.carryHeroes.includes(id)) && !sacrificeOwned(setup, fragments);
+	}
+	function pickSacrificeHero(setup, fragments) {
+		const tier = (id) => {
+			const roles = heroRoles(id);
+			for (const [at, role] of NX_SACRIFICE_ROLES.entries()) {
+				if (roles[0] === role) return at * 2;
+				if (roles.includes(role)) return at * 2 + 1;
+			}
+			return NX_SACRIFICE_ROLES.length * 2;
+		};
+		let best = 0;
+		for (const id of setup.sacrificeHeroes ?? []) {
+			const have = Number(fragments[id] ?? 0);
+			if (have <= 0) continue;
+			if (!best || tier(id) < tier(best) || tier(id) === tier(best) && have < Number(fragments[best] ?? 0)) best = id;
+		}
+		return best;
+	}
+	function collectedState(setup, fragments) {
+		const heroesLeft = setup.heroes.filter((heroId) => Number(fragments[heroId] ?? 0) < setup.targets[heroId]);
+		const petsLeft = setup.petsToCollect.filter((petId) => Number(fragments[petId] ?? 0) <= 0);
+		return {
+			heroesLeft,
+			petsLeft,
+			done: heroesLeft.length === 0 && petsLeft.length === 0
+		};
+	}
+	function fullPricePetsAllowed(setup, fragments) {
+		let short = 0;
+		for (const heroId of setup.heroes) short += Math.max(0, Number(setup.targets[heroId] ?? 0) - Number(fragments[heroId] ?? 0));
+		const petsLeft = setup.petsToCollect.filter((petId) => Number(fragments[petId] ?? 0) <= 0).length;
+		return short <= 1 && petsLeft <= 1;
+	}
+	function checkArchdemonNewConditions(setup, coins, fragments) {
+		const state = collectedState(setup, fragments);
+		if (!state.done) {
+			const list = [...state.heroesLeft, ...state.petsLeft].map(unitLabel).join(", ");
+			return {
+				kind: "retry",
+				reason: I18N("NX_REASON_NOT_COLLECTED", { list }),
+				missing: list
+			};
+		}
+		const percent = coinsToPercent(coins);
+		if (setup.talismanId === NX_WEALTH_TALISMAN_ID && setup.minCoins != null && coins < setup.minCoins) return {
+			kind: "retry",
+			reason: I18N("NX_REASON_MIN_COINS", {
+				coins,
+				percent,
+				min: setup.minCoins
+			})
+		};
+		return {
+			kind: "ready",
+			coins,
+			percent
+		};
+	}
+	function applyReward(fragments, reward) {
+		if (!reward) return;
+		for (const key of ["invasionFragmentHero", "invasionFragmentPet"]) for (const [id, amount] of Object.entries(reward[key] ?? {})) fragments[Number(id)] = Number(fragments[Number(id)] ?? 0) + Number(amount);
+	}
+	function keepAmountFor(setup, fragmentId, keepCarry) {
+		if (keepCarry) {
+			if (setup.carryHeroes.includes(fragmentId)) return Infinity;
+			if ((setup.carryExtraHeroes ?? []).includes(fragmentId)) return Infinity;
+			if ((setup.sacrificeHeroes ?? []).includes(fragmentId)) return Infinity;
+		}
+		if (setup.targets[fragmentId]) return setup.targets[fragmentId];
+		return 0;
+	}
+	function progressPlan(setup) {
+		const seen = new Set();
+		const take = (ids, need) => {
+			const units = [];
+			for (const id of (ids ?? []).map(Number)) {
+				if (!(id > 0) || seen.has(id)) continue;
+				seen.add(id);
+				units.push({
+					id,
+					need: Math.max(1, Number(need(id)) || 1)
+				});
+			}
+			return units;
+		};
+		return [
+			{
+				kind: "team",
+				units: take(setup.heroes, (id) => setup.targets?.[id])
+			},
+			{
+				kind: "carry",
+				units: take([...setup.carryHeroes ?? [], ...setup.carryExtraHeroes ?? []], (id) => setup.carryTargets?.[id])
+			},
+			{
+				kind: "sacrifice",
+				units: take(setup.sacrificeHeroes, () => 1)
+			},
+			{
+				kind: "pets",
+				units: take(setup.petsToCollect, () => 1)
+			}
+		].filter((group) => group.units.length > 0);
+	}
+	function pinnedFragments(slots, pinned) {
+		const out = {};
+		for (const slot of slots) if (pinned.has(slot.id)) applyReward(out, slot.reward);
+		delete out[-1];
+		return out;
+	}
 	function sleep(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
 	}
@@ -909,10 +1188,17 @@
 		wallet;
 		session;
 		actions = 0;
-		constructor(shopId, wallet, session) {
+		view = [];
+		pinnedIds = new Set();
+		onChange;
+		constructor(shopId, wallet, session, onChange = () => {}) {
 			this.shopId = shopId;
 			this.wallet = wallet;
 			this.session = session;
+			this.onChange = onChange;
+		}
+		pinned() {
+			return pinnedFragments(this.view, this.pinnedIds);
 		}
 		async open(onTalismans) {
 			this.actions = 0;
@@ -958,7 +1244,7 @@
 				});
 				this.wallet.value -= NX_STALL_REFRESH_COST;
 				console.log(`${NX_LOG_CASH} обновили лавку, монет ${this.wallet.value}`);
-				return Object.values(answer.slots);
+				return this.see(Object.values(answer.slots));
 			} catch (e) {
 				console.error(e);
 				await this.wallet.load();
@@ -967,7 +1253,7 @@
 		}
 		async buy(slot) {
 			await this.beforeAction();
-			return await Caller.send({
+			const reward = await Caller.send({
 				name: "shopBuy",
 				args: {
 					shopId: this.shopId,
@@ -976,6 +1262,8 @@
 					reward: {}
 				}
 			});
+			this.pinnedIds.delete(slot.id);
+			return reward;
 		}
 		async pin(slot) {
 			await this.beforeAction();
@@ -987,6 +1275,8 @@
 				}
 			});
 			slot.pinned = true;
+			this.pinnedIds.add(slot.id);
+			this.onChange();
 		}
 		async unpin(slot) {
 			await this.beforeAction();
@@ -998,6 +1288,8 @@
 				}
 			});
 			slot.pinned = false;
+			this.pinnedIds.delete(slot.id);
+			this.onChange();
 		}
 		async sell(fragments, unitId, amount) {
 			await this.beforeAction();
@@ -1009,6 +1301,7 @@
 				}
 			});
 			fragments[unitId] = 0;
+			this.onChange();
 			return coinsOf(answer);
 		}
 		async get() {
@@ -1018,9 +1311,17 @@
 			});
 			const bonus = this.wallet.addReward(answer?.bonusReward);
 			if (bonus) console.log(`${NX_LOG_CASH} +${bonus} бонус за открытие лавки, монет ${this.wallet.value}`);
-			return Object.values(answer?.slots ?? {});
+			return this.see(Object.values(answer?.slots ?? {}));
+		}
+		see(slots) {
+			this.view = slots;
+			this.pinnedIds.clear();
+			for (const slot of slots) if (slot.pinned) this.pinnedIds.add(slot.id);
+			this.onChange();
+			return slots;
 		}
 		beforeAction() {
+			this.onChange();
 			return pause(this.actions++ === 0 ? NX_PACE.firstAction : NX_PACE.betweenActions);
 		}
 	};
@@ -1058,7 +1359,7 @@
 		get stall() {
 			const shopId = stallShopId();
 			if (!shopId) return null;
-			this.eventStall ??= new Stall(shopId, this.wallet, this.session);
+			this.eventStall ??= new Stall(shopId, this.wallet, this.session, () => this.reportUnits());
 			this.eventStall.shopId = shopId;
 			return this.eventStall;
 		}
@@ -1068,13 +1369,24 @@
 				point: this.point,
 				coins: this.wallet.value
 			});
+			this.reportUnits();
 			reporter.line(text, liveKey, important);
+		}
+		reportUnits() {
+			this.session.reporter.units?.({
+				owned: this.live ?? {},
+				pinned: this.eventStall?.pinned() ?? {}
+			});
 		}
 		setFragments(fragments) {
 			const next = nonZeroFragments(fragments);
-			if (!this.live) return this.live = next;
-			for (const key of Object.keys(this.live)) delete this.live[key];
-			return Object.assign(this.live, next);
+			if (!this.live) this.live = next;
+			else {
+				for (const key of Object.keys(this.live)) delete this.live[key];
+				Object.assign(this.live, next);
+			}
+			this.reportUnits();
+			return this.live;
 		}
 		async units() {
 			return ownedUnits(this.live ?? this.setFragments((await Caller.send("invasion_getInfo"))?.fragments));
@@ -1367,238 +1679,6 @@
 			console.error(e);
 			return { failure: e };
 		}
-	}
-	function rankStep(fragments) {
-		if (fragments >= 7) return 7;
-		if (fragments >= 3) return 3;
-		return 1;
-	}
-	function rankToFragments(rank) {
-		if (rank >= 7) return 7;
-		if (rank >= 3) return 3;
-		if (rank >= 1) return 1;
-		return 0;
-	}
-	function normalizePetId(raw) {
-		const value = String(raw ?? "").trim();
-		if (value === "" || value === "-") return 0;
-		if (!/^\d+$/.test(value)) return -1;
-		let id = Number(value);
-		if (id < 100) id = 6e3 + id;
-		return getPetLib()[id] ? id : -1;
-	}
-	function minCoinsForPercent(percent) {
-		const target = Number(percent);
-		if (!Number.isFinite(target) || target <= 0) return 0;
-		let low = 0;
-		let high = 1e6;
-		while (low < high) {
-			const middle = Math.floor((low + high) / 2);
-			if (coinsToPercent(middle) >= target) high = middle;
-			else low = middle + 1;
-		}
-		return low;
-	}
-	function parseMinCoins(raw) {
-		const value = String(raw ?? "").replace(/\s+/g, "");
-		if (value === "") return { value: null };
-		if (!/^\d+$/.test(value)) return null;
-		return { value: Number(value) };
-	}
-	function coinsToPercent(coins) {
-		let multiplier = .3;
-		try {
-			const talisman = allTalismans().find((e) => Number(e.id) === NX_WEALTH_TALISMAN_ID);
-			multiplier = Number(talisman?.effectConfig?.attackBonusMultiplier ?? multiplier);
-		} catch (e) {
-			console.error(e);
-		}
-		return Math.floor(Number(coins) * multiplier);
-	}
-	function parseArchdemonNewTeam(raw) {
-		const petLib = getPetLib();
-		const eventHeroes = getEventHeroIds();
-		const blocks = String(raw ?? "").split(",").map((e) => e.trim()).filter((e) => e !== "");
-		if (blocks.length < 1 || blocks.length > NX_TEAM_SIZE) return {
-			kind: "error",
-			error: I18N("NX_ERR_BLOCKS")
-		};
-		const heroes = [];
-		const targets = {};
-		const favor = {};
-		const favorPets = [];
-		for (const block of blocks) {
-			const parts = block.split("/").map((e) => e.trim());
-			if (parts.length !== 3) return {
-				kind: "error",
-				error: I18N("NX_ERR_BLOCK_FORMAT", { block })
-			};
-			const heroId = Number(parts[0]);
-			if (!Number.isInteger(heroId) || heroId <= 0) return {
-				kind: "error",
-				error: I18N("NX_ERR_BLOCK_FORMAT", { block })
-			};
-			if (heroes.includes(heroId)) return {
-				kind: "error",
-				error: I18N("NX_ERR_HERO_DUP", { hero: unitLabel(heroId) })
-			};
-			if (eventHeroes.length > 0 && !eventHeroes.includes(heroId)) return {
-				kind: "error",
-				error: I18N("NX_ERR_HERO", { hero: unitLabel(heroId) })
-			};
-			const rank = Number(parts[1]);
-			if (!Number.isInteger(rank) || rank < 1 || rank > 7) return {
-				kind: "error",
-				error: I18N("NX_ERR_RANK", { block })
-			};
-			const petId = normalizePetId(parts[2]);
-			if (petId === -1) return {
-				kind: "error",
-				error: I18N("NX_ERR_PET", { block })
-			};
-			if (petId > 0) {
-				if (favorPets.includes(petId)) return {
-					kind: "error",
-					error: I18N("NX_ERR_PET_DUP", { pet: unitLabel(petId) })
-				};
-				if (!(petLib[petId]?.favorHeroes ?? []).map(Number).includes(heroId)) return {
-					kind: "error",
-					error: I18N("NX_ERR_FAVOR", {
-						pet: unitLabel(petId),
-						hero: unitLabel(heroId)
-					})
-				};
-				favorPets.push(petId);
-				favor[heroId] = petId;
-			}
-			heroes.push(heroId);
-			targets[heroId] = rankToFragments(rank);
-		}
-		return {
-			kind: "team",
-			heroes,
-			targets,
-			favor,
-			favorPets
-		};
-	}
-	function parseRankedIdList(raw) {
-		const parts = String(raw ?? "").split(",").map((e) => e.trim()).filter((e) => e !== "");
-		if (parts.length === 0) return null;
-		const list = [];
-		for (const part of parts) {
-			const [idPart, rankPart] = part.split("/").map((e) => e.trim());
-			const id = Number(idPart);
-			const rank = rankPart === void 0 ? 1 : Number(rankPart);
-			if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(rank) || rank < 1 || rank > 7) return null;
-			if (!list.some((e) => e.id === id)) list.push({
-				id,
-				rank: rankToFragments(rank)
-			});
-		}
-		return list;
-	}
-	function parseIdList(raw) {
-		const ids = String(raw ?? "").split(/[,\s]+/).map((e) => e.trim()).filter((e) => e !== "").map(Number);
-		if (ids.length === 0) return null;
-		if (ids.some((e) => !Number.isInteger(e) || e <= 0)) return null;
-		return [...new Set(ids)];
-	}
-	function carryPackReady(setup, fragments) {
-		const mainReady = setup.carryHeroes.every((id) => Number(fragments[id] ?? 0) > 0);
-		const extras = setup.carryExtraHeroes ?? [];
-		return mainReady && (extras.length === 0 || carryExtraOwned(setup, fragments));
-	}
-	function carryExtraOwned(setup, fragments) {
-		return (setup.carryExtraHeroes ?? []).some((id) => Number(fragments[id] ?? 0) > 0);
-	}
-	function carryNeedFor(setup, fragments, heroId) {
-		const have = Number(fragments[heroId] ?? 0);
-		if (setup.carryHeroes.includes(heroId)) return Math.max(0, 1 - have);
-		const extras = setup.carryExtraHeroes ?? [];
-		if (extras.length > 0 && extras.includes(heroId) && !carryExtraOwned(setup, fragments)) return Math.max(0, 1 - have);
-		return 0;
-	}
-	function carryRankNeedFor(setup, fragments, heroId) {
-		if (!setup.carryHeroes.includes(heroId)) return 0;
-		return Math.max(0, Number(setup.carryTargets?.[heroId] ?? 1) - Number(fragments[heroId] ?? 0));
-	}
-	function sacrificeOwned(setup, fragments) {
-		return (setup.sacrificeHeroes ?? []).some((id) => Number(fragments[id] ?? 0) > 0);
-	}
-	function sacrificeNeeded(setup, fragments) {
-		const candidates = setup.sacrificeHeroes ?? [];
-		return candidates.length > 0 && !candidates.some((id) => setup.carryHeroes.includes(id)) && !sacrificeOwned(setup, fragments);
-	}
-	function pickSacrificeHero(setup, fragments) {
-		const tier = (id) => {
-			const roles = heroRoles(id);
-			for (const [at, role] of NX_SACRIFICE_ROLES.entries()) {
-				if (roles[0] === role) return at * 2;
-				if (roles.includes(role)) return at * 2 + 1;
-			}
-			return NX_SACRIFICE_ROLES.length * 2;
-		};
-		let best = 0;
-		for (const id of setup.sacrificeHeroes ?? []) {
-			const have = Number(fragments[id] ?? 0);
-			if (have <= 0) continue;
-			if (!best || tier(id) < tier(best) || tier(id) === tier(best) && have < Number(fragments[best] ?? 0)) best = id;
-		}
-		return best;
-	}
-	function collectedState(setup, fragments) {
-		const heroesLeft = setup.heroes.filter((heroId) => Number(fragments[heroId] ?? 0) < setup.targets[heroId]);
-		const petsLeft = setup.petsToCollect.filter((petId) => Number(fragments[petId] ?? 0) <= 0);
-		return {
-			heroesLeft,
-			petsLeft,
-			done: heroesLeft.length === 0 && petsLeft.length === 0
-		};
-	}
-	function fullPricePetsAllowed(setup, fragments) {
-		let short = 0;
-		for (const heroId of setup.heroes) short += Math.max(0, Number(setup.targets[heroId] ?? 0) - Number(fragments[heroId] ?? 0));
-		const petsLeft = setup.petsToCollect.filter((petId) => Number(fragments[petId] ?? 0) <= 0).length;
-		return short <= 1 && petsLeft <= 1;
-	}
-	function checkArchdemonNewConditions(setup, coins, fragments) {
-		const state = collectedState(setup, fragments);
-		if (!state.done) {
-			const list = [...state.heroesLeft, ...state.petsLeft].map(unitLabel).join(", ");
-			return {
-				kind: "retry",
-				reason: I18N("NX_REASON_NOT_COLLECTED", { list }),
-				missing: list
-			};
-		}
-		const percent = coinsToPercent(coins);
-		if (setup.talismanId === NX_WEALTH_TALISMAN_ID && setup.minCoins != null && coins < setup.minCoins) return {
-			kind: "retry",
-			reason: I18N("NX_REASON_MIN_COINS", {
-				coins,
-				percent,
-				min: setup.minCoins
-			})
-		};
-		return {
-			kind: "ready",
-			coins,
-			percent
-		};
-	}
-	function applyReward(fragments, reward) {
-		if (!reward) return;
-		for (const key of ["invasionFragmentHero", "invasionFragmentPet"]) for (const [id, amount] of Object.entries(reward[key] ?? {})) fragments[Number(id)] = Number(fragments[Number(id)] ?? 0) + Number(amount);
-	}
-	function keepAmountFor(setup, fragmentId, keepCarry) {
-		if (keepCarry) {
-			if (setup.carryHeroes.includes(fragmentId)) return Infinity;
-			if ((setup.carryExtraHeroes ?? []).includes(fragmentId)) return Infinity;
-			if ((setup.sacrificeHeroes ?? []).includes(fragmentId)) return Infinity;
-		}
-		if (setup.targets[fragmentId]) return setup.targets[fragmentId];
-		return 0;
 	}
 	var RunSession = class {
 		stopped = false;
@@ -2394,7 +2474,7 @@
 			attempt.progress(I18N("NX_MISSION", {
 				attempt: attempt.number,
 				missionNumber: point
-			}));
+			}), null, true);
 			await pause(NX_PACE.beforeBattle);
 			const fight = await fightPoint(attempt, missionId, setup.chapterId, team.heroes, team.pet, team.favor, point);
 			if (fight.error) return {
@@ -2844,7 +2924,7 @@
 			attempt.progress(I18N("NX_MISSION", {
 				attempt: attempt.number,
 				missionNumber: point
-			}));
+			}), null, true);
 			await pause(NX_PACE.beforeBattle);
 			const team = await buildCarryTeam(attempt, setup);
 			const fragmentsOwned = { ...(await attempt.units()).fragments };
@@ -2952,6 +3032,7 @@
 	async function runArchdemonNewLoop(session, setup) {
 		const reporter = session.reporter;
 		reporter.open(() => session.stop());
+		reporter.plan?.(progressPlan(setup));
 		try {
 			return await runLoopAttempts(session, setup);
 		} finally {
@@ -3029,7 +3110,313 @@
 		}
 		if (await session.notice(I18N("NX_STOPPED", { attempt }))) syncAndReturnToMenu(reporter);
 	}
+	function openCache() {
+		return new Promise((resolve) => {
+			let request;
+			try {
+				request = indexedDB.open("hw_cache");
+			} catch {
+				resolve(null);
+				return;
+			}
+			request.onupgradeneeded = () => request.transaction.abort();
+			request.onerror = () => resolve(null);
+			request.onsuccess = () => resolve(request.result);
+		});
+	}
+	async function readCacheRecords(keys) {
+		const db = await openCache();
+		if (!db) return keys.map(() => null);
+		return new Promise((resolve) => {
+			try {
+				const store = db.transaction("cache", "readonly").objectStore("cache");
+				const found = new Array(keys.length).fill(null);
+				let left = keys.length;
+				if (!left) {
+					db.close();
+					resolve(found);
+					return;
+				}
+				keys.forEach((key, index) => {
+					const get = store.get(key);
+					const done = () => {
+						left--;
+						if (left === 0) {
+							db.close();
+							resolve(found);
+						}
+					};
+					get.onsuccess = () => {
+						found[index] = get.result ?? null;
+						done();
+					};
+					get.onerror = done;
+				});
+			} catch {
+				db.close();
+				resolve(keys.map(() => null));
+			}
+		});
+	}
+	async function listCacheKeys(prefix) {
+		const db = await openCache();
+		if (!db) return [];
+		return new Promise((resolve) => {
+			const keys = [];
+			try {
+				const range = IDBKeyRange.bound(prefix, prefix + "￿");
+				const cursor = db.transaction("cache", "readonly").objectStore("cache").openKeyCursor(range);
+				cursor.onsuccess = () => {
+					const c = cursor.result;
+					if (c) {
+						keys.push(String(c.key));
+						c.continue();
+					} else {
+						db.close();
+						resolve(keys);
+					}
+				};
+				cursor.onerror = () => {
+					db.close();
+					resolve(keys);
+				};
+			} catch {
+				db.close();
+				resolve(keys);
+			}
+		});
+	}
+	var hashedPaths = null;
+	var HASHED = /^(.+)\.[0-9a-f]{16,}(\.[A-Za-z0-9]+)$/;
+	function gameIndex() {
+		return (typeof selfGame !== "undefined" && selfGame ? selfGame["game.assets.storage.AssetStorage"] : null)?.instance?.index ?? null;
+	}
+	function buildHashedPaths() {
+		const found = new Map();
+		const index = gameIndex();
+		if (!index) return found;
+		const seen = new Set();
+		const walk = (node, depth) => {
+			if (!node || typeof node !== "object" || seen.has(node) || depth > 6) return;
+			seen.add(node);
+			for (const value of Object.values(node)) if (typeof value === "string") {
+				const m = HASHED.exec(value);
+				if (m) found.set(m[1] + m[2], value);
+			} else if (value && typeof value === "object") walk(value, depth + 1);
+		};
+		try {
+			walk(index, 0);
+		} catch (e) {
+			console.error(e);
+		}
+		return found;
+	}
+	async function readDownloadBase() {
+		const db = await openCache();
+		if (!db) return null;
+		return new Promise((resolve) => {
+			try {
+				const range = IDBKeyRange.bound("hero_icons/", "hero_icons/￿");
+				const cursor = db.transaction("cache", "readonly").objectStore("cache").openCursor(range);
+				cursor.onsuccess = () => {
+					const url = String(cursor.result?.value?.fullUrl ?? "");
+					db.close();
+					const at = url.indexOf("hero_icons/");
+					if (at < 0) {
+						resolve(null);
+						return;
+					}
+					const query = url.includes("?") ? url.slice(url.indexOf("?")) : "";
+					resolve({
+						base: url.slice(0, at),
+						query
+					});
+				};
+				cursor.onerror = () => {
+					db.close();
+					resolve(null);
+				};
+			} catch {
+				db.close();
+				resolve(null);
+			}
+		});
+	}
+	var fileNames;
+	function findFileNames() {
+		const index = gameIndex();
+		if (!index) return void 0;
+		const isName = (key) => /^[\w.-]+\.[A-Za-z0-9]+$/.test(key);
+		const seen = new Set();
+		const find = (node, depth) => {
+			if (!node || typeof node !== "object" || seen.has(node) || depth > 4) return null;
+			seen.add(node);
+			const keys = Object.keys(node);
+			if (keys.length > 1e3 && keys.slice(0, 200).filter(isName).length > 100) return node;
+			for (const key of keys.slice(0, 50)) {
+				const found = find(node[key], depth + 1);
+				if (found) return found;
+			}
+			return null;
+		};
+		try {
+			return find(index, 0);
+		} catch (e) {
+			console.error(e);
+			return null;
+		}
+	}
+	function hashedPathFor(plainPath) {
+		if (fileNames === void 0) fileNames = findFileNames();
+		const entry = fileNames?.[plainPath.slice(plainPath.lastIndexOf("/") + 1)];
+		if (entry && typeof entry === "object") for (const value of Object.values(entry)) {
+			if (typeof value !== "string") continue;
+			const m = HASHED.exec(value);
+			if (m && m[1] + m[2] === plainPath) return value;
+		}
+		hashedPaths ??= buildHashedPaths();
+		return hashedPaths.get(plainPath);
+	}
+	var downloadBase;
+	async function downloadUrlFor(plainPath) {
+		if (downloadBase === void 0) downloadBase = await readDownloadBase();
+		const hashed = hashedPathFor(plainPath);
+		return hashed && downloadBase ? downloadBase.base + hashed + downloadBase.query : "";
+	}
+	async function listCachedFiles(prefix) {
+		return listCacheKeys(prefix);
+	}
+	async function listGameFiles(prefix) {
+		hashedPaths ??= buildHashedPaths();
+		const all = new Set(await listCacheKeys(prefix));
+		for (const path of hashedPaths.keys()) if (path.startsWith(prefix)) all.add(path);
+		return [...all];
+	}
+	async function readGameFile(plainPath) {
+		const [record] = await readCacheRecords([plainPath]);
+		if (record?.data) return new Uint8Array(record.data);
+		const url = await downloadUrlFor(plainPath);
+		if (!url) return null;
+		try {
+			const response = await fetch(url);
+			return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
+		} catch (e) {
+			console.error(e);
+			return null;
+		}
+	}
+	var iconUrls = new Map();
+	function toBlobUrl(data) {
+		return URL.createObjectURL(new Blob([data], { type: "image/png" }));
+	}
+	function pngBytes(canvas) {
+		const url = canvas.toDataURL("image/png");
+		const bin = atob(url.slice(url.indexOf(",") + 1));
+		const bytes = new Uint8Array(bin.length);
+		for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+		return bytes;
+	}
+	async function loadUnitIcons(ids) {
+		const missing = [...new Set(ids.map(Number))].filter((id) => !iconUrls.has(id));
+		if (missing.length) {
+			const records = await readCacheRecords(missing.map((id) => `hero_icons/${id}.png`));
+			for (let i = 0; i < missing.length; i++) {
+				const data = records[i]?.data;
+				iconUrls.set(missing[i], data ? toBlobUrl(data) : await downloadUrlFor(`hero_icons/${missing[i]}.png`));
+			}
+		}
+		return Object.fromEntries(ids.map((id) => [Number(id), iconUrls.get(Number(id)) ?? ""]));
+	}
+	async function loadFavorSkillIcons(petIds) {
+		const out = {};
+		for (const raw of petIds) {
+			const id = Number(raw);
+			const key = `skill:${id}`;
+			if (!iconUrls.has(key)) {
+				const skillId = heroById(id)?.skill?.[4];
+				const texture = skillId ? skillById(skillId)?.icon_assetTexture : "";
+				let url = "";
+				if (texture) {
+					const path = `skill_icons/${texture}.png`;
+					const [record] = await readCacheRecords([path]);
+					url = record?.data ? toBlobUrl(record.data) : await downloadUrlFor(path);
+				}
+				iconUrls.set(key, url);
+			}
+			out[id] = iconUrls.get(key);
+		}
+		return out;
+	}
+	var heroAtlas = null;
+	async function loadHeroAtlas() {
+		const [xml, image] = await readCacheRecords(["hero_icons_only/hero_icons_only.xml", "hero_icons_only/hero_icons_only.avif"]);
+		if (!xml?.data || !image?.data) return null;
+		const text = new TextDecoder().decode(new Uint8Array(xml.data));
+		const frames = new Map();
+		for (const m of text.matchAll(/<SubTexture name="([^"]+)" x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)"/g)) frames.set(m[1], {
+			x: Number(m[2]),
+			y: Number(m[3]),
+			w: Number(m[4]),
+			h: Number(m[5])
+		});
+		return {
+			bitmap: await createImageBitmap(new Blob([image.data], { type: "image/avif" })),
+			frames
+		};
+	}
+	async function loadHeroIcons(ids, size = 112) {
+		heroAtlas ??= loadHeroAtlas().catch((e) => {
+			console.error(e);
+			return null;
+		});
+		const atlas = await heroAtlas;
+		const out = {};
+		for (const raw of ids) {
+			const id = Number(raw);
+			const key = `hero:${id}:${size}`;
+			if (!iconUrls.has(key)) {
+				const name = heroById(id)?.iconAssetTexture ?? String(id).padStart(4, "0");
+				const frame = atlas?.frames.get(String(name));
+				let url = "";
+				if (frame) {
+					const canvas = document.createElement("canvas");
+					canvas.width = size;
+					canvas.height = size;
+					canvas.getContext("2d").drawImage(atlas.bitmap, frame.x, frame.y, frame.w, frame.h, 0, 0, size, size);
+					url = toBlobUrl(pngBytes(canvas));
+				}
+				iconUrls.set(key, url);
+			}
+			out[id] = iconUrls.get(key);
+		}
+		return out;
+	}
+	var ICON = 40;
+	var PIN_SVG = "<svg width=\"15\" height=\"15\" viewBox=\"0 0 16 16\" style=\"position: absolute; right: -4px; top: -5px;\"><path d=\"M10.5 1.5l4 4-1.6.6-2.7 2.7.5 3.3-1.4 1.4-2.8-2.8-3.6 3.6-.9-.9 3.6-3.6-2.8-2.8 1.4-1.4 3.3.5 2.7-2.7z\" fill=\"#e5533d\" stroke=\"#3a1a0e\" stroke-width=\"0.8\" stroke-linejoin=\"round\"/></svg>";
+	function groupTitle(kind) {
+		switch (kind) {
+			case "team": return I18N("NX_PROGRESS_TEAM");
+			case "carry": return I18N("NX_PROGRESS_CARRY");
+			case "sacrifice": return I18N("NX_PROGRESS_SACRIFICE");
+			case "pets": return I18N("NX_PROGRESS_PETS");
+		}
+	}
+	function progressTileHtml(id, need, state, icon) {
+		const owned = Number(state.owned[id] ?? 0);
+		const pinned = Number(state.pinned[id] ?? 0);
+		const isPinned = pinned > 0;
+		const have = isPinned ? owned + pinned : owned;
+		const color = isPinned ? "#c9b18a" : have >= need ? "LimeGreen" : "#fbe0ac";
+		const filter = isPinned ? "filter: grayscale(0.8) brightness(0.6);" : "";
+		const picture = icon ? `<img src="${escapeAttr(icon)}" alt="" style="display: block; width: ${ICON}px; height: ${ICON}px; border-radius: 6px; ${filter}">` : `<div style="width: ${ICON}px; height: ${ICON}px; border-radius: 6px; background: #3a2414; ${filter}"></div>`;
+		return `<div data-unit="${id}" title="${escapeAttr(unitName(id))}" style="width: 44px; text-align: center;"><div style="position: relative; width: ${ICON}px; height: ${ICON}px; margin: 0 auto; border: 1px solid #ce976799; border-radius: 7px;">${picture}${isPinned ? PIN_SVG : ""}</div><div style="font-size: 11px; line-height: 14px; color: ${color};">${have}/${need}</div></div>`;
+	}
+	function progressColumnHtml(groups, state, icons) {
+		return groups.map((group) => `<div style="margin-bottom: 6px;"><div style="font-size: 11px; color: #e8c9a0; margin-bottom: 3px;">${groupTitle(group.kind)}</div><div style="display: flex; flex-wrap: wrap; gap: 4px;">` + group.units.map((unit) => progressTileHtml(unit.id, unit.need, state, icons[unit.id] ?? "")).join("") + "</div></div>").join("");
+	}
 	var NX_RUN_LOG_ID = "nxRunLog";
+	var WIDTH = 420;
+	var WIDTH_WITH_PROGRESS = 578;
 	var EDGE = 4;
 	function clampToViewport(position, width, height, viewWidth, viewHeight) {
 		const fit = (value, size, view) => {
@@ -3040,6 +3427,9 @@
 			left: fit(position.left, width, viewWidth),
 			top: fit(position.top, height, viewHeight)
 		};
+	}
+	function oneLine(html) {
+		return html.replace(/\s*<br\s*\/?>\s*/gi, " · ");
 	}
 	function savedPosition() {
 		const saved = typeof getSaveVal === "function" ? getSaveVal(NX_SAVE_KEYS.logPosition, null) : null;
@@ -3053,7 +3443,7 @@
 		"position: fixed",
 		"right: 110px",
 		"top: 60px",
-		"width: 420px",
+		`width: ${WIDTH}px`,
 		"max-height: calc(100vh * 2 / 3)",
 		"display: flex",
 		"flex-direction: column",
@@ -3085,12 +3475,19 @@
 		collapsed = false;
 		position = null;
 		detach = [];
+		groups = [];
+		state = {
+			owned: {},
+			pinned: {}
+		};
+		icons = {};
+		drawn = "";
 		open(onStop) {
 			document.getElementById(NX_RUN_LOG_ID)?.remove();
 			const root = document.createElement("div");
 			root.id = NX_RUN_LOG_ID;
 			root.setAttribute("style", PANEL_STYLE);
-			root.innerHTML = `<div data-part="head" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: move; user-select: none; touch-action: none;"><div data-part="title" style="flex: 1; min-width: 0; font-size: 15px; color: #ffcf84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><button data-part="collapse" type="button" style="${BUTTON_STYLE}; padding: 2px 8px;"></button><button data-part="stop" type="button" style="${BUTTON_STYLE}"></button></div><div data-part="brief" style="display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div>`;
+			root.innerHTML = `<div data-part="head" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: move; user-select: none; touch-action: none;"><div data-part="title" style="flex: 1; min-width: 0; font-size: 15px; color: #ffcf84; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><button data-part="collapse" type="button" style="${BUTTON_STYLE}; padding: 2px 8px;"></button><button data-part="stop" type="button" style="${BUTTON_STYLE}"></button></div><div data-part="brief" style="display: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"></div><div data-part="last" style="display: none; font-size: 12px; color: #e0a0a0; margin-bottom: 6px;"></div><div data-part="body" style="flex: 1; min-height: 0; display: flex; gap: 10px;"><div data-part="progress" style="display: none; flex: none; width: 148px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column;"><div data-part="list" style="flex: 1; overflow-y: auto; min-height: 40px; scrollbar-width: thin; scrollbar-color: #c49359 #190e08;"></div><div data-part="footer" style="display: none; margin-top: 6px; padding-top: 6px; border-top: 1px solid #ce976766;"></div></div></div>`;
 			document.body.append(root);
 			const part = (name) => root.querySelector(`[data-part="${name}"]`);
 			const box = {
@@ -3101,6 +3498,8 @@
 				stop: part("stop"),
 				brief: part("brief"),
 				last: part("last"),
+				body: part("body"),
+				progress: part("progress"),
 				list: part("list"),
 				footer: part("footer")
 			};
@@ -3139,6 +3538,10 @@
 			this.live = null;
 			this.lastHtml = "";
 			this.setBrief("");
+			this.units({
+				owned: {},
+				pinned: {}
+			});
 			if (lastFailure) {
 				box.last.innerHTML = I18N("NX_LOG_LAST_FAIL", lastFailure);
 				box.last.style.display = this.collapsed ? "none" : "";
@@ -3147,10 +3550,52 @@
 				box.last.style.display = "none";
 			}
 		}
+		plan(groups) {
+			const box = this.box;
+			if (!box) return;
+			this.groups = groups;
+			const shown = groups.length > 0;
+			box.progress.style.display = shown ? "" : "none";
+			box.root.style.width = `${shown ? WIDTH_WITH_PROGRESS : WIDTH}px`;
+			this.drawn = "";
+			this.drawProgress();
+			if (this.position) this.place(this.position);
+			const ids = groups.flatMap((group) => group.units.map((unit) => unit.id));
+			if (!shown) return;
+			const heroes = ids.filter((id) => id < NX_PET_ID_THRESHOLD);
+			const pets = ids.filter((id) => id > NX_PET_ID_THRESHOLD);
+			Promise.all([loadHeroIcons(heroes, 80), loadUnitIcons(pets)]).then(([heroIcons, petIcons]) => {
+				this.icons = {
+					...heroIcons,
+					...petIcons
+				};
+				this.drawn = "";
+				this.drawProgress();
+			}).catch((e) => console.error(e));
+		}
+		units(state) {
+			this.state = {
+				owned: { ...state.owned },
+				pinned: { ...state.pinned }
+			};
+			this.drawProgress();
+		}
+		drawProgress() {
+			const box = this.box;
+			if (!box || this.groups.length === 0) return;
+			const html = progressColumnHtml(this.groups, this.state, this.icons);
+			if (html === this.drawn) return;
+			this.drawn = html;
+			box.progress.innerHTML = html;
+		}
 		status(point, coins) {
 			const box = this.box;
 			if (!box || !this.titleHtml) return;
-			const parts = [point ? I18N("NX_LOG_POINT", { point }) : "", I18N("NX_LOG_COINS", { coins })].filter(Boolean);
+			if (!point) {
+				box.title.innerHTML = this.titleHtml;
+				return;
+			}
+			const parts = [I18N("NX_LOG_POINT", { point }), I18N("NX_LOG_COINS", { coins })];
 			box.title.innerHTML = `${this.titleHtml}<span style="font-size: 12px; color: #e8c9a0;"> · ${parts.join(" · ")}</span>`;
 		}
 		addLine(box, html) {
@@ -3164,9 +3609,9 @@
 		line(html, liveKey = null, important = false) {
 			const box = this.box;
 			if (!box) return;
-			this.lastHtml = html;
+			this.lastHtml = oneLine(html);
 			if (important) this.setBrief(html);
-			else if (!this.briefHtml) box.brief.innerHTML = html;
+			else if (!this.briefHtml) box.brief.innerHTML = this.lastHtml;
 			if (liveKey) {
 				const live = this.live;
 				if (live && live.key === liveKey && live.element.isConnected) {
@@ -3187,7 +3632,7 @@
 			if (!box) return;
 			this.live = null;
 			box.footer.innerHTML = `<div style="color: #ff6b6b;">${html}</div><div data-part="timer" style="margin-top: 4px;"></div>`;
-			box.footer.style.display = this.collapsed ? "none" : "";
+			box.footer.style.display = "";
 			this.setBrief(`<span style="color: #ff6b6b;">${html}</span>`);
 		}
 		async countdown(seconds, stopped) {
@@ -3212,8 +3657,8 @@
 			this.live = null;
 		}
 		setBrief(html) {
-			this.briefHtml = html;
-			if (this.box) this.box.brief.innerHTML = html || this.lastHtml;
+			this.briefHtml = oneLine(html);
+			if (this.box) this.box.brief.innerHTML = this.briefHtml || this.lastHtml;
 		}
 		setCollapsed(collapsed, save) {
 			const box = this.box;
@@ -3223,9 +3668,9 @@
 				element.style.display = visible ? "" : "none";
 			};
 			shown(box.brief, collapsed);
-			shown(box.list, !collapsed);
+			box.body.style.display = collapsed ? "none" : "flex";
 			shown(box.last, !collapsed && Boolean(box.last.innerHTML));
-			shown(box.footer, !collapsed && Boolean(box.footer.innerHTML));
+			if (!collapsed) box.list.scrollTop = box.list.scrollHeight;
 			box.collapse.textContent = collapsed ? "+" : "−";
 			box.collapse.title = I18N(collapsed ? "NX_LOG_EXPAND" : "NX_LOG_COLLAPSE");
 			if (save && typeof setSaveVal === "function") setSaveVal(NX_SAVE_KEYS.logCollapsed, collapsed);
@@ -3268,6 +3713,10 @@
 		keepOnScreen(box) {
 			if (typeof window === "undefined") return;
 			const refit = () => {
+				if (!box.root.isConnected) {
+					for (const undo of this.detach.splice(0)) undo();
+					return;
+				}
 				if (this.position && this.box === box) this.place(this.position);
 			};
 			window.addEventListener("resize", refit);
@@ -3302,6 +3751,12 @@
 		}
 		status(status) {
 			this.log.status(status.point, status.coins);
+		}
+		plan(groups) {
+			this.log.plan(groups);
+		}
+		units(state) {
+			this.log.units(state);
 		}
 		fail(text) {
 			this.log.fail(text);
@@ -3555,201 +4010,6 @@
 	}
 	function frameFor(fragments) {
 		return rankOf(fragments).frame;
-	}
-	function openCache() {
-		return new Promise((resolve) => {
-			let request;
-			try {
-				request = indexedDB.open("hw_cache");
-			} catch {
-				resolve(null);
-				return;
-			}
-			request.onupgradeneeded = () => request.transaction.abort();
-			request.onerror = () => resolve(null);
-			request.onsuccess = () => resolve(request.result);
-		});
-	}
-	async function readCacheRecords(keys) {
-		const db = await openCache();
-		if (!db) return keys.map(() => null);
-		return new Promise((resolve) => {
-			try {
-				const store = db.transaction("cache", "readonly").objectStore("cache");
-				const found = new Array(keys.length).fill(null);
-				let left = keys.length;
-				if (!left) {
-					db.close();
-					resolve(found);
-					return;
-				}
-				keys.forEach((key, index) => {
-					const get = store.get(key);
-					const done = () => {
-						left--;
-						if (left === 0) {
-							db.close();
-							resolve(found);
-						}
-					};
-					get.onsuccess = () => {
-						found[index] = get.result ?? null;
-						done();
-					};
-					get.onerror = done;
-				});
-			} catch {
-				db.close();
-				resolve(keys.map(() => null));
-			}
-		});
-	}
-	async function listCacheKeys(prefix) {
-		const db = await openCache();
-		if (!db) return [];
-		return new Promise((resolve) => {
-			const keys = [];
-			try {
-				const range = IDBKeyRange.bound(prefix, prefix + "￿");
-				const cursor = db.transaction("cache", "readonly").objectStore("cache").openKeyCursor(range);
-				cursor.onsuccess = () => {
-					const c = cursor.result;
-					if (c) {
-						keys.push(String(c.key));
-						c.continue();
-					} else {
-						db.close();
-						resolve(keys);
-					}
-				};
-				cursor.onerror = () => {
-					db.close();
-					resolve(keys);
-				};
-			} catch {
-				db.close();
-				resolve(keys);
-			}
-		});
-	}
-	var hashedPaths = null;
-	var HASHED = /^(.+)\.[0-9a-f]{16,}(\.[A-Za-z0-9]+)$/;
-	function gameIndex() {
-		return (typeof selfGame !== "undefined" && selfGame ? selfGame["game.assets.storage.AssetStorage"] : null)?.instance?.index ?? null;
-	}
-	function buildHashedPaths() {
-		const found = new Map();
-		const index = gameIndex();
-		if (!index) return found;
-		const seen = new Set();
-		const walk = (node, depth) => {
-			if (!node || typeof node !== "object" || seen.has(node) || depth > 6) return;
-			seen.add(node);
-			for (const value of Object.values(node)) if (typeof value === "string") {
-				const m = HASHED.exec(value);
-				if (m) found.set(m[1] + m[2], value);
-			} else if (value && typeof value === "object") walk(value, depth + 1);
-		};
-		try {
-			walk(index, 0);
-		} catch (e) {
-			console.error(e);
-		}
-		return found;
-	}
-	async function readDownloadBase() {
-		const db = await openCache();
-		if (!db) return null;
-		return new Promise((resolve) => {
-			try {
-				const range = IDBKeyRange.bound("hero_icons/", "hero_icons/￿");
-				const cursor = db.transaction("cache", "readonly").objectStore("cache").openCursor(range);
-				cursor.onsuccess = () => {
-					const url = String(cursor.result?.value?.fullUrl ?? "");
-					db.close();
-					const at = url.indexOf("hero_icons/");
-					if (at < 0) {
-						resolve(null);
-						return;
-					}
-					const query = url.includes("?") ? url.slice(url.indexOf("?")) : "";
-					resolve({
-						base: url.slice(0, at),
-						query
-					});
-				};
-				cursor.onerror = () => {
-					db.close();
-					resolve(null);
-				};
-			} catch {
-				db.close();
-				resolve(null);
-			}
-		});
-	}
-	var fileNames;
-	function findFileNames() {
-		const index = gameIndex();
-		if (!index) return void 0;
-		const isName = (key) => /^[\w.-]+\.[A-Za-z0-9]+$/.test(key);
-		const seen = new Set();
-		const find = (node, depth) => {
-			if (!node || typeof node !== "object" || seen.has(node) || depth > 4) return null;
-			seen.add(node);
-			const keys = Object.keys(node);
-			if (keys.length > 1e3 && keys.slice(0, 200).filter(isName).length > 100) return node;
-			for (const key of keys.slice(0, 50)) {
-				const found = find(node[key], depth + 1);
-				if (found) return found;
-			}
-			return null;
-		};
-		try {
-			return find(index, 0);
-		} catch (e) {
-			console.error(e);
-			return null;
-		}
-	}
-	function hashedPathFor(plainPath) {
-		if (fileNames === void 0) fileNames = findFileNames();
-		const entry = fileNames?.[plainPath.slice(plainPath.lastIndexOf("/") + 1)];
-		if (entry && typeof entry === "object") for (const value of Object.values(entry)) {
-			if (typeof value !== "string") continue;
-			const m = HASHED.exec(value);
-			if (m && m[1] + m[2] === plainPath) return value;
-		}
-		hashedPaths ??= buildHashedPaths();
-		return hashedPaths.get(plainPath);
-	}
-	var downloadBase;
-	async function downloadUrlFor(plainPath) {
-		if (downloadBase === void 0) downloadBase = await readDownloadBase();
-		const hashed = hashedPathFor(plainPath);
-		return hashed && downloadBase ? downloadBase.base + hashed + downloadBase.query : "";
-	}
-	async function listCachedFiles(prefix) {
-		return listCacheKeys(prefix);
-	}
-	async function listGameFiles(prefix) {
-		hashedPaths ??= buildHashedPaths();
-		const all = new Set(await listCacheKeys(prefix));
-		for (const path of hashedPaths.keys()) if (path.startsWith(prefix)) all.add(path);
-		return [...all];
-	}
-	async function readGameFile(plainPath) {
-		const [record] = await readCacheRecords([plainPath]);
-		if (record?.data) return new Uint8Array(record.data);
-		const url = await downloadUrlFor(plainPath);
-		if (!url) return null;
-		try {
-			const response = await fetch(url);
-			return response.ok ? new Uint8Array(await response.arrayBuffer()) : null;
-		} catch (e) {
-			console.error(e);
-			return null;
-		}
 	}
 	var Reader = class {
 		constructor(bytes, littleEndian) {
@@ -4269,92 +4529,6 @@
 			} : null);
 		}
 		return rendered.get(key);
-	}
-	var iconUrls = new Map();
-	function toBlobUrl(data) {
-		return URL.createObjectURL(new Blob([data], { type: "image/png" }));
-	}
-	function pngBytes(canvas) {
-		const url = canvas.toDataURL("image/png");
-		const bin = atob(url.slice(url.indexOf(",") + 1));
-		const bytes = new Uint8Array(bin.length);
-		for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-		return bytes;
-	}
-	async function loadUnitIcons(ids) {
-		const missing = [...new Set(ids.map(Number))].filter((id) => !iconUrls.has(id));
-		if (missing.length) {
-			const records = await readCacheRecords(missing.map((id) => `hero_icons/${id}.png`));
-			for (let i = 0; i < missing.length; i++) {
-				const data = records[i]?.data;
-				iconUrls.set(missing[i], data ? toBlobUrl(data) : await downloadUrlFor(`hero_icons/${missing[i]}.png`));
-			}
-		}
-		return Object.fromEntries(ids.map((id) => [Number(id), iconUrls.get(Number(id)) ?? ""]));
-	}
-	async function loadFavorSkillIcons(petIds) {
-		const out = {};
-		for (const raw of petIds) {
-			const id = Number(raw);
-			const key = `skill:${id}`;
-			if (!iconUrls.has(key)) {
-				const skillId = heroById(id)?.skill?.[4];
-				const texture = skillId ? skillById(skillId)?.icon_assetTexture : "";
-				let url = "";
-				if (texture) {
-					const path = `skill_icons/${texture}.png`;
-					const [record] = await readCacheRecords([path]);
-					url = record?.data ? toBlobUrl(record.data) : await downloadUrlFor(path);
-				}
-				iconUrls.set(key, url);
-			}
-			out[id] = iconUrls.get(key);
-		}
-		return out;
-	}
-	var heroAtlas = null;
-	async function loadHeroAtlas() {
-		const [xml, image] = await readCacheRecords(["hero_icons_only/hero_icons_only.xml", "hero_icons_only/hero_icons_only.avif"]);
-		if (!xml?.data || !image?.data) return null;
-		const text = new TextDecoder().decode(new Uint8Array(xml.data));
-		const frames = new Map();
-		for (const m of text.matchAll(/<SubTexture name="([^"]+)" x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)"/g)) frames.set(m[1], {
-			x: Number(m[2]),
-			y: Number(m[3]),
-			w: Number(m[4]),
-			h: Number(m[5])
-		});
-		return {
-			bitmap: await createImageBitmap(new Blob([image.data], { type: "image/avif" })),
-			frames
-		};
-	}
-	async function loadHeroIcons(ids, size = 112) {
-		heroAtlas ??= loadHeroAtlas().catch((e) => {
-			console.error(e);
-			return null;
-		});
-		const atlas = await heroAtlas;
-		const out = {};
-		for (const raw of ids) {
-			const id = Number(raw);
-			const key = `hero:${id}:${size}`;
-			if (!iconUrls.has(key)) {
-				const name = heroById(id)?.iconAssetTexture ?? String(id).padStart(4, "0");
-				const frame = atlas?.frames.get(String(name));
-				let url = "";
-				if (frame) {
-					const canvas = document.createElement("canvas");
-					canvas.width = size;
-					canvas.height = size;
-					canvas.getContext("2d").drawImage(atlas.bitmap, frame.x, frame.y, frame.w, frame.h, 0, 0, size, size);
-					url = toBlobUrl(pngBytes(canvas));
-				}
-				iconUrls.set(key, url);
-			}
-			out[id] = iconUrls.get(key);
-		}
-		return out;
 	}
 	function handleAsync(handler) {
 		return (...args) => {
