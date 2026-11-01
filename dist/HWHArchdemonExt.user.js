@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.16-beta
+// @version         1.17-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -76,10 +76,10 @@
 	];
 	var NX_PRESETS_MIRROR_KEY = "HWHArchdemonExt.presets.mirror";
 	var NX_PRESETS_STORAGE_KEY = "HWHArchdemonExt.presets.v1";
-	var NX_PRESETS_TTL_MS = 72e5;
-	var NX_UPDATE_URLS = ["https://update.greasyfork.org/scripts/597541/HWHArchdemonExt.meta.js", "https://raw.githubusercontent.com/nexgen-hw-dev/HWHArchdemonExt/main/dist/HWHArchdemonExt.user.js"];
-	var NX_UPDATE_TTL_MS = 3e5;
-	var NX_UPDATE_RETRY_MS = 3e5;
+	var NX_PRESETS_TTL_MS = 9e5;
+	var NX_UPDATE_URLS = ["https://raw.githubusercontent.com/nexgen-hw-dev/HWHArchdemonExt/main/dist/HWHArchdemonExt.user.js", "https://update.greasyfork.org/scripts/597541/HWHArchdemonExt.meta.js"];
+	var NX_UPDATE_TTL_MS = 36e5;
+	var NX_UPDATE_RETRY_MS = 36e5;
 	var NX_UPDATE_BUST_MS = 3e5;
 	var NX_UPDATE_STORAGE_KEY = "HWHArchdemonExt.update.v1";
 	var NX_GREASYFORK_URL = "https://greasyfork.org/scripts/597541";
@@ -200,7 +200,6 @@
 			NX_ERR_TALISMAN: "Pick an emblem",
 			NX_ERR_MIN_COINS: "Minimum coins is a whole number, or leave it empty",
 			NX_ATTEMPT: "ArchRank — run <span style=\"color: LimeGreen;\">{attempt}</span>",
-			NX_SHOPPING: "Shopping. Coins: <span style=\"color: LimeGreen;\">{coins}</span>, heroes left {heroes}, pets left {pets}",
 			NX_MISSION: "Mission <span style=\"color: LimeGreen;\">{missionNumber}</span>",
 			NX_RETRY: "Run {attempt} failed. {reason}<br>Resetting the chapter",
 			NX_READY: `<span style="font-size: 25px;">Everything is collected on run <span style="color: LimeGreen;">{attempt}</span></span><br>
@@ -318,17 +317,21 @@
 			NX_LOG_EXPAND: "Expand the log",
 			NX_LOG_POINT: "point {point}",
 			NX_LOG_COINS: "<span style=\"font-size: 15px; color: LimeGreen;\">{coins}</span> coins",
+			NX_LOG_COINS_PEAK: "<span style=\"font-size: 15px; color: LimeGreen;\">{coins}</span> of <span style=\"color: #a8a8a8;\">{peak}</span> coins",
 			NX_POINT_TAKEN: "Point {point} taken",
 			NX_PROGRESS_TEAM: "Team",
 			NX_PROGRESS_CARRY: "Carry",
 			NX_PROGRESS_SACRIFICE: "To throw",
 			NX_PROGRESS_PETS: "Pets",
 			NX_PROGRESS_EXTRA: "Extra for sale",
-			NX_EVENT_PIN: "Pinned",
+			NX_EVENT_PIN: "Pinned for <span style=\"color: #a8a8a8;\">{coins}</span>",
 			NX_UPDATE_SHORT: "{version} is out",
 			NX_UPDATE_BUTTON: "Update",
 			NX_UPDATE_HINT: "Opens the add-on page on Greasy Fork. Reload the game page after updating",
-			NX_EVENT_UNPIN: "Unpinned",
+			NX_EVENT_UNPIN: "Unpinned · <span style=\"color: #a8a8a8;\">{coins}</span>",
+			NX_UNPIN_CHEAPER: "found a better lot",
+			NX_UNPIN_NOT_NEEDED: "no longer needed",
+			NX_UNPIN_REFRESH: "before a refresh",
 			NX_EVENT_BUY: "Bought for <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_EVENT_SELL: "Sold for <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_LOG_STOPPING: "Stopping…",
@@ -404,7 +407,6 @@
 			NX_ERR_TALISMAN: "Выберите эмблему",
 			NX_ERR_MIN_COINS: "Минимум монет — целое число или пусто",
 			NX_ATTEMPT: "ArchRank — заход <span style=\"color: LimeGreen;\">{attempt}</span>",
-			NX_SHOPPING: "Закупка. Монет: <span style=\"color: LimeGreen;\">{coins}</span>, героев осталось {heroes}, питомцев {pets}",
 			NX_MISSION: "Миссия <span style=\"color: LimeGreen;\">{missionNumber}</span>",
 			NX_RETRY: "Заход {attempt} не сложился. {reason}<br>Сбрасываем главу",
 			NX_READY: `<span style="font-size: 25px;">Всё собрано на заходе <span style="color: LimeGreen;">{attempt}</span></span><br>
@@ -522,17 +524,21 @@
 			NX_LOG_EXPAND: "Развернуть журнал",
 			NX_LOG_POINT: "точка {point}",
 			NX_LOG_COINS: "монет <span style=\"font-size: 15px; color: LimeGreen;\">{coins}</span>",
+			NX_LOG_COINS_PEAK: "монет <span style=\"font-size: 15px; color: LimeGreen;\">{coins}</span> из <span style=\"color: #a8a8a8;\">{peak}</span>",
 			NX_POINT_TAKEN: "Точка {point} взята",
 			NX_PROGRESS_TEAM: "Состав",
 			NX_PROGRESS_CARRY: "Проходные",
 			NX_PROGRESS_SACRIFICE: "Для слива",
 			NX_PROGRESS_PETS: "Питомцы",
 			NX_PROGRESS_EXTRA: "Экстра на продажу",
-			NX_EVENT_PIN: "Закрепили",
+			NX_EVENT_PIN: "Закрепили за <span style=\"color: #a8a8a8;\">{coins}</span>",
 			NX_UPDATE_SHORT: "доступна {version}",
 			NX_UPDATE_BUTTON: "Обновить",
 			NX_UPDATE_HINT: "Откроется страница дополнения на Greasy Fork. После обновления перезагрузите страницу игры",
-			NX_EVENT_UNPIN: "Сняли закреп",
+			NX_EVENT_UNPIN: "Сняли закреп · <span style=\"color: #a8a8a8;\">{coins}</span>",
+			NX_UNPIN_CHEAPER: "нашли выгоднее",
+			NX_UNPIN_NOT_NEEDED: "уже не нужен",
+			NX_UNPIN_REFRESH: "перед обновлением",
 			NX_EVENT_BUY: "Купили за <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_EVENT_SELL: "Продали за <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_LOG_STOPPING: "Останавливаем…",
@@ -1203,7 +1209,16 @@
 		return Number(reward?.coin?.[STALL_COIN] ?? 0);
 	}
 	var Wallet = class {
-		value = 0;
+		amount = 0;
+		onChange = null;
+		get value() {
+			return this.amount;
+		}
+		set value(next) {
+			if (next === this.amount) return;
+			this.amount = next;
+			this.onChange?.();
+		}
 		addReward(reward) {
 			const amount = coinsOf(reward);
 			this.value += amount;
@@ -1320,7 +1335,7 @@
 			this.onChange();
 			this.tell("pin", rewardUnits(slot.reward), coinsOf(slot.cost));
 		}
-		async unpin(slot) {
+		async unpin(slot, reason) {
 			await this.beforeAction();
 			await Caller.send({
 				name: "shop_unpinSlot",
@@ -1332,7 +1347,7 @@
 			slot.pinned = false;
 			this.pinnedIds.delete(slot.id);
 			this.onChange();
-			this.tell("unpin", rewardUnits(slot.reward), coinsOf(slot.cost));
+			this.tell("unpin", rewardUnits(slot.reward), coinsOf(slot.cost), reason);
 		}
 		async sell(fragments, unitId, amount) {
 			await this.beforeAction();
@@ -1358,8 +1373,13 @@
 			if (bonus) console.log(`${NX_LOG_CASH} +${bonus} бонус за открытие лавки, монет ${this.wallet.value}`);
 			return this.see(Object.values(answer?.slots ?? {}));
 		}
-		tell(kind, units, coins) {
-			this.session.reporter.unitEvent?.({
+		tell(kind, units, coins, reason) {
+			this.session.reporter.unitEvent?.(reason ? {
+				kind,
+				units,
+				coins,
+				reason
+			} : {
 				kind,
 				units,
 				coins
@@ -1399,11 +1419,20 @@
 		session;
 		number;
 		point = null;
+		coinPeak = null;
 		live = null;
 		eventStall = void 0;
 		constructor(session, number) {
 			this.session = session;
 			this.number = number;
+			this.wallet.onChange = () => this.reportStatus();
+		}
+		reportStatus() {
+			this.session.reporter.status?.({
+				point: this.point,
+				coins: this.wallet.value,
+				peak: this.coinPeak
+			});
 		}
 		get stopped() {
 			return this.session.stopped;
@@ -1417,10 +1446,7 @@
 		}
 		progress(text, liveKey = null, important = false) {
 			const reporter = this.session.reporter;
-			reporter.status?.({
-				point: this.point,
-				coins: this.wallet.value
-			});
+			this.reportStatus();
 			this.reportUnits();
 			reporter.line(text, liveKey, important);
 		}
@@ -1924,27 +1950,16 @@
 		for (const slot of shopSlots) {
 			if (attempt.stopped) break;
 			if (!slot.pinned || slot.bought) continue;
-			await stall.unpin(slot);
+			await stall.unpin(slot, "refresh");
 			console.log(`Сняли закреп с ${lotUnits(slot)}, слот ${slot.id}: закупка без закрепов`);
 		}
-	}
-	function showShopping(attempt, setup, fragments, tick = null) {
-		const state = collectedState(setup, fragments);
-		const text = I18N("NX_SHOPPING", {
-			attempt: attempt.number,
-			coins: attempt.wallet.value,
-			heroes: state.heroesLeft.length,
-			pets: state.petsLeft.length
-		});
-		attempt.progress(tick === null ? text : text + ".".repeat(tick % 3 + 1), "shopping", true);
 	}
 	async function buyForArchdemonNew(attempt, setup, { discountPets = false, minCoins = null, shopSlots: openedSlots = null, onTalismans = null } = {}) {
 		const coins = attempt.wallet;
 		const stall = attempt.stall;
 		if (!stall) return {
 			kind: "done",
-			coins: coins.value,
-			shown: false
+			coins: coins.value
 		};
 		let shopSlots = openedSlots;
 		if (!shopSlots) {
@@ -1957,7 +1972,6 @@
 			shopSlots = visit.slots;
 		}
 		const fragments = (await attempt.units()).fragments;
-		let tick = 0;
 		let guard = 0;
 		let petDeposit = discountPets;
 		let pinsReleased = false;
@@ -1977,7 +1991,6 @@
 						min: minCoins
 					};
 					console.log(`${NX_LOG_CASH} граница закупки: ${coins.value} + продажа ${resale} + запас ${NX_MIN_COINS_SLACK} = ${projected} < ${minCoins}, заход заново`);
-					if (tick) showShopping(attempt, setup, fragments);
 					return {
 						kind: "retry",
 						coins: coins.value,
@@ -1986,8 +1999,6 @@
 				}
 			}
 			if (coins.value < NX_MIN_LOT_COST && !petDeposit) break;
-			showShopping(attempt, setup, fragments, tick);
-			tick++;
 			if (await buySlotsForArchdemonNew(attempt, stall, shopSlots, setup, fragments, discountPets)) {
 				await sellUnneededFragments(attempt, stall, setup, fragments, false);
 				continue;
@@ -2011,11 +2022,9 @@
 				if (!shopSlots) break;
 			} else break;
 		}
-		if (tick && !attempt.stopped) showShopping(attempt, setup, fragments);
 		return {
 			kind: "done",
-			coins: coins.value,
-			shown: tick > 0
+			coins: coins.value
 		};
 	}
 	function extrasResale(setup, fragments) {
@@ -2089,27 +2098,32 @@
 		const need = Math.ceil(short / price);
 		return need <= available ? need : 0;
 	}
-	async function sellSurplusToTarget(attempt, stall, setup, fragments) {
-		const target = setup.minCoins;
-		if (target == null || setup.talismanId !== NX_WEALTH_TALISMAN_ID) return 0;
+	async function sellSurplusParts(attempt, stall, setup, fragments) {
+		if (setup.talismanId !== NX_WEALTH_TALISMAN_ID) return 0;
 		const coins = attempt.wallet;
-		const short = target - coins.value;
-		if (short <= 0) return 0;
+		const target = Number(setup.minCoins) || 0;
+		const all = target <= 0 || setup.keepExtraCoins === true;
 		const parts = surplusParts(setup, fragments);
 		const available = parts.reduce((sum, [, extra]) => sum + extra, 0);
-		if (!surplusPartsNeeded(short, fragmentSellPrice("hero"), available)) {
-			if (available > 0) console.log(`${NX_LOG_CASH} до минимума ${target} не хватает ${short}, лишних частей ${available} — не продаём`);
-			return 0;
+		if (!available) return 0;
+		if (!all) {
+			const short = target - coins.value;
+			if (short <= 0) return 0;
+			if (!surplusPartsNeeded(short, fragmentSellPrice("hero"), available)) {
+				console.log(`${NX_LOG_CASH} до минимума ${target} не хватает ${short}, лишних частей ${available} — не продаём`);
+				return 0;
+			}
 		}
 		let income = 0;
-		for (const [heroId, extra] of parts) for (let i = 0; i < extra && coins.value < target && !attempt.stopped; i++) {
+		for (const [heroId, extra] of parts) for (let i = 0; i < extra && (all || coins.value < target) && !attempt.stopped; i++) {
 			const got = await stall.sell(fragments, heroId, 1);
 			coins.value += got;
 			income += got;
 			console.log(`Продали лишнюю часть героя ${heroId}, осталось ${fragments[heroId]}`);
 		}
+		if (!income) return 0;
 		attempt.ledger.add("продажа лишних частей", income);
-		console.log(`${NX_LOG_CASH} +${income} лишние части до минимума ${target}, остаток ${coins.value}`);
+		console.log(`${NX_LOG_CASH} +${income} лишние части ${all ? "все" : `до минимума ${target}`}, остаток ${coins.value}`);
 		return income;
 	}
 	async function sellExtraPets(attempt, stall, setup, fragments) {
@@ -2312,7 +2326,9 @@
 			const pets = petsOf(slot);
 			const isPetSlot = pets.length > 0 && !slot.reward?.invasionFragmentHero;
 			if (isPetSlot ? pets.some(neededPet) : keep.has(slot)) continue;
-			await stall.unpin(slot);
+			const heroes = Object.keys(slot.reward?.invasionFragmentHero ?? {}).map(Number);
+			const stillNeeded = !isPetSlot && heroes.some((id) => preFinalNeed(setup, fragments, id) > 0 || sacrificeNeeded(setup, fragments) && setup.sacrificeHeroes.includes(id));
+			await stall.unpin(slot, stillNeeded ? "cheaper" : "notNeeded");
 			console.log(`Сняли закреп с ${lotUnits(slot)}, слот ${slot.id}: ${isPetSlot ? "питомец не нужен" : "не нужен или есть дешевле"}`);
 		}
 		for (const slot of keep) {
@@ -2416,14 +2432,13 @@
 		const coins = attempt.wallet;
 		let slots = shopSlots;
 		await sellUnneededFragments(attempt, stall, setup, fragments, false);
-		let tick = 0;
+		attempt.coinPeak = coins.value;
+		attempt.reportStatus();
 		let guard = 0;
 		while (guard < 300) {
 			guard++;
 			if (attempt.stopped) break;
 			if (collectedState(setup, fragments).done) break;
-			showShopping(attempt, setup, fragments, tick);
-			tick++;
 			if (await buySlotsForArchdemonNew(attempt, stall, slots, setup, fragments, false)) {
 				await sellUnneededFragments(attempt, stall, setup, fragments, false);
 				continue;
@@ -2443,7 +2458,6 @@
 			attempt.ledger.add("обновления лавки", coins.value - beforeRefresh);
 			if (!slots) break;
 		}
-		if (tick && !attempt.stopped) showShopping(attempt, setup, fragments);
 		return { coins: coins.value };
 	}
 	function packOwned(setup, heroIds) {
@@ -2800,6 +2814,8 @@
 			const fragments = (await attempt.units()).fragments;
 			attempt.progress(I18N("NX_WEALTH_FINAL", { attempt: attempt.number }), null, true);
 			await sellUnneededFragments(attempt, stall, setup, fragments, false);
+			attempt.coinPeak = attempt.wallet.value;
+			attempt.reportStatus();
 			const shopping = await buyForArchdemonNew(attempt, setup, {
 				discountPets: true,
 				minCoins: setup.minCoins ?? null,
@@ -2811,8 +2827,7 @@
 			};
 			await sellUnneededFragments(attempt, stall, setup, fragments, false);
 			await sellExtraPets(attempt, stall, setup, fragments);
-			await sellSurplusToTarget(attempt, stall, setup, fragments);
-			if (shopping.shown && !attempt.stopped) showShopping(attempt, setup, fragments);
+			await sellSurplusParts(attempt, stall, setup, fragments);
 			console.log(`Финальная закупка закончена, монет осталось ${attempt.wallet.value}`);
 			return { kind: "done" };
 		} catch (e) {
@@ -3537,11 +3552,22 @@
 			return smallIconHtml(id, icons[id] ?? "") + many;
 		}).join(" ")} ${eventText(event)}`;
 	}
+	function unpinReasonText(reason) {
+		switch (reason) {
+			case "cheaper": return I18N("NX_UNPIN_CHEAPER");
+			case "notNeeded": return I18N("NX_UNPIN_NOT_NEEDED");
+			case "refresh": return I18N("NX_UNPIN_REFRESH");
+			default: return "";
+		}
+	}
 	function eventText(event) {
 		const coins = event.coins;
 		switch (event.kind) {
-			case "pin": return I18N("NX_EVENT_PIN");
-			case "unpin": return I18N("NX_EVENT_UNPIN");
+			case "pin": return I18N("NX_EVENT_PIN", { coins });
+			case "unpin": {
+				const reason = unpinReasonText(event.reason);
+				return I18N("NX_EVENT_UNPIN", { coins }) + (reason ? ` — ${reason}` : "");
+			}
 			case "buy": return I18N("NX_EVENT_BUY", { coins });
 			case "sell": return I18N("NX_EVENT_SELL", { coins });
 		}
@@ -3754,14 +3780,18 @@
 			this.drawn = html;
 			box.progress.innerHTML = html;
 		}
-		status(point, coins) {
+		status(point, coins, peak = null) {
 			const box = this.box;
 			if (!box || !this.titleHtml) return;
 			if (!point) {
 				box.title.innerHTML = this.titleHtml;
 				return;
 			}
-			const parts = [I18N("NX_LOG_POINT", { point }), I18N("NX_LOG_COINS", { coins })];
+			const money = peak == null ? I18N("NX_LOG_COINS", { coins }) : I18N("NX_LOG_COINS_PEAK", {
+				coins,
+				peak
+			});
+			const parts = [I18N("NX_LOG_POINT", { point }), money];
 			box.title.innerHTML = `${this.titleHtml}<span style="font-size: 12px; color: #e8c9a0;"> · ${parts.join(" · ")}</span>`;
 		}
 		addLine(box, html) {
@@ -3916,7 +3946,7 @@
 			setProgress(text, false, this.onStop);
 		}
 		status(status) {
-			this.log.status(status.point, status.coins);
+			this.log.status(status.point, status.coins, status.peak ?? null);
 		}
 		plan(groups) {
 			this.log.plan(groups);
@@ -6293,7 +6323,7 @@
 			const { storage = globalThis.localStorage, clock = Date.now, fetchImpl = globalThis.fetch, urls = NX_PRESETS_URLS } = this.options;
 			const now = clock();
 			const cached = storage ? readCache$1(storage) : null;
-			if (cached && cached.exp > now && !force && cached.data.length) return {
+			if (cached && cached.exp > now && !force) return {
 				rows: cached.data,
 				source: "cache"
 			};
