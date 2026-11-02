@@ -35,7 +35,7 @@ If a run does not work out, it resets the chapter and tries again.
 HeroWarsHelper 2.459 or newer is required: with an older helper the run fails. Import `HWHArchdemonExt.user.js` into Tampermonkey. The script order does not matter: the add-on waits for the helper.
 The item appears in the helper menu: **Others → Adventure (Arch)**.
 
-While a run is going, turn Goodwin off, or at least its battle improvement for the Invasion: it intercepts the add-on's
+While a run is going, turn off other scripts that improve Invasion battles: they intercept the add-on's
 requests too and can turn an intentional loss into a win. And do not play manually in the same tab during a run.
 
 ## Screenshots

@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.17-beta
+// @version         1.18-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -20,7 +20,9 @@
 	var NX_SALE_TALISMAN_ID = 8009;
 	var NX_PET_ID_THRESHOLD = 4400;
 	var NX_TIMER_SEARCH_MAX_TRIES = 1e3;
-	var NX_TIMER_SEARCH_GRID = 30;
+	var NX_SMARTFIX_FIRST_ULT_CAP = 15;
+	var NX_SMARTFIX_BUDGET_MS = 4e4;
+	var NX_STEP0_TIMER_MAX = 120;
 	var NX_TIMER_SEARCH_BUDGET_MS = 6e4;
 	var NX_LOSS_TIMER_RANGE = {
 		min: 1.3,
@@ -115,7 +117,7 @@
 			}, {
 				name: "HW_Goodwin",
 				url: "https://t.me/HW_Goodwin",
-				key: "NX_PRESETS_TG_GOODWIN"
+				key: "NX_PRESETS_TG_COMMUNITY"
 			}]
 		},
 		youtube: [
@@ -146,12 +148,23 @@
 			key: "NX_PRESETS_SITE_HWMAP"
 		}]
 	};
-	var NX_PRESET_CARRY = [46, 72];
-	var NX_PRESET_SACRIFICE = 46;
-	var NX_PRESET_STRONG_BUFF = 200;
-	var NX_PRESET_STRONG_CARRY = [72];
-	var NX_PRESET_STRONG_SACRIFICE = 72;
-	var NX_PRESET_SACRIFICE_POINT = 5;
+	var NX_BUILTIN_STRATEGIES = [{
+		buff: [0, 199],
+		carry: [
+			46,
+			1,
+			72,
+			1
+		],
+		sacrifice: 46,
+		point: 5
+	}, {
+		buff: [200, 1e3],
+		carry: [72, 1],
+		sacrifice: 72,
+		point: 5
+	}];
+	var NX_STRATEGY_MAX_BUFF = 1e3;
 	var NX_SACRIFICE_POINTS = [5, 7];
 	var NX_WEALTH_TALISMAN_ID = 8008;
 	var NX_EXCLUDED_TALISMAN_IDS = [8005, 8009];
@@ -270,14 +283,17 @@
 			NX_PRESETS_VIDEO: "Open the video",
 			NX_PRESETS_NO_PET: "No main pet",
 			NX_PRESETS_GO: "Let's go",
-			NX_PRESETS_GO_HINT: "Run the chosen chapter with this build: carry {carry}, {sacrifice} throws point {point}, no spare refreshes and no unknown cards",
+			NX_PRESETS_GO_HINT: "Run the chosen chapter with this build: carry {carry}, {sacrifice} throws point {point} ({source}), no spare refreshes and no unknown cards",
+			NX_PRESETS_STRATEGY_PRESET: "the build's own strategy",
+			NX_PRESETS_STRATEGY_EVENT: "the event strategy",
+			NX_PRESETS_STRATEGY_BUILTIN: "the built-in strategy",
 			NX_PRESETS_GO_HINT_PLAIN: "Run the chosen chapter with this build",
 			NX_PRESETS_BACK: "Back",
 			NX_PRESETS_LOADING: "Loading the builds…",
 			NX_PRESETS_WAIT_SOON: "Ready-made builds for this event will appear on the last day of the Adventure. Until then, try it on your own: put a team together and grab your spot on the leaderboard!",
 			NX_PRESETS_WAIT_RESOURCES: "Archdemon build examples and lots of other useful game info are here:",
 			NX_PRESETS_TG_HELPER: "the group of HeroWarsHelper and many other useful scripts",
-			NX_PRESETS_TG_GOODWIN: "a friendly player community and lots of useful info",
+			NX_PRESETS_TG_COMMUNITY: "a friendly player community and lots of useful info",
 			NX_PRESETS_WAIT_YOUTUBE: "YouTube — useful game videos and Archdemon builds",
 			NX_PRESETS_WAIT_SITES: "Websites",
 			NX_PRESETS_ERROR: "The request cannot be completed from your region. Please use additional tools",
@@ -477,14 +493,17 @@
 			NX_PRESETS_VIDEO: "Открыть видео",
 			NX_PRESETS_NO_PET: "Без основного питомца",
 			NX_PRESETS_GO: "Поехали",
-			NX_PRESETS_GO_HINT: "Пройти выбранную главу по этой сборке: проходные {carry}, точку {point} сливает {sacrifice}, без запаса обновлений и без неизвестных карт",
+			NX_PRESETS_GO_HINT: "Пройти выбранную главу по этой сборке: проходные {carry}, точку {point} сливает {sacrifice} ({source}), без запаса обновлений и без неизвестных карт",
+			NX_PRESETS_STRATEGY_PRESET: "стратегия сборки",
+			NX_PRESETS_STRATEGY_EVENT: "общая стратегия события",
+			NX_PRESETS_STRATEGY_BUILTIN: "встроенная стратегия",
 			NX_PRESETS_GO_HINT_PLAIN: "Пройти выбранную главу по этой сборке",
 			NX_PRESETS_BACK: "Назад",
 			NX_PRESETS_LOADING: "Загружаем сборки…",
 			NX_PRESETS_WAIT_SOON: "Готовые сборки для этого события появятся в последний день Приключения. А пока попробуйте свои силы: подберите команду сами и успейте занять место в рейтинге!",
 			NX_PRESETS_WAIT_RESOURCES: "Примеры сборок для Архидемона и много другой полезной информации по игре вы найдёте здесь:",
 			NX_PRESETS_TG_HELPER: "группа HeroWarsHelper и множества других полезных скриптов",
-			NX_PRESETS_TG_GOODWIN: "дружное сообщество игроков и много полезной информации",
+			NX_PRESETS_TG_COMMUNITY: "дружное сообщество игроков и много полезной информации",
 			NX_PRESETS_WAIT_YOUTUBE: "YouTube — полезные видео по игре и сборки для Архидемона",
 			NX_PRESETS_WAIT_SITES: "Сайты",
 			NX_PRESETS_ERROR: "Для вашего региона невозможно выполнить запрос. Воспользуйтесь дополнительными инструментами",
@@ -603,15 +622,12 @@
 	var setIsCancalBattle;
 	var i18nLangData;
 	var othersPopupButtons;
-	var WinFixBattle;
 	var helperVersion = "?";
 	function bindHelper() {
 		const funcs = typeof HWHFuncs !== "undefined" && HWHFuncs || {};
 		const data = typeof HWHData !== "undefined" && HWHData || {};
-		const classes = typeof HWHClasses !== "undefined" && HWHClasses || {};
 		({popup, confShow, setProgress, I18N, getSaveVal, setSaveVal, addExtentionName, setIsCancalBattle} = funcs);
 		({i18nLangData, othersPopupButtons} = data);
-		({WinFixBattle} = classes);
 		helperVersion = typeof scriptInfo !== "undefined" ? String(scriptInfo?.version ?? "?") : "?";
 	}
 	bindHelper();
@@ -631,9 +647,7 @@
 			setIsCancalBattle: typeof setIsCancalBattle === "function",
 			i18nLangData: Boolean(i18nLangData?.en && i18nLangData?.ru),
 			othersPopupButtons: Array.isArray(othersPopupButtons),
-			WinFixBattle: typeof WinFixBattle === "function",
 			"Caller.result": typeof Caller === "function" && typeof Caller.send === "function" && typeof Caller.prototype?.send === "function" && typeof Caller.prototype?.result === "function" && typeof Caller.prototype?.sideResult === "function",
-			Calc: typeof Calc === "function",
 			lib: typeof lib !== "undefined" && Boolean(lib?.data),
 			"cheats.refreshGame": typeof cheats !== "undefined" && typeof cheats?.refreshGame === "function" && typeof cheats?.translate === "function"
 		};
@@ -870,6 +884,285 @@
 		const details = describeError(error);
 		if (!details) return text;
 		return `${text}<details style="margin-top: 10px;"><summary style="cursor: pointer;">${escapeAttr(I18N("NX_DETAILS"))}</summary><pre style="margin: 6px 0 0; padding: 6px 8px; max-height: 220px; overflow: auto; text-align: left; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; background: rgba(0, 0, 0, 0.3); border-radius: 4px; user-select: text; -webkit-user-select: text;">${escapeAttr(details)}</pre></details>`;
+	}
+	var CLASS_PATHS = {
+		storage: "game.data.storage.DataStorage",
+		configs: "game.data.storage.battle.BattleConfigStorage",
+		presets: "game.battle.controller.thread.BattlePresets",
+		play: "game.battle.controller.instant.BattleInstantPlay",
+		multiPlay: "game.battle.controller.instant.MultiBattleInstantReplay",
+		result: "game.battle.controller.MultiBattleResult",
+		logEncoder: "battle.log.BattleLogEncoder",
+		logReader: "battle.log.BattleLogReader",
+		movement: "battle.logic.MovementManager",
+		timeline: "battle.timeline.Timeline"
+	};
+	var REQUIRED = [
+		"storage",
+		"configs",
+		"presets",
+		"play",
+		"result"
+	];
+	var HIDDEN_LOG_TIME = 168.8;
+	var ULT_ENERGY = 1e3;
+	function gameClass$1(path) {
+		const value = (typeof selfGame !== "undefined" ? selfGame : null)?.[path];
+		return typeof value === "function" ? value : null;
+	}
+	function missingBattleEngine() {
+		return REQUIRED.filter((key) => !gameClass$1(CLASS_PATHS[key])).map((key) => CLASS_PATHS[key]);
+	}
+	function propertyMethod(cls, name) {
+		const found = Object.entries(cls.prototype.__properties__ ?? {}).filter(([, value]) => value === name);
+		const method = found[found.length - 1]?.[0];
+		if (!method) throw new Error(`Расчёт боя: у класса нет свойства ${name}`);
+		return method;
+	}
+	function protoMethod(cls, index) {
+		const method = Object.keys(cls.prototype)[index];
+		if (!method) throw new Error(`Расчёт боя: у класса нет метода №${index}`);
+		return method;
+	}
+	function call(target, method, ...args) {
+		const fn = target?.[method];
+		if (typeof fn !== "function") throw new Error(`Расчёт боя: нет метода ${method}`);
+		return fn.apply(target, args);
+	}
+	function battleConfigGetter(battleType) {
+		if (!battleType) return null;
+		switch (battleType) {
+			case "titan_pvp": return "get_titanPvp";
+			case "titan_pvp_manual":
+			case "titan_clan_pvp":
+			case "clan_pvp_titan":
+			case "clan_global_pvp_titan":
+			case "brawl_titan":
+			case "challenge_titan":
+			case "titan_mission":
+			case "epic_brawl_titan": return "get_titanPvpManual";
+			case "clan_raid":
+			case "adventure":
+			case "clan_global_pvp":
+			case "epic_brawl":
+			case "clan_pvp": return "get_clanPvp";
+			case "dungeon_titan":
+			case "titan_tower": return "get_titan";
+			case "tower":
+			case "clan_dungeon": return "get_tower";
+			case "pve":
+			case "mission": return "get_pve";
+			case "mission_boss": return "get_missionBoss";
+			case "challenge":
+			case "pvp_manual": return "get_pvpManual";
+			case "grand":
+			case "arena":
+			case "pvp":
+			case "clan_domination": return "get_pvp";
+			case "core": return "get_core";
+			default:
+				if (battleType.includes("invasion")) return battleType.includes("titan") ? "get_invasionTitan" : "get_invasion";
+				if (battleType.includes("boss")) return "get_boss";
+				if (battleType.includes("titan_arena")) return "get_titanPvpManual";
+				return "get_clanPvp";
+		}
+	}
+	var capture = null;
+	var stepField = null;
+	var hookState = "none";
+	var HOOK_MARK = "__nxStepCapture";
+	function installStepHook() {
+		if (hookState !== "none") return hookState === "installed";
+		hookState = "unavailable";
+		const Movement = gameClass$1(CLASS_PATHS.movement);
+		const Timeline = gameClass$1(CLASS_PATHS.timeline);
+		const field = Timeline ? Object.keys(Timeline.prototype)[1] : void 0;
+		const original = Movement?.prototype.update;
+		if (!Movement || !field || typeof original !== "function" || original.length !== 1) {
+			console.warn("Расчёт боя: карту шагов снять не на чем — нет MovementManager.update или поля счётчика Timeline, шаг будет 0");
+			return false;
+		}
+		stepField = field;
+		if (!original[HOOK_MARK]) {
+			const wrapped = function(timeline) {
+				const result = original.call(this, timeline);
+				if (capture && timeline && typeof timeline === "object" && stepField) capture.push({
+					time: Number(timeline.time),
+					step: Number(timeline[stepField])
+				});
+				return result;
+			};
+			Object.defineProperty(wrapped, HOOK_MARK, { value: true });
+			Movement.prototype.update = wrapped;
+		}
+		hookState = "installed";
+		return true;
+	}
+	function validSteps(points) {
+		if (!points || points.length < 3) return null;
+		if (!points.every((p) => Number.isFinite(p.time) && p.time >= 0 && Number.isInteger(p.step) && p.step >= 0)) return null;
+		let rising = 0;
+		for (let i = 1; i < points.length; i++) if (points[i].step >= points[i - 1].step) rising++;
+		if (rising / (points.length - 1) < .98) return null;
+		if (new Set(points.map((p) => p.step)).size < 3) return null;
+		const byTime = new Map();
+		for (const p of points) byTime.set(p.time, p.step);
+		return [...byTime].map(([time, step]) => ({
+			time,
+			step
+		})).sort((a, b) => a.time - b.time);
+	}
+	function stepIndexAt(steps, time) {
+		if (!steps?.length) return 0;
+		let lo = 0;
+		let hi = steps.length - 1;
+		let found = 0;
+		while (lo <= hi) {
+			const mid = lo + hi >> 1;
+			if (steps[mid].time <= time) {
+				found = mid;
+				lo = mid + 1;
+			} else hi = mid - 1;
+		}
+		return steps[found].step + 1;
+	}
+	var energyInfo;
+	function energyEventInfo() {
+		if (energyInfo !== void 0) return energyInfo;
+		const classes = typeof selfGame !== "undefined" ? selfGame : null;
+		if (!classes) return null;
+		const find = (name) => {
+			const key = Object.keys(classes).find((k) => k === name || k.endsWith("." + name));
+			return key ? gameClass$1(key) : null;
+		};
+		const hero = find("BattleLogEventHero");
+		const energy = find("BattleLogEventHeroEnergy");
+		const heroId = hero && Object.keys(hero.prototype)[0];
+		const [energyField, delta] = energy ? Object.keys(energy.prototype) : [];
+		energyInfo = energy && heroId && energyField && delta ? {
+			proto: energy.prototype,
+			heroId,
+			energy: energyField,
+			delta
+		} : null;
+		return energyInfo;
+	}
+	function firstUltTimeOf(log) {
+		const info = energyEventInfo();
+		if (!info) return null;
+		for (const event of log) {
+			if (Object.getPrototypeOf(event) !== info.proto || !(Number(event[info.heroId]) > 0)) continue;
+			const energy = Number(event[info.energy]);
+			if (energy < ULT_ENERGY && energy + Number(event[info.delta]) >= ULT_ENERGY) return Number(event.time);
+		}
+		return null;
+	}
+	function readLog(results, timeLimit) {
+		const Encoder = gameClass$1(CLASS_PATHS.logEncoder);
+		const Reader = gameClass$1(CLASS_PATHS.logReader);
+		const Result = gameClass$1(CLASS_PATHS.result);
+		const first = Result ? (results?.[protoMethod(Result, 2)])?.[0] : void 0;
+		if (!Encoder || !Reader || first === void 0 || typeof Encoder.read !== "function") return {
+			battleTime: NaN,
+			firstUltTime: null
+		};
+		const log = Encoder.read(new Reader(first));
+		let battleTime = 0;
+		for (const event of log) {
+			const time = Number(event.time);
+			if (time < timeLimit && time !== HIDDEN_LOG_TIME && time > battleTime) battleTime = time;
+		}
+		let firstUltTime = null;
+		try {
+			firstUltTime = firstUltTimeOf(log);
+		} catch (e) {
+			console.warn("Расчёт боя: первый готовый ульт найти не удалось", e);
+		}
+		return {
+			battleTime,
+			firstUltTime
+		};
+	}
+	function disposeLater(play) {
+		const channel = new MessageChannel();
+		channel.port1.onmessage = () => {
+			channel.port1.close();
+			try {
+				if (typeof play.dispose === "function") play.dispose.call(play);
+			} catch (e) {
+				console.error(e);
+			}
+		};
+		channel.port2.postMessage(0);
+	}
+	var plain = (value) => value == null ? value : JSON.parse(JSON.stringify(value));
+	function gameCalc(source, { log = false, steps = false } = {}) {
+		const battle = structuredClone(source);
+		const missing = missingBattleEngine();
+		if (missing.length) return Promise.reject(new Error(`Расчёт боя: нет классов игры ${missing.join(", ")}`));
+		const Storage = gameClass$1(CLASS_PATHS.storage);
+		const Configs = gameClass$1(CLASS_PATHS.configs);
+		const Presets = gameClass$1(CLASS_PATHS.presets);
+		const Play = gameClass$1(CLASS_PATHS.play);
+		const Result = gameClass$1(CLASS_PATHS.result);
+		const getter = battleConfigGetter(battle.effects?.battleConfig ?? battle.type);
+		const storage = Object.values(Storage).find((value) => value instanceof Configs);
+		if (!getter || !storage) return Promise.reject(new Error(`Расчёт боя: нет настроек боя ${getter ?? battle.type}`));
+		const config = call(storage, propertyMethod(Configs, getter));
+		const presets = new Presets(battle.progress, false, true, config, false);
+		const Multi = (battle.progress?.length ?? 0) > 1 ? gameClass$1(CLASS_PATHS.multiPlay) : null;
+		const play = Multi ? new Multi(battle, presets) : new Play(battle, presets);
+		const capturing = steps && installStepHook();
+		const points = [];
+		return new Promise((resolve, reject) => {
+			let settled = false;
+			const finish = () => {
+				if (capture === points) capture = null;
+				if (!settled) disposeLater(play);
+				settled = true;
+			};
+			try {
+				const signal = play[protoMethod(Play, 9)];
+				if (typeof signal?.add !== "function") throw new Error("Расчёт боя: нет сигнала конца боя");
+				signal.add.call(signal, (instance) => {
+					try {
+						const results = call(instance, propertyMethod(Play, "get_result"));
+						const timeLimit = Number(call(presets, propertyMethod(Presets, "get_timeLimit")));
+						const parsed = log ? readLog(results, timeLimit) : {
+							battleTime: NaN,
+							firstUltTime: null
+						};
+						const map = capturing ? validSteps(points) : null;
+						const lastStep = points.length ? points[points.length - 1].time : NaN;
+						resolve({
+							result: plain(call(results, propertyMethod(Result, "get_result"))),
+							progress: plain(call(results, propertyMethod(Result, "get_progress"))),
+							battleTime: Number.isFinite(parsed.battleTime) ? parsed.battleTime : lastStep,
+							firstUltTime: parsed.firstUltTime,
+							steps: map
+						});
+					} catch (e) {
+						reject(e);
+					} finally {
+						finish();
+					}
+				});
+				if (capturing) capture = points;
+				play.start.call(play);
+			} catch (e) {
+				finish();
+				reject(e);
+			}
+		});
+	}
+	var battleCalc = { run: gameCalc };
+	function calcBattle(battle, options) {
+		return battleCalc.run(battle, options);
+	}
+	function withInput(battle, input) {
+		const copy = structuredClone(battle);
+		copy.progress = [{ attackers: { input: [...input] } }];
+		return copy;
 	}
 	function rankStep(fragments) {
 		if (fragments >= 7) return 7;
@@ -1156,6 +1449,16 @@
 	}
 	function sleep(ms) {
 		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+	function nextTask() {
+		return new Promise((resolve) => {
+			const channel = new MessageChannel();
+			channel.port1.onmessage = () => {
+				channel.port1.close();
+				resolve();
+			};
+			channel.port2.postMessage(0);
+		});
 	}
 	function idle(ms) {
 		return new Promise((resolve) => {
@@ -1481,136 +1784,281 @@
 			return null;
 		}
 	};
-	var NO_HELPER_BASE = class {};
-	var NEVER_STOPPED = () => false;
-	var searchClasses = null;
-	function timerSearchClasses() {
-		const Base = WinFixBattle ?? NO_HELPER_BASE;
-		if (searchClasses?.Base !== Base) searchClasses = {
-			Base,
-			PointTimerSearch: declarePointTimerSearch(Base),
-			LossTimerSearch: declareLossTimerSearch(Base)
+	var END_GAP = .1;
+	var MIN_HALF_WIDTH = 1e-4;
+	var MIN_FACTOR_GAP = 1e-6;
+	var WIDTH_WEIGHT = 1.1;
+	var REFILL_SHARE = .6;
+	var JITTER = 1e-9;
+	function timerInput(stepIndex, timer) {
+		return [
+			"auto",
+			0,
+			0,
+			"auto",
+			stepIndex,
+			timer
+		];
+	}
+	async function referenceRun(battle) {
+		const ref = await calcBattle(withInput(battle, [
+			"auto",
+			0,
+			0
+		]), {
+			log: true,
+			steps: true
+		});
+		if (!ref.steps) console.warn("Подбор: карта шагов не снялась, номер шага во вводе будет 0");
+		return {
+			battleTime: ref.battleTime,
+			firstUltTime: ref.firstUltTime,
+			steps: ref.steps
 		};
-		return searchClasses;
 	}
-	function createPointTimerSearch(battle, range, report, stopped = NEVER_STOPPED) {
-		return new (timerSearchClasses()).PointTimerSearch(battle, range, report, stopped);
-	}
-	function createLossTimerSearch(battle, start, report, range, stopped = NEVER_STOPPED) {
-		return new (timerSearchClasses()).LossTimerSearch(battle, start, report, range, stopped);
-	}
-	function logTimerQueue(log, end, min) {
-		if (!Array.isArray(log) || !Number.isFinite(end)) return [];
-		const times = [...new Set(log.map((event) => Number(event?.time)))].filter((time) => Number.isFinite(time) && time >= min && time < end);
-		for (let i = times.length - 1; i > 0; i--) {
-			const j = Math.floor(Math.random() * (i + 1));
-			[times[i], times[j]] = [times[j], times[i]];
+	function enemyFactor(battle, progress) {
+		const team = battle.defenders?.[0] ?? {};
+		const after = progress?.[0]?.defenders?.heroes ?? {};
+		let total = 0;
+		let left = 0;
+		let energy = 0;
+		let count = 0;
+		for (const key of Object.keys(team)) {
+			const unit = team[key];
+			const state = unit?.state;
+			const maxHp = state && Number(state.maxHp) >= 0 ? Number(state.maxHp) : unit?.type === "pet" ? -1 : Number(unit?.hp ?? 0) + 40 * Number(unit?.strength ?? 0);
+			if (!(maxHp > 0)) continue;
+			count++;
+			total += maxHp;
+			left += Number(after[key]?.hp ?? 0);
+			energy += Number(after[key]?.energy ?? 0);
 		}
-		return times;
+		if (!count) return 0;
+		return 100 - 100 * left / total - energy / count / 10 / 10;
 	}
-	function insideRange(timer, min, max) {
-		const reflected = timer > max ? 2 * max - timer : timer < min ? 2 * min - timer : timer;
-		return Math.min(max, Math.max(min, reflected));
+	function betterProbe(a, b) {
+		return Number(a.win) > Number(b.win) || a.win === b.win && a.factor > b.factor;
 	}
-	function declarePointTimerSearch(Base) {
-		return class PointTimerSearch extends Base {
-			constructor(battle, range, report, stopped = NEVER_STOPPED) {
-				super(battle);
-				this.isGetTimer = false;
-				this.minTimer = range.min;
-				this.maxTimer = range.max;
-				this.pending = [];
-				this.depth = 0;
-				this.report = report;
-				this.stopped = stopped;
-				this.fromLog = false;
+	var SplitQueue = class {
+		buckets = [
+			[],
+			[],
+			[]
+		];
+		maxRange;
+		constructor(range) {
+			this.maxRange = range;
+		}
+		add(left, right, mid) {
+			const delta = (right.moment - left.moment) / 2;
+			const valid = (a, b) => delta > MIN_HALF_WIDTH && Math.abs(a.factor - b.factor) > MIN_FACTOR_GAP;
+			const leftValid = valid(left, mid);
+			const rightValid = valid(mid, right);
+			const halves = [[
+				{
+					left,
+					right: mid,
+					delta,
+					damage: (left.factor + mid.factor) / 2,
+					value: 0
+				},
+				leftValid,
+				rightValid
+			], [
+				{
+					left: mid,
+					right,
+					delta,
+					damage: (mid.factor + right.factor) / 2,
+					value: 0
+				},
+				rightValid,
+				leftValid
+			]];
+			for (const [split, own, other] of halves) this.buckets[own ? other ? 0 : 1 : 2].push(split);
+		}
+		next(best, bad) {
+			if (this.buckets[0].length === 0) {
+				if (this.buckets[1].length > 0) this.refill(1);
+				else if (this.buckets[2].length > 0) this.refill(2);
+			} else this.maxRange = widest(this.buckets[0]);
+			const span = best - bad;
+			const weight = WIDTH_WEIGHT / this.maxRange;
+			for (const split of this.buckets[0]) split.value = split.delta * weight + (split.damage - bad) / span;
+			this.buckets[0].sort((a, b) => a.value - b.value);
+			return this.buckets[0].pop() ?? null;
+		}
+		refill(index) {
+			this.maxRange = widest(this.buckets[index]);
+			const edge = this.maxRange * REFILL_SHARE;
+			this.buckets[0] = this.buckets[index].filter((s) => s.delta > edge);
+			this.buckets[index] = this.buckets[index].filter((s) => s.delta <= edge);
+		}
+	};
+	var widest = (list) => Math.max(...list.map((s) => s.delta));
+	function jitter(timer) {
+		return timer * (.999999999 + Math.random() * 2 * JITTER);
+	}
+	async function timedRun(battle, steps, timer, counted) {
+		const indices = [stepIndexAt(steps, timer)];
+		if (indices[0] !== 0) indices.push(0);
+		for (const stepIndex of indices) try {
+			const outcome = await calcBattle(withInput(battle, timerInput(stepIndex, timer)), { steps: true });
+			counted();
+			return {
+				stepIndex,
+				outcome
+			};
+		} catch (e) {
+			counted();
+			console.warn(`Подбор: движок не принял «авто» на ${timer.toFixed(2)} с с шагом ${stepIndex}`, e);
+		}
+		return null;
+	}
+	function exhausted(control, count, endTime = control.endTime) {
+		return control.stopped() || count >= control.maxCount || Date.now() > endTime;
+	}
+	async function bisect(battle, auto, steps, min, max, endTime, control, tally) {
+		const probe = async (moment) => {
+			const timer = jitter(moment);
+			const run = await timedRun(battle, steps, timer, tally.counted);
+			if (!run) return {
+				moment: timer,
+				stepIndex: 0,
+				factor: bad + MIN_FACTOR_GAP,
+				win: false,
+				outcome: null
+			};
+			const { stepIndex, outcome } = run;
+			return {
+				moment: timer,
+				stepIndex,
+				factor: enemyFactor(battle, outcome.progress),
+				win: outcome.result?.win === true,
+				outcome
+			};
+		};
+		const left = {
+			moment: min,
+			stepIndex: 0,
+			factor: enemyFactor(battle, auto.progress),
+			win: auto.result?.win === true,
+			outcome: null
+		};
+		let best = left;
+		let bad = left.factor - MIN_FACTOR_GAP;
+		const seen = (p) => {
+			if (p.factor - bad < MIN_FACTOR_GAP) bad = p.factor - MIN_FACTOR_GAP;
+			if (betterProbe(p, best)) best = p;
+		};
+		if (exhausted(control, tally.count, endTime)) return best;
+		const right = await probe(max);
+		seen(right);
+		const queue = new SplitQueue(max - min);
+		let split = {
+			left,
+			right
+		};
+		while (split && !best.win && !exhausted(control, tally.count, endTime)) {
+			await nextTask();
+			const mid = await probe((split.left.moment + split.right.moment) / 2);
+			seen(mid);
+			queue.add(split.left, split.right, mid);
+			split = queue.next(best.factor, bad);
+		}
+		return best;
+	}
+	async function searchWin(battle, auto, control) {
+		const tally = {
+			count: 0,
+			counted: () => {
+				tally.count++;
+				control.report(tally.count, control.maxCount);
 			}
-			takeLogTimers() {
-				this.fromLog = true;
-				const log = this.lastResult?.battleLogs?.[0];
-				const end = Number(this.lastResult?.battleTime) - .1;
-				if (!Array.isArray(log) || !Number.isFinite(end) || end <= this.minTimer) return;
-				this.pending.push(...logTimerQueue(log, end, this.minTimer));
-				this.maxTimer = end;
-			}
-			addLayer() {
-				const parts = NX_TIMER_SEARCH_GRID * 2 ** this.depth;
-				const step = (this.maxTimer - this.minTimer) / parts;
-				const first = this.depth === 0;
-				for (let i = first ? 0 : 1; i <= parts; i += first ? 1 : 2) {
-					const timer = this.minTimer + i * step + (Math.random() - .5) * step * .5;
-					this.pending.push(insideRange(timer, this.minTimer, this.maxTimer));
-				}
-				this.depth++;
-			}
-			randTimer() {
-				if (!this.fromLog) this.takeLogTimers();
-				if (this.pending.length === 0) this.addLayer();
-				return this.pending.shift();
-			}
-			isEndLoop() {
-				return this.stopped() || super.isEndLoop();
-			}
-			showResult() {
-				this.report(I18N("NX_TIMER_SEARCH", {
-					count: this.count,
-					max: this.maxCount
-				}));
-			}
-			checkResult() {
-				super.checkResult();
-				if (this.bestResult?.count === this.count) this.bestResult.battleTime = this.lastResult?.battleTime;
-			}
+		};
+		const found = (best, stage) => best.win && best.outcome ? {
+			result: best.outcome.result,
+			progress: best.outcome.progress,
+			timer: best.moment,
+			stepIndex: best.stepIndex,
+			battleTime: best.outcome.battleTime,
+			count: tally.count,
+			stage
+		} : null;
+		const ref = await referenceRun(battle);
+		tally.count++;
+		const min = Math.max(NX_BATTLE_TIMER_RANGE.min, Math.min(ref.firstUltTime ?? NX_SMARTFIX_FIRST_ULT_CAP, NX_SMARTFIX_FIRST_ULT_CAP));
+		const max = Number.isFinite(ref.battleTime) ? ref.battleTime - END_GAP : NX_BATTLE_TIMER_RANGE.max;
+		const stepZeroStage = ref.steps !== null;
+		const smartfixEnd = stepZeroStage ? Math.min(control.endTime, control.smartfixEndTime ?? control.endTime) : control.endTime;
+		if (max > min) {
+			const smartfix = found(await bisect(battle, auto, ref.steps, min, max, smartfixEnd, control, tally), "smartfix");
+			if (smartfix) return smartfix;
+		}
+		if (stepZeroStage && !exhausted(control, tally.count)) {
+			const step0 = found(await bisect(battle, auto, null, NX_BATTLE_TIMER_RANGE.min, NX_STEP0_TIMER_MAX, control.endTime, control, tally), "step0");
+			if (step0) return step0;
+		}
+		return {
+			result: null,
+			progress: null,
+			timer: 0,
+			stepIndex: 0,
+			battleTime: NaN,
+			count: tally.count,
+			stage: null
 		};
 	}
 	function lossTimerQueue(start, range = NX_LOSS_TIMER_RANGE, step = NX_LOSS_TIMER_STEP) {
 		const from = Math.min(range.max, Math.max(range.min, Number(start) || range.min));
-		const jitter = (t, i) => i === 0 ? t : Math.min(range.max, Math.max(range.min, t + (Math.random() - .5) * step * .5));
+		const shift = (t, i) => i === 0 ? t : Math.min(range.max, Math.max(range.min, t + (Math.random() - .5) * step * .5));
 		const up = [];
 		for (let t = from; t <= range.max + 1e-9; t += step) up.push(t);
 		const down = [];
 		for (let t = range.min; t < from - 1e-9; t += step) down.push(t);
-		return [...up, ...down].map(jitter);
+		return [...up, ...down].map(shift);
 	}
-	function nextLossStart(found, range = NX_LOSS_TIMER_RANGE) {
-		return Math.max(range.min, Number(found) - NX_LOSS_MEMORY_BACKOFF);
-	}
-	function declareLossTimerSearch(Base) {
-		return class LossTimerSearch extends Base {
-			constructor(battle, start, report, range = NX_LOSS_TIMER_RANGE, stopped = NEVER_STOPPED) {
-				super(battle);
-				this.isGetTimer = false;
-				this.minTimer = range.min;
-				this.maxTimer = range.max;
-				this.pending = lossTimerQueue(start, range);
-				this.report = report;
-				this.stopped = stopped;
-			}
-			randTimer() {
-				if (this.pending.length === 0) this.exhausted = true;
-				return this.pending.length ? this.pending.shift() : this.maxTimer;
-			}
-			checkResult() {
-				if (this.count > 1 && this.lastBattleResult && !this.lastBattleResult.win) this.bestResult = {
-					count: this.count,
-					timer: this.lastTimer,
-					value: 0,
-					result: structuredClone(this.lastBattleResult),
-					progress: structuredClone(this.lastBattleProgress),
-					battleTimer: this.lastResult.battleTimer,
-					battleTime: this.lastResult.battleTime
+	async function searchLoss(battle, start, control, range = NX_LOSS_TIMER_RANGE) {
+		let count = 0;
+		const ref = await referenceRun(battle);
+		count++;
+		const counted = () => {
+			count++;
+			control.report(count, control.maxCount);
+		};
+		for (const moment of lossTimerQueue(start, range)) {
+			if (exhausted(control, count)) break;
+			const run = await timedRun(battle, ref.steps, moment, counted);
+			if (run && run.outcome.result?.win === false) {
+				const { stepIndex, outcome } = run;
+				return {
+					result: outcome.result,
+					progress: outcome.progress,
+					timer: moment,
+					stepIndex,
+					battleTime: outcome.battleTime,
+					count,
+					stage: null
 				};
 			}
-			isEndLoop() {
-				return Boolean(this.bestResult?.result) && this.bestResult.result.win === false || this.exhausted || this.stopped() || this.count >= this.maxCount || this.endTime < Date.now();
-			}
-			showResult() {
-				this.report(I18N("NX_LOSS_SEARCH", {
-					count: this.count,
-					max: this.maxCount
-				}));
-			}
+			await nextTask();
+		}
+		return {
+			result: null,
+			progress: null,
+			timer: 0,
+			stepIndex: 0,
+			battleTime: NaN,
+			count,
+			stage: null
 		};
+	}
+	var battleSearch = {
+		win: searchWin,
+		loss: searchLoss
+	};
+	function nextLossStart(found, range = NX_LOSS_TIMER_RANGE) {
+		return Math.max(range.min, Number(found) - NX_LOSS_MEMORY_BACKOFF);
 	}
 	function defendersSnapshot(battle) {
 		const team = battle?.defenders?.[0];
@@ -1688,27 +2136,35 @@
 				}
 			});
 			const startedAt = Date.now();
-			let outcome = await Calc(battle);
+			const auto = await calcBattle(battle, { log: true });
+			let outcome = auto;
 			let improved = false;
 			let skipFrom = startedAt;
-			let story = `автобой выиграл, бой ${secondsText(outcome.battleTime)} с`;
-			if (!outcome.result.win) {
+			let story = `автобой выиграл, бой ${secondsText(auto.battleTime)} с`;
+			if (!auto.result?.win) {
 				const searchStart = Date.now();
-				const search = createPointTimerSearch(battle, NX_BATTLE_TIMER_RANGE, (text) => attempt.progress(text, "timer"), () => attempt.stopped);
-				const found = await search.start(startedAt + NX_TIMER_SEARCH_BUDGET_MS, NX_TIMER_SEARCH_MAX_TRIES);
+				const found = await battleSearch.win(battle, auto, {
+					endTime: startedAt + NX_TIMER_SEARCH_BUDGET_MS,
+					smartfixEndTime: startedAt + NX_SMARTFIX_BUDGET_MS,
+					maxCount: NX_TIMER_SEARCH_MAX_TRIES,
+					report: (count, max) => attempt.progress(I18N("NX_TIMER_SEARCH", {
+						count,
+						max
+					}), "timer"),
+					stopped: () => attempt.stopped
+				});
 				skipFrom = Date.now();
 				const cut = attempt.stopped ? ", прерван «Стоп»" : "";
-				const searched = `перебор ${found.maxCount ?? search.count ?? 0} расчётов за ${secondsText((skipFrom - searchStart) / 1e3)} с${cut}`;
+				const searched = `перебор ${found.count} расчётов за ${secondsText((skipFrom - searchStart) / 1e3)} с${cut}`;
 				if (found.result?.win) {
 					outcome = {
-						...outcome,
 						result: found.result,
 						progress: found.progress
 					};
 					improved = true;
-					story = `улучшен, победа на таймере ${Number(found.timer).toFixed(2)} с, ${searched}, бой ${secondsText(found.battleTime)} с`;
+					story = `улучшен ${found.stage === "step0" ? "с шагом 0" : "Smartfix"}, победа на таймере ${Number(found.timer).toFixed(2)} с, шаг ${found.stepIndex}, ${searched}, бой ${secondsText(found.battleTime)} с`;
 				} else {
-					story = `победы не нашлось, ${searched}, уходит автобой, бой ${secondsText(outcome.battleTime)} с`;
+					story = `победы не нашлось, ${searched}, уходит автобой, бой ${secondsText(auto.battleTime)} с`;
 					attempt.progress(I18N("NX_WIN_NOT_FOUND"), "timer", true);
 				}
 			}
@@ -1744,23 +2200,29 @@
 			});
 			const startedAt = Date.now();
 			console.log(`Слив: противник на старте ${JSON.stringify(defendersSnapshot(battle))}`);
-			let outcome = await Calc(battle);
+			let outcome = await calcBattle(battle);
 			let lossTimer = null;
 			let skipFrom = startedAt;
 			if (outcome.result?.win) {
 				const searchStart = Date.now();
-				const search = createLossTimerSearch(battle, lossStart, (text) => attempt.progress(text, "timer"), void 0, () => attempt.stopped);
-				const found = await search.start(searchStart + NX_LOSS_SEARCH_BUDGET_MS, NX_LOSS_SEARCH_MAX_TRIES);
+				const found = await battleSearch.loss(battle, lossStart, {
+					endTime: searchStart + NX_LOSS_SEARCH_BUDGET_MS,
+					maxCount: NX_LOSS_SEARCH_MAX_TRIES,
+					report: (count, max) => attempt.progress(I18N("NX_LOSS_SEARCH", {
+						count,
+						max
+					}), "timer"),
+					stopped: () => attempt.stopped
+				});
 				skipFrom = Date.now();
-				const tries = found.maxCount ?? search.count ?? 0;
+				const tries = found.count;
 				if (found.result && found.result.win === false) {
 					outcome = {
-						...outcome,
 						result: found.result,
 						progress: found.progress
 					};
 					lossTimer = found.timer;
-					console.log(`Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, уходит после поиска и пропуска, перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`);
+					console.log(`Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, шаг ${found.stepIndex}, уходит после поиска и пропуска, перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`);
 				} else {
 					console.log(`Слив: проигрыша не нашлось за ${tries} расчётов и ${Date.now() - searchStart} мс, уходит обычный автобой`);
 					attempt.progress(I18N("NX_LOSS_NOT_FOUND"), "timer", true);
@@ -6380,8 +6842,13 @@
 		async load(buff, { force = false } = {}) {
 			const loaded = await this.loadRows({ force });
 			const presets = [];
+			let strategies = [];
 			let dropped = 0;
 			for (const row of loaded.rows) {
+				if (isStrategyRow(row)) {
+					strategies = decodeStrategyList(row.strategy);
+					continue;
+				}
 				const preset = decodePresetRow(row);
 				const parsed = preset && validatePreset(preset);
 				if (!parsed) {
@@ -6396,6 +6863,7 @@
 			if (dropped) console.log(`Сборки: не подошли текущему событию или испорчены ${dropped} из ${loaded.rows.length}`);
 			return {
 				presets: sortPresets(presets, buff),
+				strategies,
 				source: loaded.source,
 				error: loaded.error,
 				dropped
@@ -6437,7 +6905,7 @@
 	}
 	function decodePresetRow(row) {
 		if (!Array.isArray(row) || row.length < 9) return null;
-		const [author, videoType, videoId, damage, buff, coins, talismans, mainPet, heroes] = row;
+		const [author, videoType, videoId, damage, buff, coins, talismans, mainPet, heroes, strategy] = row;
 		if (typeof author !== "string") return null;
 		if (!Array.isArray(talismans) || talismans.length !== 2 || !talismans.every(Number.isInteger)) return null;
 		if (!Array.isArray(heroes) || !heroes.length || heroes.length % 3 || heroes.length > 15 || !heroes.every(Number.isInteger)) return null;
@@ -6460,8 +6928,77 @@
 			coins: Number.isInteger(coins) && coins > 0 ? coins : 0,
 			talismanIds: talismans.map(Number),
 			mainPet: Number.isInteger(mainPet) && mainPet > 0 ? petId(mainPet) : 0,
-			teamRaw: blocks.join(", ")
+			teamRaw: blocks.join(", "),
+			strategy: strategy === void 0 ? null : decodeStrategy(strategy)
 		};
+	}
+	function isStrategyRow(row) {
+		return Boolean(row) && typeof row === "object" && !Array.isArray(row) && "strategy" in row;
+	}
+	function decodeStrategy(raw) {
+		if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+		const { buff, carry, sacrifice, point } = raw;
+		const isId = (v) => Number.isInteger(v) && v > 0;
+		if (!Array.isArray(buff) || buff.length !== 2) return null;
+		const [buffMin, buffMax] = buff;
+		if (!Number.isInteger(buffMin) || !Number.isInteger(buffMax) || buffMin < 0 || buffMin > buffMax || buffMax > NX_STRATEGY_MAX_BUFF) return null;
+		if (!Array.isArray(carry) || !carry.length || carry.length % 2 || carry.length > NX_TEAM_SIZE * 2) return null;
+		const carryHeroes = [];
+		const carryTargets = {};
+		for (let i = 0; i < carry.length; i += 2) {
+			const [hero, rank] = carry.slice(i, i + 2);
+			if (!isId(hero) || ![
+				1,
+				3,
+				7
+			].includes(rank) || carryHeroes.includes(hero)) return null;
+			carryHeroes.push(hero);
+			carryTargets[hero] = rank;
+		}
+		const sacrificeHeroes = Array.isArray(sacrifice) ? sacrifice : [sacrifice];
+		if (!sacrificeHeroes.length || sacrificeHeroes.length > NX_SACRIFICE_CANDIDATES || !sacrificeHeroes.every(isId)) return null;
+		if (new Set(sacrificeHeroes).size !== sacrificeHeroes.length) return null;
+		if (!NX_SACRIFICE_POINTS.includes(point)) return null;
+		return {
+			buffMin,
+			buffMax,
+			carryHeroes,
+			carryTargets,
+			sacrificeHeroes: [...sacrificeHeroes],
+			sacrificePoint: point
+		};
+	}
+	function decodeStrategyList(raw) {
+		if (!Array.isArray(raw)) return [];
+		const list = raw.map(decodeStrategy).filter((s) => s !== null);
+		if (list.length !== raw.length) console.log(`Стратегии: испорчены ${raw.length - list.length} из ${raw.length}`);
+		return list;
+	}
+	var coversBuff = (strategy, buff) => buff >= strategy.buffMin && buff <= strategy.buffMax;
+	function strategyCandidates(preset, buff, eventStrategies = []) {
+		const list = [];
+		if (preset.strategy && coversBuff(preset.strategy, buff)) list.push({
+			strategy: preset.strategy,
+			source: "preset"
+		});
+		const event = eventStrategies.find((s) => coversBuff(s, buff));
+		if (event) list.push({
+			strategy: event,
+			source: "event"
+		});
+		const builtin = decodeStrategyList(NX_BUILTIN_STRATEGIES).find((s) => coversBuff(s, buff));
+		if (builtin) list.push({
+			strategy: builtin,
+			source: "builtin"
+		});
+		return list;
+	}
+	function chooseStrategy(preset, buff, eventStrategies, chapterId) {
+		const list = strategyCandidates(preset, buff, eventStrategies);
+		return list.find((c) => !carryPointOneError({
+			chapterId,
+			carryHeroes: c.strategy.carryHeroes
+		})) ?? list[0] ?? null;
 	}
 	function validatePreset(preset) {
 		const parsed = parseArchdemonNewTeam(preset.teamRaw);
@@ -6482,20 +7019,9 @@
 			return (a.buff === buff ? 0 : 1) - (b.buff === buff ? 0 : 1) || a.buff - b.buff || b.damage - a.damage;
 		});
 	}
-	function presetCarry(buff) {
-		return Number(buff) >= NX_PRESET_STRONG_BUFF ? {
-			carry: [...NX_PRESET_STRONG_CARRY],
-			sacrifice: NX_PRESET_STRONG_SACRIFICE
-		} : {
-			carry: [...NX_PRESET_CARRY],
-			sacrifice: NX_PRESET_SACRIFICE
-		};
-	}
-	function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = false, buff = preset.buff }) {
-		const { carry, sacrifice } = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? presetCarry(buff) : {
-			carry: [],
-			sacrifice: 0
-		};
+	function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = false, buff = preset.buff, eventStrategies = [] }) {
+		const choice = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? chooseStrategy(preset, buff, eventStrategies, chapterId) : null;
+		const carry = choice?.strategy.carryHeroes ?? [];
 		const parsed = preset.parsed ?? parseArchdemonNewTeam(preset.teamRaw);
 		const targetPercent = preset.coins ? coinsToPercent(preset.coins) : 0;
 		return {
@@ -6512,13 +7038,13 @@
 			minCoins: targetPercent ? minCoinsForPercent(targetPercent) : null,
 			presetPercent: targetPercent || null,
 			keepExtraCoins,
-			carryHeroes: carry,
-			carryTargets: Object.fromEntries(carry.map((id) => [id, 1])),
+			carryHeroes: [...carry],
+			carryTargets: { ...choice?.strategy.carryTargets },
 			carryExtraHeroes: [],
 			startRefreshes: 0,
-			sacrificeHeroes: sacrifice ? [sacrifice] : [],
+			sacrificeHeroes: [...choice?.strategy.sacrificeHeroes ?? []],
 			sacrificeRefreshes: 0,
-			sacrificePoint: NX_PRESET_SACRIFICE_POINT,
+			sacrificePoint: choice?.strategy.sacrificePoint ?? NX_SACRIFICE_POINTS[0],
 			pauseAfterBoss: false,
 			buyAnyRandomLots: false,
 			skipRandomLots: true,
@@ -6527,7 +7053,8 @@
 				author: preset.author,
 				damage: preset.damage,
 				buff: preset.buff,
-				coins: preset.coins
+				coins: preset.coins,
+				strategy: choice?.source
 			}
 		};
 	}
@@ -6690,7 +7217,7 @@
 		return `<div style="${TABLE_STYLE}">${columnsHtml()}${presets.map((preset, index) => presetRowHtml(preset, index, ctx)).join("")}</div>`;
 	}
 	function presetRowHtml(preset, index, ctx) {
-		const { library, heroIcons, petIcons, buff } = ctx;
+		const { library, heroIcons, petIcons, buff, strategies = [] } = ctx;
 		const slot = (...args) => framedSlotHtml(library, ...args) + "</div>";
 		const heroes = preset.parsed.heroes.map((id) => ({
 			id,
@@ -6719,15 +7246,22 @@
 		const author = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${authorText}</a>` : authorText;
 		const video = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(I18N("NX_PRESETS_VIDEO"))}" style="flex: none;">${PLAY_ICON}</a>` : "";
 		const matched = preset.buff === Number(buff);
-		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(buff, preset.talismanIds[0]), I18N("NX_PRESETS_GO"))}</div>`;
+		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(preset, buff, strategies), I18N("NX_PRESETS_GO"))}</div>`;
 	}
-	function goHint(buff, firstEmblem) {
-		if (firstEmblem !== NX_WEALTH_TALISMAN_ID) return I18N("NX_PRESETS_GO_HINT_PLAIN");
-		const { carry, sacrifice } = presetCarry(buff);
+	var STRATEGY_SOURCE_TEXT = {
+		preset: () => I18N("NX_PRESETS_STRATEGY_PRESET"),
+		event: () => I18N("NX_PRESETS_STRATEGY_EVENT"),
+		builtin: () => I18N("NX_PRESETS_STRATEGY_BUILTIN")
+	};
+	function goHint(preset, buff, strategies) {
+		const choice = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? strategyCandidates(preset, buff, strategies)[0] : void 0;
+		if (!choice) return I18N("NX_PRESETS_GO_HINT_PLAIN");
+		const { strategy, source } = choice;
 		return I18N("NX_PRESETS_GO_HINT", {
-			carry: carry.map(unitName).join(", "),
-			sacrifice: unitName(sacrifice),
-			point: NX_PRESET_SACRIFICE_POINT
+			carry: strategy.carryHeroes.map(unitName).join(", "),
+			sacrifice: strategy.sacrificeHeroes.map(unitName).join(", "),
+			point: strategy.sacrificePoint,
+			source: STRATEGY_SOURCE_TEXT[source]()
 		});
 	}
 	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, client = new PresetsClient() }) {
@@ -6806,13 +7340,14 @@
 				library,
 				heroIcons,
 				petIcons,
-				buff
+				buff,
+				strategies: loaded.strategies
 			};
 			showTable(true);
 			list.innerHTML = (loaded.source === "stale" ? `<div style="font-size: 13px; color: #ffb347;">${I18N("NX_PRESETS_STALE")}</div>` : "") + presetsTableHtml(loaded.presets, ctx);
 			loaded.presets.forEach((preset, index) => {
 				view.querySelector(`#nxPresetGo${index}`)?.addEventListener("click", () => {
-					const problem = onGo(preset, keep ? keep.checked : readKeepExtraCoins());
+					const problem = onGo(preset, keep ? keep.checked : readKeepExtraCoins(), loaded.strategies);
 					if (problem && error) error.innerHTML = problem;
 				});
 			});
@@ -7290,7 +7825,7 @@
 			const setButtonsVisible = (visible) => {
 				for (const button of [startButton, cancelButton]) if (button) button.style.display = visible ? "" : "none";
 			};
-			const goWithPreset = (preset, keepExtraCoins) => {
+			const goWithPreset = (preset, keepExtraCoins, strategies = []) => {
 				const chapterValue = readRadio("chapter");
 				if (chapterValue === null) return I18N("NX_ERR_NO_CHAPTER");
 				const chapterId = Number(chapterValue);
@@ -7303,9 +7838,11 @@
 					chapterId,
 					chapterNumber: chapterNumbers[chapterId] ?? 0,
 					keepExtraCoins,
-					buff: buffAmount
+					buff: buffAmount,
+					eventStrategies: strategies
 				});
 				if (value.talismanId === NX_WEALTH_TALISMAN_ID && carryPointOneError(value)) return I18N("NX_PRESETS_CARRY_POINT1", { list: value.carryHeroes.map(unitLabel).join(", ") });
+				if (value.preset?.strategy) console.log(`Сборки: стратегия ${value.preset.strategy}, усиление ${buffAmount}, проходные ${value.carryHeroes.join(", ")}, слив ${value.sacrificeHeroes.join(", ")} на точке ${value.sacrificePoint}`);
 				popup.hide();
 				complete(value);
 				return null;
@@ -7435,7 +7972,7 @@
 		}
 	}
 	async function chooseAndStart() {
-		const missing = missingHelperApi();
+		const missing = [...missingHelperApi(), ...missingBattleEngine()];
 		if (missing.length) {
 			await popup.confirm(I18N("NX_ERR_HELPER_OLD", {
 				version: helperVersion,
