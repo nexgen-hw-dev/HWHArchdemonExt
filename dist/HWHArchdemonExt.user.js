@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.20-beta
+// @version         1.21-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -87,6 +87,7 @@
 	var NX_GREASYFORK_URL = "https://greasyfork.org/scripts/597541";
 	var NX_AUTO_INSTALL_URL = "https://raw.githubusercontent.com/nexgen-hw-dev/HWHArchdemonExt/main/dist/HWHArchdemonAuto.user.js";
 	var NX_AUTO_PUBLISHED = false;
+	var NX_DEV_KEY = "archrankDev";
 	var NX_PRESETS_TIMEOUT_MS = 5e3;
 	var NX_PRESETS_FORCE_KEY = "HWHArchdemonExt.presets.forcedAt";
 	var NX_PRESETS_FORCE_INTERVAL_MS = 6e4;
@@ -422,6 +423,7 @@
 			NX_MENU_TITLE: "Abyss run up to the Archdemon",
 			NX_NO_EVENT: "No Adventure is running right now",
 			NX_NO_ABYSS: "This Adventure has no Abyss and no Archdemon. The add-on works only in Adventures with the Abyss",
+			NX_DEV_NO_RUN: "Developer mode: no Adventure with the Abyss is running, so the run was not started",
 			NX_FAILED: "The run broke down<br>Add-on version {version}",
 			NX_START_FAILED: "Could not open the setup window<br>Add-on version {version}",
 			NX_DETAILS: "Details",
@@ -663,6 +665,7 @@
 			NX_MENU_TITLE: "Прогон Бездны до Архидемона",
 			NX_NO_EVENT: "Сейчас Приключение не идёт",
 			NX_NO_ABYSS: "В этом Приключении нет Бездны и Архидемона. Дополнение работает только в Приключениях с Бездной",
+			NX_DEV_NO_RUN: "Режим разработки: Приключение с Бездной сейчас не идёт, прогон не запущен",
 			NX_FAILED: "Прогон сорвался<br>Версия дополнения {version}",
 			NX_START_FAILED: "Не удалось открыть окно настройки<br>Версия дополнения {version}",
 			NX_DETAILS: "Подробнее",
@@ -881,6 +884,23 @@
 	function eventHasAbyss(eventId) {
 		return allChapters().some((e) => e.invasionId === Number(eventId) && e.isArchdemon);
 	}
+	function lastAbyssEventId() {
+		let last = {
+			id: 0,
+			start: -Infinity
+		};
+		for (const chapter of allChapters()) {
+			if (!chapter.isArchdemon) continue;
+			const start = chapterDate(chapter.startDate);
+			const at = Number.isNaN(start) ? -Infinity : start;
+			const id = Number(chapter.invasionId);
+			if (at > last.start || at === last.start && id > last.id) last = {
+				id,
+				start: at
+			};
+		}
+		return last.id;
+	}
 	function getAbyssRelicName() {
 		const relicId = currentEvent()?.settings?.relicId;
 		try {
@@ -910,6 +930,13 @@
 			name = "";
 		}
 		return name && name !== key ? `${numeral}&nbsp;${name}` : `${I18N("NX_CHAPTER")}&nbsp;${numeral}`;
+	}
+	function devKeyOn(storage = globalThis.sessionStorage) {
+		try {
+			return storage?.getItem(NX_DEV_KEY) === "1";
+		} catch {
+			return false;
+		}
 	}
 	var STACK_LINES = 8;
 	var MESSAGE_CHARS = 600;
@@ -8179,10 +8206,10 @@
 		return parseArchdemonNewTeam(teamRaw).kind === "team";
 	}
 	var running = null;
-	async function attackArchdemonNew() {
+	async function attackArchdemonNew(options = {}) {
 		const release = running?.session.holdWindows();
 		try {
-			await chooseAndStart();
+			await chooseAndStart(options.dryRun === true);
 		} catch (e) {
 			console.error(e);
 			setProgress("", true);
@@ -8192,7 +8219,7 @@
 			release?.();
 		}
 	}
-	async function chooseAndStart() {
+	async function chooseAndStart(dryRun) {
 		const missing = [...missingHelperApi(), ...missingBattleEngine()];
 		if (missing.length) {
 			await popup.confirm(I18N("NX_ERR_HELPER_OLD", {
@@ -8213,6 +8240,10 @@
 		const setup = await archdemonNewSetup(chapters, buffAmount, relicLevel);
 		if (setup === "cancel" || !setup) return;
 		console.log("archdemonNewSetup ", JSON.stringify(setup));
+		if (dryRun) {
+			confShow(I18N("NX_DEV_NO_RUN"));
+			return;
+		}
 		await startRun(setup);
 	}
 	async function replaceRunning(old) {
@@ -8267,7 +8298,16 @@
 		setCurrentEventId((await Caller.send("invasion_getInfo"))?.id ?? 0);
 		const now = Date.now();
 		const opened = allChapters().some((chapter) => chapter.invasionId === currentEventId() && chapterDate(chapter.startDate) <= now && !(chapterDate(chapter.endDate) <= now));
-		if (!currentEventId() || !opened) {
+		const running = Boolean(currentEventId()) && opened;
+		if (!(running && eventHasAbyss(currentEventId())) && devKeyOn()) {
+			const last = lastAbyssEventId();
+			if (last) {
+				setCurrentEventId(last);
+				await attackArchdemonNew({ dryRun: true });
+				return;
+			}
+		}
+		if (!running) {
 			confShow(I18N("NX_NO_EVENT"));
 			return;
 		}
