@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.18-beta
+// @version         1.19-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -85,6 +85,8 @@
 	var NX_UPDATE_BUST_MS = 3e5;
 	var NX_UPDATE_STORAGE_KEY = "HWHArchdemonExt.update.v1";
 	var NX_GREASYFORK_URL = "https://greasyfork.org/scripts/597541";
+	var NX_AUTO_INSTALL_URL = "https://raw.githubusercontent.com/nexgen-hw-dev/HWHArchdemonExt/main/dist/HWHArchdemonAuto.user.js";
+	var NX_AUTO_PUBLISHED = false;
 	var NX_PRESETS_TIMEOUT_MS = 5e3;
 	var NX_PRESETS_FORCE_KEY = "HWHArchdemonExt.presets.forcedAt";
 	var NX_PRESETS_FORCE_INTERVAL_MS = 6e4;
@@ -313,6 +315,31 @@
 			NX_BLOCK_PAUSE: "Stop right before the Archdemon",
 			NX_BLOCK_PAUSE_HINT: "Shows coins and pinned slots before the final shopping, then lets you continue or stop",
 			NX_AFTER_BOSS_REPORT: "<span style=\"font-size: 22px;\">All points before the Archdemon are taken, run {attempt}</span><br>{body}",
+			NX_REPORT_COINS: "Coins: {coins}",
+			NX_REPORT_BOOKS: "Where the coins went:",
+			NX_REPORT_PINNED: "Pinned slots: {count}",
+			NX_REPORT_TEAM: "Main team:",
+			NX_REPORT_PETS: "Pets:",
+			NX_REPORT_CARRY: "Carry heroes:",
+			NX_REPORT_OF: "{name}: {have} of {need}",
+			NX_REPORT_PET_HAVE: "{name}: got it",
+			NX_REPORT_PET_MISSING: "{name}: missing",
+			NX_BOOK_START: "run start: {coins}",
+			NX_BOOK_MINE: "my moves in total: {coins}",
+			NX_BOOK_POINTS: "from the points: +{coins}",
+			NX_BOOK_REFRESHES: "stall refreshes",
+			NX_BOOK_SPARE_COINS: "spending spare coins",
+			NX_BOOK_MAIN_PACK: "main pack",
+			NX_BOOK_SALES: "sales",
+			NX_BOOK_SALE_PARTS: "selling spare parts",
+			NX_BOOK_SALE_PETS: "selling pets",
+			NX_BOOK_CARRY: "carry heroes",
+			NX_BOOK_CARRY_RANK: "carry heroes up to rank",
+			NX_BOOK_SACRIFICE: "hero to throw the point",
+			NX_BOOK_RESALE: "resale",
+			NX_BOOK_UNKNOWN: "unknown cards",
+			NX_BOOK_PETS_DISCOUNT: "discounted pets",
+			NX_BOOK_ANY_HERO: "any hero",
 			NX_CONTINUE: "Continue",
 			NX_HALT: "Stop here",
 			NX_HALTED_SYNC: `Stopped before the Archdemon. The chapter is <span style="color: LimeGreen;">not reset</span>.<br>
@@ -344,6 +371,11 @@
 			NX_UPDATE_SHORT: "{version} is out",
 			NX_UPDATE_BUTTON: "Update",
 			NX_UPDATE_HINT: "Opens the add-on page on Greasy Fork. Reload the game page after updating",
+			NX_SETUP_AUTO_BUTTON: "Auto",
+			NX_SETUP_AUTO_HINT: "ArchRank(auto): picks a build by emulating battles",
+			NX_SETUP_AUTO_MISSING_HINT: "ArchRank(auto) is not installed or is turned off",
+			NX_SETUP_AUTO_MISSING: "ArchRank(auto) is not installed or is turned off. {link}, then reload the page",
+			NX_SETUP_AUTO_INSTALL: "Click here for install",
 			NX_EVENT_UNPIN: "Unpinned · <span style=\"color: #a8a8a8;\">{coins}</span>",
 			NX_UNPIN_CHEAPER: "found a better lot",
 			NX_UNPIN_NOT_NEEDED: "no longer needed",
@@ -523,6 +555,31 @@
 			NX_BLOCK_PAUSE: "Остановиться прямо перед Архидемоном",
 			NX_BLOCK_PAUSE_HINT: "Покажет монеты и закреплённые слоты до финальной закупки, дальше можно продолжить или остановиться",
 			NX_AFTER_BOSS_REPORT: "<span style=\"font-size: 22px;\">Все точки до Архидемона взяты, заход {attempt}</span><br>{body}",
+			NX_REPORT_COINS: "Монет: {coins}",
+			NX_REPORT_BOOKS: "Куда ушли монеты:",
+			NX_REPORT_PINNED: "Закреплено слотов: {count}",
+			NX_REPORT_TEAM: "Основной состав:",
+			NX_REPORT_PETS: "Питомцы:",
+			NX_REPORT_CARRY: "Проходные:",
+			NX_REPORT_OF: "{name}: {have} из {need}",
+			NX_REPORT_PET_HAVE: "{name}: есть",
+			NX_REPORT_PET_MISSING: "{name}: нет",
+			NX_BOOK_START: "старт захода: {coins}",
+			NX_BOOK_MINE: "итого мои движения: {coins}",
+			NX_BOOK_POINTS: "приход с точек: +{coins}",
+			NX_BOOK_REFRESHES: "обновления лавки",
+			NX_BOOK_SPARE_COINS: "трата лишних монет",
+			NX_BOOK_MAIN_PACK: "основной пак",
+			NX_BOOK_SALES: "продажи",
+			NX_BOOK_SALE_PARTS: "продажа лишних частей",
+			NX_BOOK_SALE_PETS: "продажа питомцев",
+			NX_BOOK_CARRY: "проходные",
+			NX_BOOK_CARRY_RANK: "проходные до ранга",
+			NX_BOOK_SACRIFICE: "герой для слива",
+			NX_BOOK_RESALE: "перепродажа",
+			NX_BOOK_UNKNOWN: "неизвестные карты",
+			NX_BOOK_PETS_DISCOUNT: "питомцы со скидкой",
+			NX_BOOK_ANY_HERO: "любой герой",
 			NX_CONTINUE: "Продолжить",
 			NX_HALT: "Остановиться",
 			NX_HALTED_SYNC: `Остановились перед Архидемоном. Глава <span style="color: LimeGreen;">не сброшена</span>.<br>
@@ -554,6 +611,11 @@
 			NX_UPDATE_SHORT: "доступна {version}",
 			NX_UPDATE_BUTTON: "Обновить",
 			NX_UPDATE_HINT: "Откроется страница дополнения на Greasy Fork. После обновления перезагрузите страницу игры",
+			NX_SETUP_AUTO_BUTTON: "Авто",
+			NX_SETUP_AUTO_HINT: "ArchRank(auto): подбор сборки эмуляцией боёв",
+			NX_SETUP_AUTO_MISSING_HINT: "ArchRank(auto) не установлен или выключен",
+			NX_SETUP_AUTO_MISSING: "ArchRank(auto) не установлен или выключен. {link}, потом обновите страницу",
+			NX_SETUP_AUTO_INSTALL: "Нажмите для установки",
 			NX_EVENT_UNPIN: "Сняли закреп · <span style=\"color: #a8a8a8;\">{coins}</span>",
 			NX_UNPIN_CHEAPER: "нашли выгоднее",
 			NX_UNPIN_NOT_NEEDED: "уже не нужен",
@@ -1465,6 +1527,24 @@
 			if (typeof requestIdleCallback === "function") requestIdleCallback(() => resolve(), { timeout: ms });
 			else setTimeout(resolve, ms);
 		});
+	}
+	var ENTRY_TEXT = {
+		"обновления лавки": () => I18N("NX_BOOK_REFRESHES"),
+		"трата лишних монет": () => I18N("NX_BOOK_SPARE_COINS"),
+		"основной пак": () => I18N("NX_BOOK_MAIN_PACK"),
+		продажи: () => I18N("NX_BOOK_SALES"),
+		"продажа лишних частей": () => I18N("NX_BOOK_SALE_PARTS"),
+		"продажа питомцев": () => I18N("NX_BOOK_SALE_PETS"),
+		проходные: () => I18N("NX_BOOK_CARRY"),
+		"проходные до ранга": () => I18N("NX_BOOK_CARRY_RANK"),
+		"герой для слива": () => I18N("NX_BOOK_SACRIFICE"),
+		перепродажа: () => I18N("NX_BOOK_RESALE"),
+		"неизвестные карты": () => I18N("NX_BOOK_UNKNOWN"),
+		"питомцы со скидкой": () => I18N("NX_BOOK_PETS_DISCOUNT"),
+		"любой герой": () => I18N("NX_BOOK_ANY_HERO")
+	};
+	function ledgerEntryText(category) {
+		return ENTRY_TEXT[category]?.() ?? category;
 	}
 	var Ledger = class {
 		startCoins = 0;
@@ -3374,15 +3454,24 @@
 			pinnedLines.push(`${ids.map(unitLabel).join(" + ")} — ${cost}`);
 		}
 		const fragments = (await attempt.units()).fragments;
-		const heroLines = setup.heroes.map((id) => `${unitLabel(id)}: ${Number(fragments[id] ?? 0)} из ${setup.targets[id]}`);
-		const petLines = setup.petsToCollect.map((id) => `${unitLabel(id)}: ${Number(fragments[id] ?? 0) > 0 ? "есть" : "нет"}`);
-		const carryLines = setup.carryHeroes.map((id) => `${unitLabel(id)}: ${Number(fragments[id] ?? 0)} из ${Number(setup.carryTargets?.[id] ?? 1)}`);
+		const heroLines = setup.heroes.map((id) => I18N("NX_REPORT_OF", {
+			name: unitLabel(id),
+			have: Number(fragments[id] ?? 0),
+			need: setup.targets[id]
+		}));
+		const petLines = setup.petsToCollect.map((id) => Number(fragments[id] ?? 0) > 0 ? I18N("NX_REPORT_PET_HAVE", { name: unitLabel(id) }) : I18N("NX_REPORT_PET_MISSING", { name: unitLabel(id) }));
+		const carryLines = setup.carryHeroes.map((id) => I18N("NX_REPORT_OF", {
+			name: unitLabel(id),
+			have: Number(fragments[id] ?? 0),
+			need: Number(setup.carryTargets?.[id] ?? 1)
+		}));
 		const books = attempt.ledger.summary(coins);
+		const signed = (value) => `${value > 0 ? "+" : ""}${value}`;
 		const bookLines = [
-			`старт захода: ${books.start}`,
-			...books.entries.map(([name, value]) => `${name}: ${value > 0 ? "+" : ""}${value}`),
-			`итого мои движения: ${books.mine > 0 ? "+" : ""}${books.mine}`,
-			`приход с точек: +${books.fromPoints}`
+			I18N("NX_BOOK_START", { coins: books.start }),
+			...books.entries.map(([name, value]) => `${ledgerEntryText(name)}: ${signed(value)}`),
+			I18N("NX_BOOK_MINE", { coins: signed(books.mine) }),
+			I18N("NX_BOOK_POINTS", { coins: books.fromPoints })
 		];
 		console.log(`${NX_LOG_CASH} СВОД`, books);
 		console.log("Отчёт перед Архидемоном", {
@@ -4388,7 +4477,8 @@
 	};
 	function afterBossReportHtml(report) {
 		const small = (lines) => lines.map((e) => `<div style="font-size: 13px;">${e}</div>`).join("");
-		return `<div style="text-align: left;"><div style="font-size: 20px;">Монет: <span style="color: LimeGreen;">${report.coins}</span></div><div style="margin-top: 10px;">Куда ушли монеты:</div>` + small(report.bookLines) + `<div style="margin-top: 10px;">Закреплено слотов: <span style="color: LimeGreen;">${report.pinnedLines.length}</span></div>` + small(report.pinnedLines) + "<div style=\"margin-top: 10px;\">Основной состав:</div>" + small(report.heroLines) + "<div style=\"margin-top: 10px;\">Питомцы:</div>" + small(report.petLines) + "<div style=\"margin-top: 10px;\">Проходные:</div>" + small(report.carryLines) + "</div>";
+		const green = (value) => `<span style="color: LimeGreen;">${value}</span>`;
+		return `<div style="text-align: left;"><div style="font-size: 20px;">${I18N("NX_REPORT_COINS", { coins: green(report.coins) })}</div><div style="margin-top: 10px;">${I18N("NX_REPORT_BOOKS")}</div>` + small(report.bookLines) + `<div style="margin-top: 10px;">${I18N("NX_REPORT_PINNED", { count: green(report.pinnedLines.length) })}</div>` + small(report.pinnedLines) + `<div style="margin-top: 10px;">${I18N("NX_REPORT_TEAM")}</div>` + small(report.heroLines) + `<div style="margin-top: 10px;">${I18N("NX_REPORT_PETS")}</div>` + small(report.petLines) + `<div style="margin-top: 10px;">${I18N("NX_REPORT_CARRY")}</div>` + small(report.carryLines) + "</div>";
 	}
 	var RunWindows = class {
 		log = new RunLog();
@@ -7353,6 +7443,48 @@
 			});
 		}
 	}
+	var NX_AUTO_GLOBAL = "HWHArchdemonAuto";
+	function findAutoScript(host = globalThis) {
+		const api = host[NX_AUTO_GLOBAL];
+		if (!api || typeof api !== "object" || typeof api.open !== "function" || typeof api.version !== "string") return null;
+		return api;
+	}
+	var AUTO_BUTTON_ID = "nxAutoButton";
+	var AUTO_NOTE_ID = "nxAutoNote";
+	var NOTE_COLOR = "#ff6b6b";
+	var BUTTON_ZOOM = .75;
+	var BUTTON_RIGHT = 42;
+	var BUTTON_TOP = 17;
+	function autoButtonHtml(found, published = NX_AUTO_PUBLISHED) {
+		if (!published) return "";
+		return `<div style="position: absolute; right: ${BUTTON_RIGHT}px; top: ${BUTTON_TOP}px;"><div id="${AUTO_BUTTON_ID}" class="PopUp_btnSocket" title="${escapeAttr(found ? I18N("NX_SETUP_AUTO_HINT") : I18N("NX_SETUP_AUTO_MISSING_HINT"))}" style="zoom: ${BUTTON_ZOOM}; cursor: pointer;"><div class="PopUp_btnRow"><div class="PopUp_btnGap ${found ? "green" : "red"}"><div class="PopUp_btnPlate" style="font-size: 17px; padding: 8px 9px; min-width: auto;">${I18N("NX_SETUP_AUTO_BUTTON")}</div></div></div></div></div>`;
+	}
+	function autoNoteHtml(url = NX_AUTO_INSTALL_URL) {
+		const link = `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" style="color: #88cb13;">${I18N("NX_SETUP_AUTO_INSTALL")}</a>`;
+		return `<div id="${AUTO_NOTE_ID}" style="display: none; margin: 0 0 8px; font-size: 14px; color: ${NOTE_COLOR}; text-align: right;">${I18N("NX_SETUP_AUTO_MISSING", { link })}</div>`;
+	}
+	function onAutoButtonClick(doc, host = globalThis) {
+		const auto = findAutoScript(host);
+		if (auto) {
+			doc.getElementById(AUTO_BUTTON_ID)?.querySelector(".PopUp_btnGap")?.classList.replace("red", "green");
+			doc.getElementById(AUTO_NOTE_ID)?.style.setProperty("display", "none");
+			try {
+				auto.open();
+			} catch (e) {
+				console.error(e);
+			}
+			return;
+		}
+		const note = doc.getElementById(AUTO_NOTE_ID);
+		if (note) note.style.setProperty("display", note.style.display === "none" ? "" : "none");
+	}
+	function wireAutoButton(page) {
+		const doc = page ?? (typeof document === "undefined" ? null : document);
+		doc?.getElementById(AUTO_BUTTON_ID)?.addEventListener("click", (event) => {
+			event.stopPropagation();
+			onAutoButtonClick(doc);
+		});
+	}
 	var SETUP_GUI_FILES = [PET_HEAD_FILE, "emblem_icons"];
 	var NO_PACE = () => Promise.resolve();
 	function section(title, hint) {
@@ -7453,7 +7585,7 @@
 			};
 		}).sort((a, b) => a.name.localeCompare(b.name));
 		const radioRow = (group, value, label, checked, title) => `<div class="PopUp_ContCheckbox"><input type="checkbox" class="PopUp_checkbox hwhNewRadio radio_hwhNew_${group}" data-group="${group}" data-value="${escapeAttr(value)}" id="hwhNew_${group}_${escapeAttr(value)}"${checked ? " checked" : ""}><label for="hwhNew_${group}_${escapeAttr(value)}" title="${escapeAttr(title)}">${label}</label></div>`;
-		let html = "<div id=\"nxSetupForm\" class=\"PopUp_text\" style=\"text-align: left; width: 600px; max-width: 100%;\"><style>.PopUp_Container:has(#nxSetupForm) { scrollbar-gutter: stable; }</style>";
+		let html = "<div id=\"nxSetupForm\" class=\"PopUp_text\" style=\"text-align: left; width: 600px; max-width: 100%;\"><style>.PopUp_Container:has(#nxSetupForm) { scrollbar-gutter: stable; }</style>" + autoNoteHtml();
 		const columns = (count, rows, fill = "row") => `<div style="display: grid; grid-template-columns: repeat(${count}, minmax(0, 1fr)); column-gap: 18px; align-items: start;` + (fill === "column" ? ` grid-auto-flow: column; grid-template-rows: repeat(${rows}, auto);` : "") + "\">";
 		const abyssOrder = getAbyssChapters().map((e) => Number(e.id));
 		const chapterAvailable = {};
@@ -7704,7 +7836,8 @@
 			popup.custom.insertAdjacentHTML("beforeend", html);
 			const version = GM_info.script.version;
 			const update = availableUpdate(version);
-			popup.setMsgText(I18N("NX_SETUP_MESSAGE") + versionLabelHtml(version, update));
+			popup.setMsgText(I18N("NX_SETUP_MESSAGE") + versionLabelHtml(version, update) + autoButtonHtml(findAutoScript() !== null));
+			wireAutoButton();
 			refreshVersionLabel(version, update);
 			popup.custom.querySelectorAll("input.hwhNewRadio").forEach((checkbox) => {
 				checkbox.addEventListener("change", function() {
