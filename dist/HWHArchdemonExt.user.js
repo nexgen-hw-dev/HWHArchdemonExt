@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.21-beta
+// @version         1.22-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -5648,7 +5648,7 @@
 		}
 		const lineBox = font.lineHeight * k;
 		const free = boxW - line.width;
-		const dx = place === "anchor" ? boxW / 2 - Math.round(Math.ceil(line.width) / 2) : place === "top" ? Math.round(free / 2) : free / 2;
+		const dx = place === "anchor" ? boxW / 2 - Math.round(Math.ceil(line.width) / 2) : place === "top" ? Math.round(free / 2) : place === "left" ? 0 : free / 2;
 		const dy = place === "anchor" ? boxH / 2 - Math.round(lineBox / 2) : place === "top" ? 0 : (boxH - lineBox) / 2;
 		return {
 			canvas,
@@ -5668,6 +5668,19 @@
 		h: 640
 	};
 	var TEXT_MARGIN = 4;
+	var SCROLL_TRACK = "slider_bg_10_10_1";
+	var SCROLL_THUMB = "slider_but_10_10_1";
+	var SCROLL_W = 17;
+	var THUMB_MIN = 21;
+	function scrollThumb(track, view, content, top) {
+		const range = content - view;
+		if (!(range > 1) || !(track > 0) || !(view > 0)) return null;
+		const height = Math.min(track, Math.max(THUMB_MIN, Math.round(track * view / content)));
+		return {
+			top: Math.round((track - height) * Math.min(Math.max(top, 0), range) / range),
+			height
+		};
+	}
 	function decodeHtml(value) {
 		const area = document.createElement("textarea");
 		area.innerHTML = value;
@@ -5683,6 +5696,9 @@
 #${id} .nxBox { cursor: pointer; }
 #${id} .nxNoHit { pointer-events: none; }
 #${id} .nxList { overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: #c49359 #190e08; }
+#${id} .nxList.nxOwnScroll { scrollbar-width: none; }
+#${id} .nxList.nxOwnScroll::-webkit-scrollbar { display: none; }
+#${id} .nxScroll { position: absolute; width: ${SCROLL_W}px; cursor: pointer; touch-action: none; }
 #${id} .nxItem .nxHover { opacity: 0; }
 #${id} .nxItem:hover .nxHover { opacity: 1; }
 #${id} .nxItem:hover .nxIdle { opacity: 0; }
@@ -5893,12 +5909,106 @@
 		};
 		fit();
 		window.addEventListener("resize", fit);
+		const ownScroll = Boolean(renderGui(library, SCROLL_TRACK) && renderGui(library, SCROLL_THUMB));
+		const scrollBars = new Map();
+		const paintBarPart = (el, symbol, height, top) => {
+			const a = art(symbol, { height });
+			if (!a) return;
+			const cls = `nxP ${a.cls}`;
+			if (el.className !== cls) el.className = cls;
+			el.style.cssText = `left: ${a.x}px; top: ${top + a.y}px; width: ${a.width}px; height: ${a.height}px;`;
+		};
+		const wireScroll = (list) => {
+			if (!ownScroll || scrollBars.has(list)) return;
+			list.classList.add("nxOwnScroll");
+			const bar = document.createElement("div");
+			bar.className = "nxScroll";
+			const track = document.createElement("div");
+			const thumb = document.createElement("div");
+			bar.append(track, thumb);
+			list.after(bar);
+			let frame = 0;
+			const update = () => {
+				frame = 0;
+				if (!list.isConnected) return stop();
+				const view = list.clientHeight;
+				const at = scrollThumb(view, view, list.scrollHeight, list.scrollTop);
+				bar.style.display = at ? "" : "none";
+				if (!at) return;
+				bar.style.left = `${list.offsetLeft + list.offsetWidth - SCROLL_W}px`;
+				bar.style.top = `${list.offsetTop}px`;
+				bar.style.height = `${view}px`;
+				paintBarPart(track, SCROLL_TRACK, view, 0);
+				paintBarPart(thumb, SCROLL_THUMB, at.height, at.top);
+			};
+			const schedule = () => {
+				if (!frame) frame = requestAnimationFrame(update);
+			};
+			const mutations = new MutationObserver(schedule);
+			mutations.observe(list, {
+				childList: true,
+				subtree: true,
+				attributes: true,
+				characterData: true
+			});
+			const sizes = new ResizeObserver(schedule);
+			sizes.observe(list);
+			const stop = () => {
+				if (frame) cancelAnimationFrame(frame);
+				frame = 0;
+				mutations.disconnect();
+				sizes.disconnect();
+				list.removeEventListener("scroll", schedule);
+				bar.remove();
+				scrollBars.delete(list);
+			};
+			scrollBars.set(list, stop);
+			list.addEventListener("scroll", schedule, { passive: true });
+			thumb.addEventListener("pointerdown", (event) => {
+				event.preventDefault();
+				event.stopPropagation();
+				const view = list.clientHeight;
+				const at = scrollThumb(view, view, list.scrollHeight, list.scrollTop);
+				if (!at || view <= at.height) return;
+				const perPoint = (list.scrollHeight - view) / (view - at.height);
+				const startY = event.clientY;
+				const startTop = list.scrollTop;
+				thumb.setPointerCapture(event.pointerId);
+				const move = (e) => {
+					list.scrollTop = startTop + (e.clientY - startY) / scale * perPoint;
+				};
+				const up = () => {
+					thumb.removeEventListener("pointermove", move);
+					thumb.removeEventListener("pointerup", up);
+					thumb.removeEventListener("pointercancel", up);
+				};
+				thumb.addEventListener("pointermove", move);
+				thumb.addEventListener("pointerup", up);
+				thumb.addEventListener("pointercancel", up);
+			});
+			bar.addEventListener("pointerdown", (event) => {
+				if (event.target === thumb) return;
+				event.preventDefault();
+				list.scrollTop += (event.clientY < thumb.getBoundingClientRect().top ? -1 : 1) * list.clientHeight;
+			});
+			bar.addEventListener("wheel", (event) => {
+				event.preventDefault();
+				list.scrollTop += event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+			}, { passive: false });
+			update();
+		};
+		const wireScrolls = (container) => {
+			for (const [list, stop] of scrollBars) if (list !== container && !list.isConnected) stop();
+			if (container instanceof HTMLElement && container.classList.contains("nxList")) wireScroll(container);
+			for (const list of container.querySelectorAll(".nxList")) wireScroll(list);
+		};
 		let closed = false;
 		const close = () => {
 			if (closed) return;
 			closed = true;
 			if (openWindows.get(id) === close) openWindows.delete(id);
 			window.removeEventListener("resize", fit);
+			for (const stop of scrollBars.values()) stop();
 			for (const hook of closeHooks) hook();
 			root.remove();
 		};
@@ -5939,6 +6049,7 @@
 			paintTexts,
 			render: (html, container = stage) => {
 				container.innerHTML = html;
+				wireScrolls(container);
 				for (const hook of renderHooks) hook(container);
 				placeCovers(container);
 			},
@@ -5994,6 +6105,15 @@
 		}) + win.label(text, x + fx, y + fy, fw, fh, 18, color, "", { place: "top" });
 	}
 	var TEAM_SIZE = 5;
+	function gameSearchHint() {
+		const key = "UI_DIALOG_COMMAND_HUB_HEROES_FILTER";
+		try {
+			const value = cheats.translate(key);
+			return value && value !== key ? value : "";
+		} catch {
+			return "";
+		}
+	}
 	function nameMatches(name, query) {
 		const needle = query.trim().toLocaleLowerCase();
 		return !needle || name.toLocaleLowerCase().includes(needle);
@@ -6042,6 +6162,12 @@
 		chosen: "#e4ff4c"
 	};
 	var FAVOR_GUI_FILE = "button_team_gather_hero_favor";
+	var SEARCH_GUI_FILE = "dialog_heroes_hub";
+	var PICKER_GUI_FILES = [
+		PET_HEAD_FILE,
+		FAVOR_GUI_FILE,
+		SEARCH_GUI_FILE
+	];
 	var PORTRAIT = 160;
 	var PRELOAD_IDLE_MS = 100;
 	var SCROLL_SETTLE_MS = 150;
@@ -6054,7 +6180,7 @@
 		renderScale: .75
 	}];
 	async function preloadUnitPicker(heroes, pets = []) {
-		await loadGameGui([PET_HEAD_FILE, FAVOR_GUI_FILE]);
+		await loadGameGui(PICKER_GUI_FILES);
 		for (const id of heroes) {
 			await new Promise((resolve) => {
 				if (typeof requestIdleCallback === "function") requestIdleCallback(() => resolve(), { timeout: PRELOAD_IDLE_MS });
@@ -6094,7 +6220,7 @@
 		const pets = petList ?? [];
 		const petLib = getPetLib();
 		const [library, heroIcons, petIcons, skillIcons] = await Promise.all([
-			loadGameGui([PET_HEAD_FILE, FAVOR_GUI_FILE]),
+			loadGameGui(PICKER_GUI_FILES),
 			loadHeroIcons(heroes, PORTRAIT),
 			loadUnitIcons(pets),
 			loadFavorSkillIcons(pets)
@@ -6385,12 +6511,27 @@
 		const SEARCH = {
 			w: 210,
 			h: 28,
-			y: 67
+			y: 69,
+			icon: 33,
+			pad: 9
 		};
 		const searchHtml = () => {
 			if (!texts.search || tab !== "heroes") return "";
-			const left = OX + GRID.x + GRID.w - SEARCH.w;
-			return `<style>.nxSearchInput::placeholder { color: #b89a74; opacity: 1; }</style><input data-search type="text" class="nxSearchInput" value="${escapeAttr(searchText)}" placeholder="${escapeAttr(texts.search)}" autocomplete="off" spellcheck="false" style="position: absolute; left: ${left}px; top: ${SEARCH.y}px; width: ${SEARCH.w}px; height: ${SEARCH.h}px; box-sizing: border-box; padding: 0 28px 0 12px; border: 2px solid #ce9767; border-radius: 14px; background: rgba(25, 14, 8, 0.92); color: #fbe0ac; font: 600 15px sans-serif; outline: none; z-index: 2;"><div data-search-clear class="nxBox" style="left: ${left + SEARCH.w - 26}px; top: ${SEARCH.y + 4}px; width: 20px; height: 20px; display: ${searchText ? "block" : "none"}; color: #fbe0ac; font: 700 18px/20px sans-serif; text-align: center; cursor: pointer; z-index: 3;">×</div>`;
+			const left = OX + GRID.x + slotX(GRID.cols - 1) + CARD - SEARCH.w;
+			const hintW = SEARCH.w - SEARCH.pad - SEARCH.icon;
+			return piece("bg_search_9_9_9_9", left, SEARCH.y, {
+				render: {
+					file: SEARCH_GUI_FILE,
+					width: SEARCH.w,
+					height: SEARCH.h
+				},
+				size: [SEARCH.w, SEARCH.h],
+				fallback: "border: 2px solid #ce9767; border-radius: 14px; background: rgba(25, 14, 8, 0.92);",
+				cls: "nxNoHit"
+			}) + piece("search_icon", left + SEARCH.w - SEARCH.icon, SEARCH.y + 2, {
+				render: { file: SEARCH_GUI_FILE },
+				cls: "nxNoHit"
+			}) + win.part("data-search-hint=\"1\"", label(texts.search, left + SEARCH.pad, SEARCH.y, hintW, SEARCH.h, 16, "#807353", searchText ? "visibility: hidden;" : "", { place: "left" })) + `<input data-search type="text" class="nxSearchInput" value="${escapeAttr(searchText)}" aria-label="${escapeAttr(texts.search)}" autocomplete="off" spellcheck="false" style="position: absolute; left: ${left}px; top: ${SEARCH.y}px; width: ${SEARCH.w}px; height: ${SEARCH.h}px; box-sizing: border-box; padding: 0 ${SEARCH.icon + 22}px 0 ${SEARCH.pad}px; border: none; background: transparent; color: #fee4b3; caret-color: #fee4b3; font: 700 16px 'Roboto Condensed', 'Arial Narrow', sans-serif; outline: none; z-index: 2;"><div data-search-clear class="nxBox" style="left: ${left + SEARCH.w - SEARCH.icon - 22}px; top: ${SEARCH.y + 4}px; width: 20px; height: 20px; display: ${searchText ? "block" : "none"}; color: #fee4b3; font: 700 18px/20px 'Roboto Condensed', sans-serif; text-align: center; cursor: pointer; z-index: 3;">×</div>`;
 		};
 		const messageHtml = () => label(message, OX + GRID.x, 496, GRID.w, 26, 16, "#ffb347");
 		const teamKey = () => JSON.stringify([[...team], chosenMainPet]);
@@ -6537,6 +6678,8 @@
 		const applySearch = () => {
 			const clear = stage.querySelector("[data-search-clear]");
 			if (clear) clear.style.display = searchText ? "block" : "none";
+			const hint = stage.querySelector("[data-search-hint] > *");
+			if (hint) hint.style.visibility = searchText ? "hidden" : "";
 			const grid = grids[0];
 			const list = gridPart(grid)?.querySelector(".nxList");
 			if (!list) return;
@@ -6802,7 +6945,7 @@
 			tabHeroes: I18N("NX_PICK_TAB_HEROES"),
 			tabPets: I18N("NX_PICK_TAB_PETS"),
 			heroesTitle: I18N("NX_PICK_HEROES_TITLE"),
-			search: I18N("NX_PICK_SEARCH"),
+			search: gameSearchHint() || I18N("NX_PICK_SEARCH"),
 			petsTitle: I18N("NX_PICK_PETS_TITLE"),
 			save: I18N("NX_PICK_SAVE"),
 			cancel: I18N("NX_CANCEL"),
