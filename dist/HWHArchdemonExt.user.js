@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.19-beta
+// @version         1.20-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -195,7 +195,8 @@
 	var NX_TEXTS = {
 		en: {
 			NX_LANG: "en",
-			NX_SETUP_MESSAGE: "<span style=\"font-size: 25px;\">ArchRank</span><br><span style=\"font-size: 14px;\">Check the settings and press Start</span>",
+			NX_SETUP_TITLE: "ArchRank",
+			NX_SETUP_HINT: "Check the settings and press Start",
 			NX_BLOCK_CHAPTER: "Chapter",
 			NX_BLOCK_MIN_COINS: "{coin}: minimum, inclusive",
 			NX_BLOCK_MIN_COINS_HINT: "How many coins must be left before the Archdemon, this number counts. Empty means any. The final shopping stops as soon as the minimum is out of reach",
@@ -435,7 +436,8 @@
 		},
 		ru: {
 			NX_LANG: "ru",
-			NX_SETUP_MESSAGE: "<span style=\"font-size: 25px;\">ArchRank</span><br><span style=\"font-size: 14px;\">Проверьте настройки и нажмите Начать</span>",
+			NX_SETUP_TITLE: "ArchRank",
+			NX_SETUP_HINT: "Проверьте настройки и нажмите Начать",
 			NX_BLOCK_CHAPTER: "Глава",
 			NX_BLOCK_MIN_COINS: "{coin}: минимум, включительно",
 			NX_BLOCK_MIN_COINS_HINT: "Сколько монет должно остаться перед Архидемоном, само число подходит. Пусто значит любой остаток. Финальная закупка прекращается, как только минимум не достижим",
@@ -5970,10 +5972,10 @@
 		return !needle || name.toLocaleLowerCase().includes(needle);
 	}
 	var PICKER_Z = 10050;
-	var STAGE_W = 940;
-	var STAGE_H = 680;
+	var STAGE_W$1 = 940;
+	var STAGE_H$1 = 680;
 	var OX = 140;
-	var MAX_SCALE = 1.4;
+	var MAX_SCALE$1 = 1.4;
 	var GRID = {
 		x: 46,
 		y: 104,
@@ -6073,9 +6075,9 @@
 		const win = openGameWindow({
 			id: windowId,
 			zIndex: PICKER_Z,
-			stageW: STAGE_W,
-			stageH: STAGE_H,
-			maxScale: MAX_SCALE,
+			stageW: STAGE_W$1,
+			stageH: STAGE_H$1,
+			maxScale: MAX_SCALE$1,
 			library
 		});
 		const { stage, pic, piece, anim, label } = win;
@@ -6288,7 +6290,7 @@
 			const ids = rowTeam();
 			const slot = TEAM_SIZE - ids.length + Math.max(0, ids.indexOf(heroId));
 			const heroCenter = OX + ROW.heroX + slot * ROW.step + CARD / 2;
-			const px = Math.round(Math.min(Math.max(heroCenter - W / 2, 8), STAGE_W - W - 8));
+			const px = Math.round(Math.min(Math.max(heroCenter - W / 2, 8), STAGE_W$1 - W - 8));
 			const py = Math.round(ROW.y - 18 - H);
 			let items = "";
 			fitting.forEach((petId, k) => {
@@ -7453,11 +7455,9 @@
 	var AUTO_NOTE_ID = "nxAutoNote";
 	var NOTE_COLOR = "#ff6b6b";
 	var BUTTON_ZOOM = .75;
-	var BUTTON_RIGHT = 42;
-	var BUTTON_TOP = 17;
 	function autoButtonHtml(found, published = NX_AUTO_PUBLISHED) {
 		if (!published) return "";
-		return `<div style="position: absolute; right: ${BUTTON_RIGHT}px; top: ${BUTTON_TOP}px;"><div id="${AUTO_BUTTON_ID}" class="PopUp_btnSocket" title="${escapeAttr(found ? I18N("NX_SETUP_AUTO_HINT") : I18N("NX_SETUP_AUTO_MISSING_HINT"))}" style="zoom: ${BUTTON_ZOOM}; cursor: pointer;"><div class="PopUp_btnRow"><div class="PopUp_btnGap ${found ? "green" : "red"}"><div class="PopUp_btnPlate" style="font-size: 17px; padding: 8px 9px; min-width: auto;">${I18N("NX_SETUP_AUTO_BUTTON")}</div></div></div></div></div>`;
+		return `<div id="${AUTO_BUTTON_ID}" class="PopUp_btnSocket" title="${escapeAttr(found ? I18N("NX_SETUP_AUTO_HINT") : I18N("NX_SETUP_AUTO_MISSING_HINT"))}" style="zoom: ${BUTTON_ZOOM}; cursor: pointer;"><div class="PopUp_btnRow"><div class="PopUp_btnGap ${found ? "green" : "red"}"><div class="PopUp_btnPlate" style="font-size: 17px; padding: 8px 9px; min-width: auto;">${I18N("NX_SETUP_AUTO_BUTTON")}</div></div></div></div>`;
 	}
 	function autoNoteHtml(url = NX_AUTO_INSTALL_URL) {
 		const link = `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" style="color: #88cb13;">${I18N("NX_SETUP_AUTO_INSTALL")}</a>`;
@@ -7485,6 +7485,123 @@
 			onAutoButtonClick(doc);
 		});
 	}
+	var SETUP_WINDOW_ID = "nxSetupWindow";
+	var SETUP_Z = 10040;
+	var STAGE_W = 720;
+	var STAGE_H = 816;
+	var MIN_STAGE_H = 560;
+	var MAX_SCALE = 1;
+	var SCREEN_MARGIN = 32;
+	var FRAME_X = 7;
+	var FRAME_Y = 41;
+	var FRAME_W = 706;
+	var HEADER_W = 360;
+	var TOP_ROW = 75;
+	var CONTENT_TOP = 121;
+	var CONTENT_X = 33;
+	var CONTENT_W = 654;
+	var C = {
+		title: "#ffcf84",
+		hint: "#fce5b7"
+	};
+	async function runSetupDialog(options, build) {
+		const stageH = Math.max(MIN_STAGE_H, Math.min(STAGE_H, window.innerHeight - SCREEN_MARGIN));
+		const frameH = stageH - FRAME_Y - 7;
+		const buttonsY = FRAME_Y + frameH - 66;
+		const contentH = buttonsY - 12 - CONTENT_TOP;
+		const win = openGameWindow({
+			id: SETUP_WINDOW_ID,
+			zIndex: SETUP_Z,
+			stageW: STAGE_W,
+			stageH,
+			maxScale: MAX_SCALE,
+			library: options.library
+		});
+		const { piece, label } = win;
+		const headerX = 360 - HEADER_W / 2;
+		win.render(piece("PopupBG_12_12_12_12", 20, 55, {
+			render: {
+				width: 680,
+				height: frameH - 22
+			},
+			size: [680, frameH - 22],
+			fallback: "background: #190e08; border-radius: 10px;"
+		}) + piece("mainframeSep_64_64_2_2", FRAME_X, FRAME_Y, {
+			render: {
+				width: FRAME_W,
+				height: frameH
+			},
+			size: [FRAME_W, frameH],
+			fallback: "border: 3px solid #ce9767; border-radius: 12px;",
+			cls: "nxNoHit"
+		}) + piece("header_178_178_2", headerX, 14, {
+			render: { width: HEADER_W },
+			size: [HEADER_W, 56],
+			fallback: "background: linear-gradient(180deg, #8a5a2a, #4a2a10); border-radius: 10px;",
+			cls: "nxNoHit"
+		}) + label(options.title, 240, 14, 240, 56, 24, C.title) + label(options.hint, 157, TOP_ROW, 406, 24, 16, C.hint) + piece("closeButton_32", 670, 26, {
+			size: [46, 46],
+			fallback: "background: #8a1c12; border: 2px solid #ce9767; border-radius: 50%; color: #fff; font: 700 20px/42px sans-serif; text-align: center;",
+			inner: "✕",
+			attrs: "data-cancel=\"1\"",
+			cls: "nxBox"
+		}) + `<div data-slot="version" style="position: absolute; left: 37px; top: 78px; font-family: sans-serif; font-weight: 600; font-stretch: condensed; letter-spacing: 1px; color: #FDE5B6;"></div><div data-slot="auto" style="position: absolute; right: 67px; top: 71px;"></div><div class="nxList" data-slot="content" style="left: ${CONTENT_X}px; top: ${CONTENT_TOP}px; width: ${CONTENT_W}px; height: ${contentH}px; user-select: text; padding-top: 6px; mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);"></div>` + win.part("data-part=\"start\"", mediumButton(win, "green", 210, buttonsY, options.startText, "data-start=\"1\"")) + win.part("data-part=\"cancel\"", mediumButton(win, "boring", 370, buttonsY, options.cancelText, "data-cancel=\"1\"")));
+		win.paintTexts();
+		const slot = (name) => win.stage.querySelector(`[data-slot="${name}"]`);
+		const part = (name) => win.stage.querySelector(`[data-part="${name}"]`);
+		return await new Promise((resolve) => {
+			let done = false;
+			const onKey = (event) => {
+				if (event.key !== "Escape" || otherWindowOnTop(win.root)) return;
+				event.stopPropagation();
+				event.preventDefault();
+				if (event.type === "keyup") handlers.onCancel();
+			};
+			const answer = (value) => {
+				if (done) return;
+				done = true;
+				window.removeEventListener("keydown", onKey, true);
+				window.removeEventListener("keyup", onKey, true);
+				win.close();
+				resolve(value);
+			};
+			const handlers = build({
+				root: slot("content"),
+				version: slot("version"),
+				auto: slot("auto"),
+				setStartEnabled: (enabled, hint) => {
+					const start = part("start");
+					if (!start) return;
+					for (const child of start.children) {
+						const el = child;
+						el.style.opacity = enabled ? "" : "0.45";
+						el.style.pointerEvents = enabled ? "" : "none";
+						el.title = hint;
+					}
+				},
+				setButtonsVisible: (visible) => {
+					for (const name of ["start", "cancel"]) {
+						const el = part(name);
+						if (el) el.style.display = visible ? "contents" : "none";
+					}
+				}
+			}, answer);
+			window.addEventListener("keydown", onKey, true);
+			window.addEventListener("keyup", onKey, true);
+			win.root.addEventListener("click", (event) => {
+				const at = (selector) => event.target.closest(selector);
+				if (at("[data-start]")) handlers.onStart();
+				else if (at("[data-cancel]")) handlers.onCancel();
+			});
+			win.onClose(() => {
+				if (!done) handlers.onCancel();
+			});
+		});
+	}
+	function otherWindowOnTop(own) {
+		return [...document.body.children].some((el) => el !== own && !el.classList.contains("nxHidden") && el.querySelector(":scope > div > .nxStage") !== null);
+	}
+	var setupDialog = { run: runSetupDialog };
 	var SETUP_GUI_FILES = [PET_HEAD_FILE, "emblem_icons"];
 	var NO_PACE = () => Promise.resolve();
 	function section(title, hint) {
@@ -7539,7 +7656,7 @@
 	function versionLabelHtml(version, update) {
 		const current = `<span style="opacity: 0.6;">v${escapeAttr(version)}</span>`;
 		const button = `<a href="${NX_GREASYFORK_URL}" target="_blank" rel="noopener" title="${escapeAttr(I18N("NX_UPDATE_HINT"))}" style="display: inline-flex; padding: 0 1px 3px; border-radius: 4px; text-decoration: none; cursor: pointer; background: hsl(120, 60%, 10%); box-shadow: 0 0 2px 0 hsl(36, 88%, 7%), 0 -1px 2px 0 hsl(36, 88%, 7%), 0 1px 1px 0 hsl(120, 60%, 12%);"><span style="display: flex; align-items: center; justify-content: center; height: 16px; padding: 0 9px; border-radius: 3px; background: hsl(120, 60%, 50%); color: hsl(120, 60%, 90%); font: 700 11px Arial, sans-serif; letter-spacing: 0.3px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.92);">${escapeAttr(I18N("NX_UPDATE_BUTTON"))}</span></a>`;
-		return `<span id="${VERSION_LABEL_ID}" style="position: absolute; left: 14px; top: 5px; display: flex; align-items: center; gap: 6px; font-size: 11px; line-height: 14px; white-space: nowrap;">${current}${update ? `<span style="color: LimeGreen;">· ${escapeAttr(I18N("NX_UPDATE_SHORT", { version: update }))}</span>${button}` : ""}</span>`;
+		return `<span id="${VERSION_LABEL_ID}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 11px; line-height: 14px; white-space: nowrap;">${current}${update ? `<span style="display: flex; align-items: center; gap: 6px;"><span style="color: LimeGreen;">${escapeAttr(I18N("NX_UPDATE_SHORT", { version: update }))}</span>${button}</span>` : ""}</span>`;
 	}
 	function refreshVersionLabel(version, shown) {
 		if (!onGamePage()) return;
@@ -7585,7 +7702,7 @@
 			};
 		}).sort((a, b) => a.name.localeCompare(b.name));
 		const radioRow = (group, value, label, checked, title) => `<div class="PopUp_ContCheckbox"><input type="checkbox" class="PopUp_checkbox hwhNewRadio radio_hwhNew_${group}" data-group="${group}" data-value="${escapeAttr(value)}" id="hwhNew_${group}_${escapeAttr(value)}"${checked ? " checked" : ""}><label for="hwhNew_${group}_${escapeAttr(value)}" title="${escapeAttr(title)}">${label}</label></div>`;
-		let html = "<div id=\"nxSetupForm\" class=\"PopUp_text\" style=\"text-align: left; width: 600px; max-width: 100%;\"><style>.PopUp_Container:has(#nxSetupForm) { scrollbar-gutter: stable; }</style>" + autoNoteHtml();
+		let html = "<div id=\"nxSetupForm\" class=\"PopUp_text\" style=\"text-align: left; width: 600px; max-width: 100%;\">" + autoNoteHtml();
 		const columns = (count, rows, fill = "row") => `<div style="display: grid; grid-template-columns: repeat(${count}, minmax(0, 1fr)); column-gap: 18px; align-items: start;` + (fill === "column" ? ` grid-auto-flow: column; grid-template-rows: repeat(${rows}, auto);` : "") + "\">";
 		const abyssOrder = getAbyssChapters().map((e) => Number(e.id));
 		const chapterAvailable = {};
@@ -7658,26 +7775,27 @@
 		html += "</div>";
 		html += "<div id=\"hwhNewError\" style=\"color: #ff6b6b; text-align: left; margin-top: 12px; min-height: 1px;\"></div>";
 		html += "</div>";
+		let root;
 		const readRadio = (group) => {
-			const checked = popup.custom.querySelector(`input[data-group="${group}"]:checked`);
+			const checked = root.querySelector(`input[data-group="${group}"]:checked`);
 			return checked ? checked.dataset.value : null;
 		};
 		const syncWealthBlock = () => {
-			const block = popup.custom.querySelector("#hwhNewWealthBlock");
+			const block = root.querySelector("#hwhNewWealthBlock");
 			if (!block) return;
 			const wealth = Number(readRadio("talisman1")) === NX_WEALTH_TALISMAN_ID;
 			block.style.display = wealth ? "" : "none";
-			const note = popup.custom.querySelector("#hwhNewWealthNote");
+			const note = root.querySelector("#hwhNewWealthNote");
 			if (note) note.style.display = wealth ? "none" : "";
-			const defaultBlock = popup.custom.querySelector("#hwhNewDefaultBlock");
+			const defaultBlock = root.querySelector("#hwhNewDefaultBlock");
 			if (defaultBlock) defaultBlock.style.display = wealth ? "none" : "";
 		};
 		const repaintTalismans = () => {
 			const chosen = {};
-			popup.custom.querySelectorAll("input.hwhNewRadio[data-group^=\"talisman\"]:checked").forEach((cb) => {
+			root.querySelectorAll("input.hwhNewRadio[data-group^=\"talisman\"]:checked").forEach((cb) => {
 				chosen[cb.dataset.group] = Number(cb.dataset.value);
 			});
-			popup.custom.querySelectorAll("input.hwhNewRadio[data-group^=\"talisman\"]").forEach((cb) => {
+			root.querySelectorAll("input.hwhNewRadio[data-group^=\"talisman\"]").forEach((cb) => {
 				const value = Number(cb.dataset.value);
 				const takenNextDoor = value !== 0 && Object.entries(chosen).some(([group, id]) => group !== cb.dataset.group && id === value);
 				const label = cb.nextElementSibling;
@@ -7685,7 +7803,7 @@
 			});
 		};
 		const showError = (text) => {
-			const box = popup.custom.querySelector("#hwhNewError");
+			const box = root.querySelector("#hwhNewError");
 			if (box) box.innerHTML = text;
 		};
 		const validate = () => {
@@ -7728,16 +7846,16 @@
 				error: I18N("NX_ERR_TALISMAN_DUP")
 			};
 			const talismanId = talismanIds[0];
-			const minCoinsRaw = popup.custom.querySelector("#hwhNewMinCoinsInput").value;
+			const minCoinsRaw = root.querySelector("#hwhNewMinCoinsInput").value;
 			const carryRaw = currentCarry;
 			const sacrificeRaw = currentSacrifice;
-			const startRefreshesRaw = popup.custom.querySelector("#hwhNewStartRefreshInput").value;
+			const startRefreshesRaw = root.querySelector("#hwhNewStartRefreshInput").value;
 			let minCoins = null;
 			let carryHeroes = [];
 			let sacrificeHeroes = [];
 			let carryTargets = {};
 			let sacrificeRefreshes = 0;
-			const sacrificeRefreshesRaw = popup.custom.querySelector("#hwhNewSacrificeRefreshInput")?.value ?? "";
+			const sacrificeRefreshesRaw = root.querySelector("#hwhNewSacrificeRefreshInput")?.value ?? "";
 			const carryExtraHeroes = [];
 			let startRefreshes = 0;
 			if (talismanId === NX_WEALTH_TALISMAN_ID) {
@@ -7785,9 +7903,9 @@
 					startRefreshes = parsed;
 				}
 			}
-			const pauseAfterBoss = popup.custom.querySelector("#hwhNewPauseInput")?.checked === true;
-			const buyAnyRandomLots = popup.custom.querySelector("#hwhNewRandomAnyInput")?.checked === true;
-			const stopIfIncompleteRaw = popup.custom.querySelector("#hwhNewStopIncompleteInput")?.checked === true;
+			const pauseAfterBoss = root.querySelector("#hwhNewPauseInput")?.checked === true;
+			const buyAnyRandomLots = root.querySelector("#hwhNewRandomAnyInput")?.checked === true;
+			const stopIfIncompleteRaw = root.querySelector("#hwhNewStopIncompleteInput")?.checked === true;
 			const mainPet = Number(mainPetValue);
 			const chapterId = Number(chapterValue);
 			return {
@@ -7824,36 +7942,43 @@
 				}
 			};
 		};
-		return await popup.customPopup((answer) => {
+		const dialogOptions = {
+			library,
+			title: I18N("NX_SETUP_TITLE"),
+			hint: I18N("NX_SETUP_HINT"),
+			startText: I18N("NX_START"),
+			cancelText: I18N("NX_CANCEL")
+		};
+		return await setupDialog.run(dialogOptions, (host, answer) => {
+			root = host.root;
 			let answered = false;
-			let stopWatching = () => {};
 			const complete = (value) => {
 				if (answered) return;
 				answered = true;
-				stopWatching();
 				answer(value);
 			};
-			popup.custom.insertAdjacentHTML("beforeend", html);
+			root.insertAdjacentHTML("beforeend", html);
 			const version = GM_info.script.version;
 			const update = availableUpdate(version);
-			popup.setMsgText(I18N("NX_SETUP_MESSAGE") + versionLabelHtml(version, update) + autoButtonHtml(findAutoScript() !== null));
+			host.version.innerHTML = versionLabelHtml(version, update);
+			host.auto.innerHTML = autoButtonHtml(findAutoScript() !== null);
 			wireAutoButton();
 			refreshVersionLabel(version, update);
-			popup.custom.querySelectorAll("input.hwhNewRadio").forEach((checkbox) => {
+			root.querySelectorAll("input.hwhNewRadio").forEach((checkbox) => {
 				checkbox.addEventListener("change", function() {
 					if (!this.checked) {
 						this.checked = true;
 						return;
 					}
-					popup.custom.querySelectorAll(`input.hwhNewRadio[data-group="${this.dataset.group}"]`).forEach((other) => {
+					root.querySelectorAll(`input.hwhNewRadio[data-group="${this.dataset.group}"]`).forEach((other) => {
 						if (other !== this) other.checked = false;
 					});
 					if (this.dataset.group.startsWith("talisman")) {
 						const value = Number(this.dataset.value);
-						if (value !== 0) popup.custom.querySelectorAll("input.hwhNewRadio[data-group^=\"talisman\"]:checked").forEach((other) => {
+						if (value !== 0) root.querySelectorAll("input.hwhNewRadio[data-group^=\"talisman\"]:checked").forEach((other) => {
 							if (other === this || Number(other.dataset.value) !== value) return;
 							other.checked = false;
-							const any = popup.custom.querySelector(`input.hwhNewRadio[data-group="${other.dataset.group}"][data-value="0"]`);
+							const any = root.querySelector(`input.hwhNewRadio[data-group="${other.dataset.group}"][data-value="0"]`);
 							if (any) any.checked = true;
 						});
 						syncWealthBlock();
@@ -7864,14 +7989,11 @@
 			});
 			syncWealthBlock();
 			repaintTalismans();
-			popup.custom.querySelector("#hwhNewMinCoinsInput")?.addEventListener("input", function() {
-				const bonus = popup.custom.querySelector("#nxMinCoinsBonus");
+			root.querySelector("#hwhNewMinCoinsInput")?.addEventListener("input", function() {
+				const bonus = root.querySelector("#nxMinCoinsBonus");
 				if (bonus) bonus.innerHTML = minCoinsBonusText(this.value);
 			});
-			popup.addButton({
-				msg: I18N("NX_START"),
-				color: "green"
-			}, () => {
+			const onStart = () => {
 				const result = validate();
 				if (result.kind === "error") {
 					showError(result.error);
@@ -7890,33 +8012,26 @@
 				setSaveVal(NX_SAVE_KEYS.stopIncomplete, result.value.stopIfIncompleteRaw);
 				setSaveVal(NX_SAVE_KEYS.startRefreshes, result.value.startRefreshesRaw);
 				setSaveVal(NX_SAVE_KEYS.sacrificePoint, result.value.sacrificePoint);
-				popup.hide();
 				complete(result.value);
-			});
+			};
 			function readTalismanIds() {
 				return rollBosses.map((bossNumber, index) => Number(readRadio(`talisman${index + 1}`) ?? 0));
 			}
 			function refreshTalismanSlots() {
-				const box = popup.custom.querySelector("#nxTalismanSlots");
+				const box = root.querySelector("#nxTalismanSlots");
 				if (box) box.innerHTML = talismanSlotsHtml(library, readTalismanIds());
 			}
-			const startButton = popup.buttons[popup.buttons.length - 1];
-			const setStartEnabled = (enabled) => {
-				if (!startButton) return;
-				startButton.style.opacity = enabled ? "" : "0.45";
-				startButton.style.pointerEvents = enabled ? "" : "none";
-				startButton.title = enabled ? "" : I18N("NX_SQUAD_REQUIRED");
-			};
+			const setStartEnabled = (enabled) => host.setStartEnabled(enabled, enabled ? "" : I18N("NX_SQUAD_REQUIRED"));
 			setStartEnabled(isSquadReady(currentTeam));
 			const bindSquadEdit = () => {
-				popup.custom.querySelector("#nxSquadEdit")?.addEventListener("click", handleAsync(async () => {
+				root.querySelector("#nxSquadEdit")?.addEventListener("click", handleAsync(async () => {
 					const picked = await openSquadPicker(currentTeam, currentMainPet);
 					if (!picked) return;
 					currentTeam = picked.teamRaw;
 					currentMainPet = picked.mainPet;
 					setSaveVal(NX_SAVE_KEYS.team, currentTeam);
 					setSaveVal(NX_SAVE_KEYS.mainPet, currentMainPet);
-					const block = popup.custom.querySelector("#nxSquadBlock");
+					const block = root.querySelector("#nxSquadBlock");
 					if (block) block.innerHTML = await squadHtml(currentTeam, currentMainPet, readTalismanIds());
 					bindSquadEdit();
 					setStartEnabled(isSquadReady(currentTeam));
@@ -7925,7 +8040,7 @@
 			};
 			bindSquadEdit();
 			const syncSacrificeRefreshRow = () => {
-				const row = popup.custom.querySelector("#nxSacrificeRefreshRow");
+				const row = root.querySelector("#nxSacrificeRefreshRow");
 				if (!row) return;
 				const sacrifice = parseIdList(currentSacrifice) ?? [];
 				const carry = (parseRankedIdList(currentCarry) ?? []).map((e) => e.id);
@@ -7933,12 +8048,12 @@
 			};
 			syncSacrificeRefreshRow();
 			const bindListEdit = (buttonId, pickerId, blockId, title, getRaw, setRaw, saveKey, max, hint, withRanks) => {
-				popup.custom.querySelector(`#${buttonId}`)?.addEventListener("click", handleAsync(async () => {
+				root.querySelector(`#${buttonId}`)?.addEventListener("click", handleAsync(async () => {
 					const picked = await openHeroListPicker(parseRankedIdList(getRaw()) ?? [], title, max, withRanks, pickerId);
 					if (!picked) return;
 					setRaw(picked.heroIds.map((id) => withRanks ? `${id}/${picked.ranks[id]}` : id).join(", "));
 					setSaveVal(saveKey, getRaw());
-					const block = popup.custom.querySelector(`#${blockId}`);
+					const block = root.querySelector(`#${blockId}`);
 					if (block) block.innerHTML = await heroListHtml(parseRankedIdList(getRaw()) ?? [], buttonId, hint);
 					bindListEdit(buttonId, pickerId, blockId, title, getRaw, setRaw, saveKey, max, hint, withRanks);
 					syncSacrificeRefreshRow();
@@ -7947,17 +8062,7 @@
 			};
 			bindListEdit("nxCarryEdit", "nxCarryPicker", "nxCarryBlock", I18N("NX_PICK_CARRY_TITLE"), () => currentCarry, (v) => currentCarry = v, NX_SAVE_KEYS.carry, NX_TEAM_SIZE, I18N("NX_LIST_EDIT_HINT"), true);
 			bindListEdit("nxSacrificeEdit", "nxSacrificePicker", "nxSacrificeBlock", I18N("NX_PICK_SACRIFICE_TITLE"), () => currentSacrifice, (v) => currentSacrifice = v, NX_SAVE_KEYS.sacrifice, NX_SACRIFICE_CANDIDATES, I18N("NX_SACRIFICE_EDIT_HINT"), false);
-			popup.addButton({
-				msg: I18N("NX_CANCEL"),
-				color: "red"
-			}, () => {
-				popup.hide();
-				complete("cancel");
-			});
-			const cancelButton = popup.buttons[popup.buttons.length - 1];
-			const setButtonsVisible = (visible) => {
-				for (const button of [startButton, cancelButton]) if (button) button.style.display = visible ? "" : "none";
-			};
+			const setButtonsVisible = (visible) => host.setButtonsVisible(visible);
 			const goWithPreset = (preset, keepExtraCoins, strategies = []) => {
 				const chapterValue = readRadio("chapter");
 				if (chapterValue === null) return I18N("NX_ERR_NO_CHAPTER");
@@ -7976,42 +8081,25 @@
 				});
 				if (value.talismanId === NX_WEALTH_TALISMAN_ID && carryPointOneError(value)) return I18N("NX_PRESETS_CARRY_POINT1", { list: value.carryHeroes.map(unitLabel).join(", ") });
 				if (value.preset?.strategy) console.log(`Сборки: стратегия ${value.preset.strategy}, усиление ${buffAmount}, проходные ${value.carryHeroes.join(", ")}, слив ${value.sacrificeHeroes.join(", ")} на точке ${value.sacrificePoint}`);
-				popup.hide();
 				complete(value);
 				return null;
 			};
-			popup.custom.querySelector("#nxPresetsOpen")?.addEventListener("click", () => {
-				const form = popup.custom.querySelector("#nxSetupForm");
+			root.querySelector("#nxPresetsOpen")?.addEventListener("click", () => {
+				const form = root.querySelector("#nxSetupForm");
 				if (!form) return;
 				openPresetsView({
-					root: popup.custom,
+					root,
 					form,
 					buff: buffAmount,
 					setButtonsVisible,
 					onGo: goWithPreset
 				}).catch((e) => console.error(e));
 			});
-			popup.addButton({ isClose: true }, () => {
-				popup.hide();
-				complete("cancel");
-			});
-			popup.show();
-			const form = popup.custom.querySelector("#nxSetupForm");
-			if (form) stopWatching = watchGone(form, popup.custom, () => {
-				console.log("Окно настройки закрыло другое окно помощника: считаем «Отменой»");
-				complete("cancel");
-			});
+			return {
+				onStart,
+				onCancel: () => complete("cancel")
+			};
 		});
-	}
-	function watchGone(form, parent, onGone) {
-		if (typeof MutationObserver === "undefined") return () => {};
-		const observer = new MutationObserver(() => {
-			if (form.isConnected) return;
-			observer.disconnect();
-			onGone();
-		});
-		observer.observe(parent, { childList: true });
-		return () => observer.disconnect();
 	}
 	async function squadHtml(teamRaw, mainPet, talismanIds, pace = NO_PACE) {
 		const parsed = String(teamRaw ?? "").trim() ? parseArchdemonNewTeam(teamRaw) : {
