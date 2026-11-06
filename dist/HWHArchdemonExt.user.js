@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.23-beta
+// @version         1.24-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -44,22 +44,8 @@
 		autoBattle: [1400, 2e3]
 	};
 	var NX_SAVE_KEYS = {
-		chapter: "savedChapterForArchdemonNew",
-		team: "savedTeamForArchdemonNew",
-		mainPet: "savedMainPetForArchdemonNew",
-		talisman: "savedTalismanForArchdemonNew",
-		talismans: "savedTalismanIdsForArchdemonNew",
-		minCoins: "savedMinCoinsForArchdemonNew",
-		carry: "savedCarryHeroesForArchdemonNew",
-		sacrifice: "savedSacrificeHeroesForArchdemonNew",
-		pause: "savedPauseAfterBossForArchdemonNew",
-		carryExtra: "savedCarryExtraHeroesForArchdemonNew",
-		startRefreshes: "savedStartRefreshesForArchdemonNew",
-		sacrificeRefreshes: "savedSacrificeRefreshesForArchdemonNew",
-		randomAny: "savedBuyAnyRandomLotsForArchdemonNew",
-		stopIncomplete: "savedStopIfIncompleteForArchdemonNew",
-		sacrificePoint: "savedSacrificePointForArchdemonNew",
-		keepExtraCoins: "savedKeepExtraCoinsForArchdemonNew",
+		chapterSettings: "savedChapterSettingsForArchdemonNew",
+		eventChapter: "savedEventChapterForArchdemonNew",
 		logPosition: "savedRunLogPositionForArchdemonNew",
 		logCollapsed: "savedRunLogCollapsedForArchdemonNew"
 	};
@@ -941,9 +927,12 @@
 	function chapterHasArchdemon(chapter, rating = ratingChapterIds()) {
 		return Boolean(chapter.isArchdemon) || rating.has(Number(chapter.id));
 	}
-	function getArchdemonChapters() {
+	function getArchdemonChaptersOf(eventId) {
 		const rating = ratingChapterIds();
-		return allChapters().filter((e) => e.invasionId === currentEventId() && chapterHasArchdemon(e, rating));
+		return allChapters().filter((e) => Number(e.invasionId) === Number(eventId) && chapterHasArchdemon(e, rating));
+	}
+	function getArchdemonChapters() {
+		return getArchdemonChaptersOf(currentEventId());
 	}
 	function eventHasArchdemon(eventId) {
 		const rating = ratingChapterIds();
@@ -5459,6 +5448,81 @@
 			handler(...args).catch((e) => console.error(e));
 		};
 	}
+	function emptyChapterSettings() {
+		return {
+			team: "",
+			mainPet: 0,
+			talismans: [],
+			minCoins: "",
+			carry: "",
+			sacrifice: "",
+			startRefreshes: "",
+			sacrificeRefreshes: "",
+			sacrificePoint: NX_DEFAULT_SACRIFICE_POINT,
+			pauseAfterBoss: false,
+			buyAnyRandomLots: false,
+			stopIfIncomplete: false,
+			keepExtraCoins: false
+		};
+	}
+	function chapterSettingsKey(eventId, chapterId) {
+		return `${NX_SAVE_KEYS.chapterSettings}@${Number(eventId)}/${Number(chapterId)}`;
+	}
+	function eventChapterKey(eventId) {
+		return `${NX_SAVE_KEYS.eventChapter}@${Number(eventId)}`;
+	}
+	function isTrue(value) {
+		return value === true || value === "true";
+	}
+	function text(value, fallback) {
+		if (typeof value === "string") return value;
+		return typeof value === "number" && Number.isFinite(value) ? String(value) : fallback;
+	}
+	function loadChapterSettings(eventId, chapterId) {
+		const empty = emptyChapterSettings();
+		if (!eventId || !chapterId) return empty;
+		const raw = getSaveVal(chapterSettingsKey(eventId, chapterId), null);
+		if (!raw || typeof raw !== "object" || Array.isArray(raw)) return empty;
+		const saved = raw;
+		const point = Number(saved.sacrificePoint);
+		return {
+			team: text(saved.team, empty.team),
+			mainPet: Number(saved.mainPet) || 0,
+			talismans: Array.isArray(saved.talismans) ? saved.talismans.map((id) => Number(id) || 0) : empty.talismans,
+			minCoins: text(saved.minCoins, empty.minCoins),
+			carry: text(saved.carry, empty.carry),
+			sacrifice: text(saved.sacrifice, empty.sacrifice),
+			startRefreshes: text(saved.startRefreshes, empty.startRefreshes),
+			sacrificeRefreshes: text(saved.sacrificeRefreshes, empty.sacrificeRefreshes),
+			sacrificePoint: Number.isInteger(point) && point > 0 ? point : empty.sacrificePoint,
+			pauseAfterBoss: isTrue(saved.pauseAfterBoss),
+			buyAnyRandomLots: isTrue(saved.buyAnyRandomLots),
+			stopIfIncomplete: isTrue(saved.stopIfIncomplete),
+			keepExtraCoins: isTrue(saved.keepExtraCoins)
+		};
+	}
+	function saveChapterSettings(eventId, chapterId, settings) {
+		if (!eventId || !chapterId) return;
+		setSaveVal(chapterSettingsKey(eventId, chapterId), {
+			...settings,
+			talismans: [...settings.talismans]
+		});
+	}
+	function updateChapterSettings(eventId, chapterId, change) {
+		const next = {
+			...loadChapterSettings(eventId, chapterId),
+			...change
+		};
+		saveChapterSettings(eventId, chapterId, next);
+		return next;
+	}
+	function savedEventChapter(eventId) {
+		if (!eventId) return 0;
+		return Number(getSaveVal(eventChapterKey(eventId), 0)) || 0;
+	}
+	function saveEventChapter(eventId, chapterId) {
+		if (eventId && chapterId) setSaveVal(eventChapterKey(eventId), Number(chapterId));
+	}
 	function startingHeroes(chapterId) {
 		return Object.entries(chapterById(chapterId)?.initialUnitFragments ?? {}).filter(([, fragments]) => Number(fragments) > 0).map(([id]) => Number(id));
 	}
@@ -7601,10 +7665,6 @@
 	var link = (url, name) => `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${escapeAttr(name)}</a>`;
 	var linkItem = (url, name, about) => `<div style="margin-left: 10px;">• ${link(url, name)} — ${about}</div>`;
 	var REFRESH_BUTTON = "<div id=\"nxPresetsRefresh\" role=\"button\" style=\"flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #88cb13; color: #88cb13; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; line-height: 1; user-select: none;\">↻</div>";
-	function readKeepExtraCoins() {
-		const saved = getSaveVal(NX_SAVE_KEYS.keepExtraCoins, false);
-		return saved === true || saved === "true";
-	}
 	function headerHtml(buff) {
 		const sites = NX_PRESET_SITES.map((site) => linkItem(site.url, site.name, I18N(site.key))).join("");
 		return `<div style="font-size: 22px; color: #ffcf84; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: `<span style="color: LimeGreen;">${Number(buff) || 0}</span>` })}</div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}${sites}</div><div style="margin-top: 8px;">${I18N("NX_PRESETS_AUTHORS")}</div>`;
@@ -7615,8 +7675,8 @@
 		const heading = (text) => `<div style="margin-top: 14px; font-size: 14px; color: #c9b89c;">${text}</div>`;
 		return `<div style="line-height: 1.5;">${tr("NX_PRESETS_WAIT_SOON")}</div><div style="margin-top: 10px; line-height: 1.5;">${tr("NX_PRESETS_WAIT_RESOURCES")}</div><div style="line-height: 1.5;">` + heading("Telegram") + telegram[lang].map((group) => linkItem(group.url, group.name, tr(group.key))).join("") + heading(tr("NX_PRESETS_WAIT_YOUTUBE")) + `<div style="margin-left: 10px;">${youtube.map((channel) => link(channel.url, channel.name)).join(" · ")}</div>` + heading(tr("NX_PRESETS_WAIT_SITES")) + sites.map((site) => linkItem(site.url, site.name, tr(site.key))).join("") + "</div>";
 	}
-	function keepCoinsHtml() {
-		return `<div class="PopUp_ContCheckbox" style="margin-top: 14px;"><input type="checkbox" class="PopUp_checkbox" id="nxKeepExtraCoins"${readKeepExtraCoins() ? " checked" : ""}><label for="nxKeepExtraCoins" title="${escapeAttr(I18N("NX_PRESETS_KEEP_COINS_HINT"))}">${I18N("NX_PRESETS_KEEP_COINS")}</label></div>`;
+	function keepCoinsHtml(checked) {
+		return `<div class="PopUp_ContCheckbox" style="margin-top: 14px;"><input type="checkbox" class="PopUp_checkbox" id="nxKeepExtraCoins"${checked ? " checked" : ""}><label for="nxKeepExtraCoins" title="${escapeAttr(I18N("NX_PRESETS_KEEP_COINS_HINT"))}">${I18N("NX_PRESETS_KEEP_COINS")}</label></div>`;
 	}
 	function columnsHtml() {
 		const cell = (key, align = "center") => `<div style="padding: 0 5px 4px; align-self: end; text-align: ${align}; white-space: nowrap; font-size: 13px; color: #c9b89c;">${I18N(key)}</div>`;
@@ -7673,13 +7733,13 @@
 			source: STRATEGY_SOURCE_TEXT[source]()
 		});
 	}
-	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, client = new PresetsClient() }) {
+	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, client = new PresetsClient() }) {
 		root.querySelector("#nxPresetsView")?.remove();
 		const view = document.createElement("div");
 		view.id = "nxPresetsView";
 		view.className = "PopUp_text";
 		view.setAttribute("style", "text-align: left; max-width: 820px; font-size: 16px;");
-		view.innerHTML = `<div data-part="top" style="display: none;">${headerHtml(buff)}${keepCoinsHtml()}</div><div data-part="list" style="margin-top: 6px;">${I18N("NX_PRESETS_LOADING")}</div><div data-part="error" style="color: #ff6b6b; margin-top: 10px; min-height: 1px;"></div><div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">` + REFRESH_BUTTON.replace("role=\"button\"", `role="button" title="${escapeAttr(I18N("NX_PRESETS_REFRESH"))}"`) + "<span data-part=\"refresh-note\" style=\"font-size: 13px; opacity: 0.8;\"></span>" + editButtonHtml("nxPresetsBack", "", I18N("NX_PRESETS_BACK")) + "</div>";
+		view.innerHTML = `<div data-part="top" style="display: none;">${headerHtml(buff)}${keepCoinsHtml(keepExtraCoins)}</div><div data-part="list" style="margin-top: 6px;">${I18N("NX_PRESETS_LOADING")}</div><div data-part="error" style="color: #ff6b6b; margin-top: 10px; min-height: 1px;"></div><div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">` + REFRESH_BUTTON.replace("role=\"button\"", `role="button" title="${escapeAttr(I18N("NX_PRESETS_REFRESH"))}"`) + "<span data-part=\"refresh-note\" style=\"font-size: 13px; opacity: 0.8;\"></span>" + editButtonHtml("nxPresetsBack", "", I18N("NX_PRESETS_BACK")) + "</div>";
 		form.style.display = "none";
 		setButtonsVisible(false);
 		root.append(view);
@@ -7690,7 +7750,7 @@
 		};
 		view.querySelector("#nxPresetsBack")?.addEventListener("click", close);
 		const keep = view.querySelector("#nxKeepExtraCoins");
-		keep?.addEventListener("change", () => setSaveVal(NX_SAVE_KEYS.keepExtraCoins, keep.checked));
+		keep?.addEventListener("change", () => onKeepExtraCoins(keep.checked));
 		const list = view.querySelector("[data-part=\"list\"]");
 		const error = view.querySelector("[data-part=\"error\"]");
 		const note = view.querySelector("[data-part=\"refresh-note\"]");
@@ -7756,7 +7816,7 @@
 			list.innerHTML = (loaded.source === "stale" ? `<div style="font-size: 13px; color: #ffb347;">${I18N("NX_PRESETS_STALE")}</div>` : "") + presetsTableHtml(loaded.presets, ctx);
 			loaded.presets.forEach((preset, index) => {
 				view.querySelector(`#nxPresetGo${index}`)?.addEventListener("click", () => {
-					const problem = onGo(preset, keep ? keep.checked : readKeepExtraCoins(), loaded.strategies);
+					const problem = onGo(preset, keep ? keep.checked : keepExtraCoins, loaded.strategies);
 					if (problem && error) error.innerHTML = problem;
 				});
 			});
@@ -7924,21 +7984,26 @@
 	function section(title, hint) {
 		return `<div style="text-align: left; margin: 14px 0 4px; font-size: 19px; color: #ffcf84;">${title}` + (hint ? `<div style="font-size: 13px; color: #d8cbb8; opacity: 0.85;">${hint}</div>` : "") + "</div>";
 	}
-	function savedSacrificePointChoice() {
-		const saved = Number(getSaveVal(NX_SAVE_KEYS.sacrificePoint, NX_DEFAULT_SACRIFICE_POINT));
-		return Number.isInteger(saved) && saved > 0 ? saved : NX_DEFAULT_SACRIFICE_POINT;
-	}
 	function multiplierText(multiplier) {
 		return String(Number(multiplier.toFixed(2))).replace(".", I18N("NX_DECIMAL_SEPARATOR"));
 	}
-	function savedChoice() {
-		const talismansRaw = getSaveVal(NX_SAVE_KEYS.talismans, [Number(getSaveVal(NX_SAVE_KEYS.talisman, 0))]);
+	function sacrificeText(raw) {
+		return (parseIdList(String(raw ?? "")) ?? []).slice(0, NX_SACRIFICE_CANDIDATES).join(", ");
+	}
+	function initialChapter(eventId, chapters, available = () => true) {
+		const saved = savedEventChapter(eventId);
+		const pick = chapters.find((c) => Number(c.id) === saved && available(Number(c.id))) ?? chapters.find((c) => available(Number(c.id))) ?? chapters[0];
+		return Number(pick?.id ?? 0);
+	}
+	function savedChoice(eventId, chapterId) {
+		const settings = loadChapterSettings(eventId, chapterId);
 		return {
-			team: String(getSaveVal(NX_SAVE_KEYS.team, "")),
-			mainPet: Number(getSaveVal(NX_SAVE_KEYS.mainPet, 0)),
-			talismans: (Array.isArray(talismansRaw) ? talismansRaw : [talismansRaw]).map(Number),
-			carry: String(getSaveVal(NX_SAVE_KEYS.carry, "")),
-			sacrifice: (parseIdList(String(getSaveVal(NX_SAVE_KEYS.sacrifice, ""))) ?? []).slice(0, NX_SACRIFICE_CANDIDATES).join(", ")
+			team: settings.team,
+			mainPet: settings.mainPet,
+			talismans: settings.talismans,
+			carry: settings.carry,
+			sacrifice: sacrificeText(settings.sacrifice),
+			sacrificePoint: settings.sacrificePoint
 		};
 	}
 	function setupTalismans() {
@@ -7955,13 +8020,13 @@
 		}
 		return icons;
 	}
-	async function prepareSetupWindow(pace) {
+	async function prepareSetupWindow(pace, eventId = currentEventId()) {
 		const library = await loadGameGui(SETUP_GUI_FILES);
 		for (const talisman of setupTalismans()) {
 			await pace();
 			rowIconUrl(library, Number(talisman.id));
 		}
-		const saved = savedChoice();
+		const saved = savedChoice(eventId, initialChapter(eventId, getArchdemonChaptersOf(eventId).filter((c) => !isPaidChapter(c.id))));
 		await squadHtml(saved.team, saved.mainPet, saved.talismans, pace);
 		await heroListHtml(parseRankedIdList(saved.carry) ?? [], "nxCarryEdit", "", pace);
 		await heroListHtml(parseRankedIdList(saved.sacrifice) ?? [], "nxSacrificeEdit", "", pace);
@@ -7988,25 +8053,24 @@
 	}
 	async function archdemonNewSetup(chapters, buffAmount, relicLevel) {
 		const library = await loadGameGui(SETUP_GUI_FILES);
-		const savedChapter = Number(getSaveVal(NX_SAVE_KEYS.chapter, 0));
-		const choice = savedChoice();
-		let currentTeam = choice.team;
-		let currentMainPet = choice.mainPet;
-		const savedTalismans = choice.talismans;
+		const eventId = currentEventId();
+		const abyssOrder = getArchdemonChapters().map((e) => Number(e.id));
+		const chapterAvailable = {};
+		const chapterNumbers = {};
+		const chapterNeedLevel = {};
+		chapters.forEach((chapter) => {
+			chapterNeedLevel[chapter.id] = Number(chapter.requirements?.invasionRelic ?? 0);
+			chapterAvailable[chapter.id] = buffAmount >= chapterNeedLevel[chapter.id] * 10;
+			chapterNumbers[chapter.id] = abyssOrder.indexOf(Number(chapter.id)) + 1;
+		});
+		let activeChapter = initialChapter(eventId, chapters, (id) => chapterAvailable[id] === true);
+		let state = loadChapterSettings(eventId, activeChapter);
+		let currentTeam = state.team;
+		let currentMainPet = state.mainPet;
 		const emblemRolls = emblemPoints(chapters[0]?.id ?? 0);
 		const rollBosses = [...emblemRolls.sure, ...emblemRolls.maybe];
-		const savedMinCoins = String(getSaveVal(NX_SAVE_KEYS.minCoins, ""));
-		let currentCarry = choice.carry;
-		let currentSacrifice = choice.sacrifice;
-		const savedSacrificeRefreshes = String(getSaveVal(NX_SAVE_KEYS.sacrificeRefreshes, "0"));
-		const savedStartRefreshes = String(getSaveVal(NX_SAVE_KEYS.startRefreshes, "0"));
-		const savedPauseRaw = getSaveVal(NX_SAVE_KEYS.pause, false);
-		const savedPause = savedPauseRaw === true || savedPauseRaw === "true";
-		const savedRandomAnyRaw = getSaveVal(NX_SAVE_KEYS.randomAny, false);
-		const savedRandomAny = savedRandomAnyRaw === true || savedRandomAnyRaw === "true";
-		const savedStopIncompleteRaw = getSaveVal(NX_SAVE_KEYS.stopIncomplete, false);
-		const savedStopIncomplete = savedStopIncompleteRaw === true || savedStopIncompleteRaw === "true";
-		const savedSacrificePoint = savedSacrificePointChoice();
+		let currentCarry = state.carry;
+		let currentSacrifice = sacrificeText(state.sacrifice);
 		const talismanRowsFor = (rollNumber) => setupTalismans().filter((e) => rollNumber === 1 || !e.firstChoiceOnly).map((e) => {
 			let description = "";
 			try {
@@ -8025,16 +8089,7 @@
 		const radioRow = (group, value, label, checked, title) => `<div class="PopUp_ContCheckbox"><input type="checkbox" class="PopUp_checkbox hwhNewRadio radio_hwhNew_${group}" data-group="${group}" data-value="${escapeAttr(value)}" id="hwhNew_${group}_${escapeAttr(value)}"${checked ? " checked" : ""}><label for="hwhNew_${group}_${escapeAttr(value)}" title="${escapeAttr(title)}">${label}</label></div>`;
 		let html = "<div id=\"nxSetupForm\" class=\"PopUp_text\" style=\"text-align: left; width: 600px; max-width: 100%;\">" + autoNoteHtml();
 		const columns = (count, rows, fill = "row") => `<div style="display: grid; grid-template-columns: repeat(${count}, minmax(0, 1fr)); column-gap: 18px; align-items: start;` + (fill === "column" ? ` grid-auto-flow: column; grid-template-rows: repeat(${rows}, auto);` : "") + "\">";
-		const abyssOrder = getArchdemonChapters().map((e) => Number(e.id));
-		const chapterAvailable = {};
-		const chapterNumbers = {};
-		const chapterNeedLevel = {};
-		chapters.forEach((chapter) => {
-			chapterNeedLevel[chapter.id] = Number(chapter.requirements?.invasionRelic ?? 0);
-			chapterAvailable[chapter.id] = buffAmount >= chapterNeedLevel[chapter.id] * 10;
-			chapterNumbers[chapter.id] = abyssOrder.indexOf(Number(chapter.id)) + 1;
-		});
-		const preselected = chapters.find((e) => Number(e.id) === savedChapter && chapterAvailable[e.id]) ?? chapters.find((e) => chapterAvailable[e.id]);
+		const preselected = chapterAvailable[activeChapter] ? chapters.find((e) => Number(e.id) === activeChapter) : void 0;
 		html += section(I18N("NX_BLOCK_CHAPTER"), "");
 		chapters.forEach((chapter) => {
 			let label = chapterTitle(chapter, chapterNumbers[chapter.id]) + "&nbsp;&mdash;&nbsp;<span>" + I18N("NX_FREE");
@@ -8048,10 +8103,11 @@
 			label += "</span>";
 			html += radioRow("chapter", chapter.id, label, chapter === preselected, "");
 		});
-		const initialTalismans = rollBosses.map((bossNumber, index) => {
-			const saved = Number(savedTalismans[index] ?? 0);
+		const talismansFor = (settings) => rollBosses.map((bossNumber, index) => {
+			const saved = Number(settings.talismans[index] ?? 0);
 			return saved !== 0 && !talismanRowsFor(index + 1).some((e) => e.id === saved) ? 0 : saved;
 		});
+		const initialTalismans = talismansFor(state);
 		html += "<div id=\"nxSquadBlock\">" + await squadHtml(currentTeam, currentMainPet, initialTalismans) + "</div>";
 		html += `<div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;"><div style="flex: 1; font-size: 15px; color: #ffcf84;"><span style="color: LimeGreen; font-weight: bold;">New!</span> ${I18N("NX_PRESETS_LINE")}</div>` + editButtonHtml("nxPresetsOpen", I18N("NX_PRESETS_BUTTON_HINT"), I18N("NX_PRESETS_BUTTON")) + "</div>";
 		html += columns(rollBosses.length);
@@ -8078,17 +8134,17 @@
 		});
 		html += "</div>";
 		html += "<div id=\"hwhNewWealthNote\" style=\"text-align: left; margin: 16px 0 0; font-size: 14px; color: #ffcf84;\">" + I18N("NX_WEALTH_ONLY_NOTE") + "</div>";
-		html += `<div id="hwhNewDefaultBlock" class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewStopIncompleteInput"${savedStopIncomplete ? " checked" : ""}><label for="hwhNewStopIncompleteInput" title="${escapeAttr(I18N("NX_BLOCK_STOP_INCOMPLETE_HINT"))}">${I18N("NX_BLOCK_STOP_INCOMPLETE")}</label></div>`;
+		html += `<div id="hwhNewDefaultBlock" class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewStopIncompleteInput"${state.stopIfIncomplete ? " checked" : ""}><label for="hwhNewStopIncompleteInput" title="${escapeAttr(I18N("NX_BLOCK_STOP_INCOMPLETE_HINT"))}">${I18N("NX_BLOCK_STOP_INCOMPLETE")}</label></div>`;
 		html += "<div id=\"hwhNewWealthBlock\">";
 		html += section(I18N("NX_BLOCK_CARRY"), I18N("NX_BLOCK_CARRY_HINT"));
 		html += `<div id="nxCarryBlock">${await heroListHtml(parseRankedIdList(currentCarry) ?? [], "nxCarryEdit", I18N("NX_LIST_EDIT_HINT"))}</div>`;
 		html += section(I18N("NX_BLOCK_START_REFRESH"), I18N("NX_BLOCK_START_REFRESH_HINT"));
-		html += `<input type="text" id="hwhNewStartRefreshInput" class="PopUp_input" style="width: 100%; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_START_REFRESH_HINT"))}" placeholder="0" value="${escapeAttr(savedStartRefreshes)}">`;
+		html += `<input type="text" id="hwhNewStartRefreshInput" class="PopUp_input" style="width: 100%; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_START_REFRESH_HINT"))}" placeholder="0" value="${escapeAttr(state.startRefreshes)}">`;
 		html += section(I18N("NX_BLOCK_SACRIFICE"), I18N("NX_BLOCK_SACRIFICE_HINT"));
 		html += `<div id="nxSacrificeBlock">${await heroListHtml(parseRankedIdList(currentSacrifice) ?? [], "nxSacrificeEdit", I18N("NX_SACRIFICE_EDIT_HINT"))}</div>`;
 		html += "<div id=\"nxSacrificeRefreshRow\">";
 		html += section(I18N("NX_BLOCK_SACRIFICE_REFRESH"), I18N("NX_BLOCK_SACRIFICE_REFRESH_HINT"));
-		html += `<input type="text" id="hwhNewSacrificeRefreshInput" class="PopUp_input" style="width: 100%; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_SACRIFICE_REFRESH_HINT"))}" placeholder="0" value="${escapeAttr(savedSacrificeRefreshes)}">`;
+		html += `<input type="text" id="hwhNewSacrificeRefreshInput" class="PopUp_input" style="width: 100%; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_SACRIFICE_REFRESH_HINT"))}" placeholder="0" value="${escapeAttr(state.sacrificeRefreshes)}">`;
 		html += "</div>";
 		const sacrificePointHtml = (chapterId, wanted) => {
 			const choices = sacrificePointChoices(chapterId);
@@ -8096,11 +8152,11 @@
 			return "<div style=\"display: flex; flex-wrap: wrap; column-gap: 18px;\">" + choices.map((point) => radioRow("sacrificePoint", point, String(point), point === checked, I18N("NX_SACRIFICE_POINT_TITLE", { point }))).join("") + "</div>";
 		};
 		html += section(I18N("NX_BLOCK_SACRIFICE_POINT"), I18N("NX_BLOCK_SACRIFICE_POINT_HINT"));
-		html += `<div id="nxSacrificePointBlock">${sacrificePointHtml(Number(preselected?.id ?? chapters[0]?.id ?? 0), savedSacrificePoint)}</div>`;
+		html += `<div id="nxSacrificePointBlock">${sacrificePointHtml(activeChapter, state.sacrificePoint)}</div>`;
 		html += section(I18N("NX_BLOCK_MIN_COINS", { coin: stallCoinName() }), I18N("NX_BLOCK_MIN_COINS_HINT"));
-		html += `<div style="display: flex; align-items: center; gap: 12px;"><input type="text" id="hwhNewMinCoinsInput" class="PopUp_input" style="flex: 1; min-width: 0; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_MIN_COINS_HINT"))}" placeholder="${escapeAttr(I18N("NX_MIN_COINS_PLACEHOLDER"))}" value="${escapeAttr(savedMinCoins)}"><span id="nxMinCoinsBonus" style="flex: none; font-size: 14px; color: #ffcf84;">${minCoinsBonusText(savedMinCoins)}</span></div>`;
-		html += `<div class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewRandomAnyInput"${savedRandomAny ? " checked" : ""}><label for="hwhNewRandomAnyInput" title="${escapeAttr(I18N("NX_BLOCK_RANDOM_ANY_HINT", { price: randomLotResale() }))}">${I18N("NX_BLOCK_RANDOM_ANY")}</label></div>`;
-		html += `<div class="PopUp_ContCheckbox" style="margin-top: 6px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewPauseInput"${savedPause ? " checked" : ""}><label for="hwhNewPauseInput" title="${escapeAttr(I18N("NX_BLOCK_PAUSE_HINT"))}">${I18N("NX_BLOCK_PAUSE")}</label></div>`;
+		html += `<div style="display: flex; align-items: center; gap: 12px;"><input type="text" id="hwhNewMinCoinsInput" class="PopUp_input" style="flex: 1; min-width: 0; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_MIN_COINS_HINT"))}" placeholder="${escapeAttr(I18N("NX_MIN_COINS_PLACEHOLDER"))}" value="${escapeAttr(state.minCoins)}"><span id="nxMinCoinsBonus" style="flex: none; font-size: 14px; color: #ffcf84;">${minCoinsBonusText(state.minCoins)}</span></div>`;
+		html += `<div class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewRandomAnyInput"${state.buyAnyRandomLots ? " checked" : ""}><label for="hwhNewRandomAnyInput" title="${escapeAttr(I18N("NX_BLOCK_RANDOM_ANY_HINT", { price: randomLotResale() }))}">${I18N("NX_BLOCK_RANDOM_ANY")}</label></div>`;
+		html += `<div class="PopUp_ContCheckbox" style="margin-top: 6px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewPauseInput"${state.pauseAfterBoss ? " checked" : ""}><label for="hwhNewPauseInput" title="${escapeAttr(I18N("NX_BLOCK_PAUSE_HINT"))}">${I18N("NX_BLOCK_PAUSE")}</label></div>`;
 		html += "</div>";
 		html += "<div id=\"hwhNewError\" style=\"color: #ff6b6b; text-align: left; margin-top: 12px; min-height: 1px;\"></div>";
 		html += "</div>";
@@ -8261,7 +8317,7 @@
 					buyAnyRandomLots,
 					stopIfIncomplete: talismanId !== NX_WEALTH_TALISMAN_ID && stopIfIncompleteRaw,
 					stopIfIncompleteRaw,
-					sacrificePoint: Number(readRadio("sacrificePoint") ?? savedSacrificePoint),
+					sacrificePoint: Number(readRadio("sacrificePoint") ?? state.sacrificePoint),
 					teamRaw: String(teamRaw).trim(),
 					minCoinsRaw: String(minCoinsRaw).replace(/\s+/g, ""),
 					carryRaw: String(carryRaw).trim(),
@@ -8293,11 +8349,10 @@
 			host.auto.innerHTML = autoButtonHtml(findAutoScript() !== null);
 			wireAutoButton();
 			refreshVersionLabel(version, update);
-			const refreshSacrificePoints = () => {
+			const renderSacrificePoints = () => {
 				const block = root.querySelector("#nxSacrificePointBlock");
-				const chapterValue = readRadio("chapter");
-				if (!block || chapterValue === null) return;
-				block.innerHTML = sacrificePointHtml(Number(chapterValue), Number(readRadio("sacrificePoint") ?? savedSacrificePoint));
+				if (!block) return;
+				block.innerHTML = sacrificePointHtml(activeChapter, state.sacrificePoint);
 				bindRadios(block);
 			};
 			function onRadioChange() {
@@ -8308,7 +8363,10 @@
 				root.querySelectorAll(`input.hwhNewRadio[data-group="${this.dataset.group}"]`).forEach((other) => {
 					if (other !== this) other.checked = false;
 				});
-				if (this.dataset.group === "chapter") refreshSacrificePoints();
+				if (this.dataset.group === "chapter") {
+					switchChapter(Number(this.dataset.value));
+					return;
+				}
 				if (this.dataset.group.startsWith("talisman")) {
 					const value = Number(this.dataset.value);
 					if (value !== 0) root.querySelectorAll("input.hwhNewRadio[data-group^=\"talisman\"]:checked").forEach((other) => {
@@ -8321,6 +8379,7 @@
 					repaintTalismans();
 					refreshTalismanSlots();
 				}
+				persist();
 			}
 			function bindRadios(scope) {
 				scope.querySelectorAll("input.hwhNewRadio").forEach((checkbox) => checkbox.addEventListener("change", onRadioChange));
@@ -8332,26 +8391,41 @@
 				const bonus = root.querySelector("#nxMinCoinsBonus");
 				if (bonus) bonus.innerHTML = minCoinsBonusText(this.value);
 			});
+			for (const id of [
+				"#hwhNewMinCoinsInput",
+				"#hwhNewStartRefreshInput",
+				"#hwhNewSacrificeRefreshInput"
+			]) root.querySelector(id)?.addEventListener("input", () => persist());
+			for (const id of [
+				"#hwhNewPauseInput",
+				"#hwhNewRandomAnyInput",
+				"#hwhNewStopIncompleteInput"
+			]) root.querySelector(id)?.addEventListener("change", () => persist());
 			const onStart = () => {
 				const result = validate();
 				if (result.kind === "error") {
 					showError(result.error);
 					return;
 				}
-				setSaveVal(NX_SAVE_KEYS.chapter, result.value.chapterId);
-				setSaveVal(NX_SAVE_KEYS.team, result.value.teamRaw);
-				setSaveVal(NX_SAVE_KEYS.mainPet, result.value.mainPet);
-				setSaveVal(NX_SAVE_KEYS.talismans, result.value.talismanIds);
-				setSaveVal(NX_SAVE_KEYS.minCoins, result.value.minCoinsRaw);
-				setSaveVal(NX_SAVE_KEYS.carry, result.value.carryRaw);
-				setSaveVal(NX_SAVE_KEYS.sacrifice, result.value.sacrificeRaw);
-				setSaveVal(NX_SAVE_KEYS.sacrificeRefreshes, result.value.sacrificeRefreshesRaw);
-				setSaveVal(NX_SAVE_KEYS.pause, result.value.pauseAfterBoss);
-				setSaveVal(NX_SAVE_KEYS.randomAny, result.value.buyAnyRandomLots);
-				setSaveVal(NX_SAVE_KEYS.stopIncomplete, result.value.stopIfIncompleteRaw);
-				setSaveVal(NX_SAVE_KEYS.startRefreshes, result.value.startRefreshesRaw);
-				setSaveVal(NX_SAVE_KEYS.sacrificePoint, result.value.sacrificePoint);
-				complete(result.value);
+				const value = result.value;
+				state = {
+					team: value.teamRaw,
+					mainPet: value.mainPet,
+					talismans: [...value.talismanIds],
+					minCoins: value.minCoinsRaw,
+					carry: value.carryRaw,
+					sacrifice: value.sacrificeRaw,
+					startRefreshes: value.startRefreshesRaw,
+					sacrificeRefreshes: value.sacrificeRefreshesRaw,
+					sacrificePoint: value.sacrificePoint,
+					pauseAfterBoss: value.pauseAfterBoss,
+					buyAnyRandomLots: value.buyAnyRandomLots,
+					stopIfIncomplete: value.stopIfIncompleteRaw,
+					keepExtraCoins: loadChapterSettings(eventId, value.chapterId).keepExtraCoins
+				};
+				saveChapterSettings(eventId, value.chapterId, state);
+				saveEventChapter(eventId, value.chapterId);
+				complete(value);
 			};
 			function readTalismanIds() {
 				return rollBosses.map((bossNumber, index) => Number(readRadio(`talisman${index + 1}`) ?? 0));
@@ -8368,8 +8442,7 @@
 					if (!picked) return;
 					currentTeam = picked.teamRaw;
 					currentMainPet = picked.mainPet;
-					setSaveVal(NX_SAVE_KEYS.team, currentTeam);
-					setSaveVal(NX_SAVE_KEYS.mainPet, currentMainPet);
+					persist();
 					const block = root.querySelector("#nxSquadBlock");
 					if (block) block.innerHTML = await squadHtml(currentTeam, currentMainPet, readTalismanIds());
 					bindSquadEdit();
@@ -8386,21 +8459,117 @@
 				row.style.display = sacrifice.length > 0 && !sacrifice.some((id) => carry.includes(id)) ? "" : "none";
 			};
 			syncSacrificeRefreshRow();
-			const bindListEdit = (buttonId, pickerId, blockId, title, getRaw, setRaw, saveKey, max, hint, withRanks) => {
+			const bindListEdit = (buttonId, pickerId, blockId, title, getRaw, setRaw, max, hint, withRanks) => {
 				root.querySelector(`#${buttonId}`)?.addEventListener("click", handleAsync(async () => {
 					const picked = await openHeroListPicker(parseRankedIdList(getRaw()) ?? [], title, max, withRanks, pickerId);
 					if (!picked) return;
 					setRaw(picked.heroIds.map((id) => withRanks ? `${id}/${picked.ranks[id]}` : id).join(", "));
-					setSaveVal(saveKey, getRaw());
+					persist();
 					const block = root.querySelector(`#${blockId}`);
 					if (block) block.innerHTML = await heroListHtml(parseRankedIdList(getRaw()) ?? [], buttonId, hint);
-					bindListEdit(buttonId, pickerId, blockId, title, getRaw, setRaw, saveKey, max, hint, withRanks);
+					bindListEdit(buttonId, pickerId, blockId, title, getRaw, setRaw, max, hint, withRanks);
 					syncSacrificeRefreshRow();
 					showError("");
 				}));
 			};
-			bindListEdit("nxCarryEdit", "nxCarryPicker", "nxCarryBlock", I18N("NX_PICK_CARRY_TITLE"), () => currentCarry, (v) => currentCarry = v, NX_SAVE_KEYS.carry, NX_TEAM_SIZE, I18N("NX_LIST_EDIT_HINT"), true);
-			bindListEdit("nxSacrificeEdit", "nxSacrificePicker", "nxSacrificeBlock", I18N("NX_PICK_SACRIFICE_TITLE"), () => currentSacrifice, (v) => currentSacrifice = v, NX_SAVE_KEYS.sacrifice, NX_SACRIFICE_CANDIDATES, I18N("NX_SACRIFICE_EDIT_HINT"), false);
+			const bindCarryEdit = () => bindListEdit("nxCarryEdit", "nxCarryPicker", "nxCarryBlock", I18N("NX_PICK_CARRY_TITLE"), () => currentCarry, (v) => currentCarry = v, NX_TEAM_SIZE, I18N("NX_LIST_EDIT_HINT"), true);
+			const bindSacrificeEdit = () => bindListEdit("nxSacrificeEdit", "nxSacrificePicker", "nxSacrificeBlock", I18N("NX_PICK_SACRIFICE_TITLE"), () => currentSacrifice, (v) => currentSacrifice = v, NX_SACRIFICE_CANDIDATES, I18N("NX_SACRIFICE_EDIT_HINT"), false);
+			bindCarryEdit();
+			bindSacrificeEdit();
+			const inputValue = (selector) => root.querySelector(selector)?.value ?? "";
+			const isChecked = (selector) => root.querySelector(selector)?.checked === true;
+			const setValue = (selector, value) => {
+				const input = root.querySelector(selector);
+				if (input) input.value = value;
+			};
+			const setChecked = (selector, checked) => {
+				const input = root.querySelector(selector);
+				if (input) input.checked = checked;
+			};
+			const checkRadio = (group, value) => {
+				root.querySelectorAll(`input.hwhNewRadio[data-group="${group}"]`).forEach((input) => {
+					input.checked = Number(input.dataset.value) === value;
+				});
+			};
+			const readState = () => ({
+				team: currentTeam,
+				mainPet: currentMainPet,
+				talismans: readTalismanIds(),
+				minCoins: inputValue("#hwhNewMinCoinsInput"),
+				carry: currentCarry,
+				sacrifice: currentSacrifice,
+				startRefreshes: inputValue("#hwhNewStartRefreshInput"),
+				sacrificeRefreshes: inputValue("#hwhNewSacrificeRefreshInput"),
+				sacrificePoint: Number(readRadio("sacrificePoint") ?? state.sacrificePoint),
+				pauseAfterBoss: isChecked("#hwhNewPauseInput"),
+				buyAnyRandomLots: isChecked("#hwhNewRandomAnyInput"),
+				stopIfIncomplete: isChecked("#hwhNewStopIncompleteInput"),
+				keepExtraCoins: loadChapterSettings(eventId, activeChapter).keepExtraCoins
+			});
+			function persist() {
+				state = readState();
+				saveChapterSettings(eventId, activeChapter, state);
+			}
+			const applyState = async (next, current) => {
+				state = next;
+				currentTeam = next.team;
+				currentMainPet = next.mainPet;
+				currentCarry = next.carry;
+				currentSacrifice = sacrificeText(next.sacrifice);
+				talismansFor(next).forEach((id, index) => checkRadio(`talisman${index + 1}`, id));
+				setValue("#hwhNewMinCoinsInput", next.minCoins);
+				const bonus = root.querySelector("#nxMinCoinsBonus");
+				if (bonus) bonus.innerHTML = minCoinsBonusText(next.minCoins);
+				setValue("#hwhNewStartRefreshInput", next.startRefreshes);
+				setValue("#hwhNewSacrificeRefreshInput", next.sacrificeRefreshes);
+				setChecked("#hwhNewPauseInput", next.pauseAfterBoss);
+				setChecked("#hwhNewRandomAnyInput", next.buyAnyRandomLots);
+				setChecked("#hwhNewStopIncompleteInput", next.stopIfIncomplete);
+				renderSacrificePoints();
+				syncWealthBlock();
+				repaintTalismans();
+				syncSacrificeRefreshRow();
+				setStartEnabled(isSquadReady(currentTeam));
+				showError("");
+				const [squad, carry, sacrifice] = await Promise.all([
+					squadHtml(currentTeam, currentMainPet, readTalismanIds()),
+					heroListHtml(parseRankedIdList(currentCarry) ?? [], "nxCarryEdit", I18N("NX_LIST_EDIT_HINT")),
+					heroListHtml(parseRankedIdList(currentSacrifice) ?? [], "nxSacrificeEdit", I18N("NX_SACRIFICE_EDIT_HINT"))
+				]);
+				if (!current()) return;
+				const blocks = [
+					[
+						"#nxSquadBlock",
+						squad,
+						bindSquadEdit
+					],
+					[
+						"#nxCarryBlock",
+						carry,
+						bindCarryEdit
+					],
+					[
+						"#nxSacrificeBlock",
+						sacrifice,
+						bindSacrificeEdit
+					]
+				];
+				for (const [selector, markup, bind] of blocks) {
+					const block = root.querySelector(selector);
+					if (!block) continue;
+					block.innerHTML = markup;
+					bind();
+				}
+			};
+			let switches = 0;
+			function switchChapter(chapterId) {
+				if (!chapterId || chapterId === activeChapter) return;
+				persist();
+				activeChapter = chapterId;
+				saveEventChapter(eventId, chapterId);
+				const turn = ++switches;
+				applyState(loadChapterSettings(eventId, chapterId), () => turn === switches).catch((e) => console.error(e));
+			}
 			const setButtonsVisible = (visible) => host.setButtonsVisible(visible);
 			const goWithPreset = (preset, keepExtraCoins, strategies = []) => {
 				const chapterValue = readRadio("chapter");
@@ -8431,7 +8600,11 @@
 					form,
 					buff: buffAmount,
 					setButtonsVisible,
-					onGo: goWithPreset
+					onGo: goWithPreset,
+					keepExtraCoins: loadChapterSettings(eventId, activeChapter).keepExtraCoins,
+					onKeepExtraCoins: (keepExtraCoins) => {
+						state = updateChapterSettings(eventId, activeChapter, { keepExtraCoins });
+					}
 				}).catch((e) => console.error(e));
 			});
 			return {
@@ -8645,7 +8818,7 @@
 		await sleep(NX_PRELOAD_SETTLE_MS);
 		const event = preloadEvent(now());
 		if (!event) return;
-		await prepareSetupWindow(() => idle(NX_PRELOAD_IDLE_MS)).catch((e) => console.error(e));
+		await prepareSetupWindow(() => idle(NX_PRELOAD_IDLE_MS), Number(event.id)).catch((e) => console.error(e));
 		const petLib = getPetLib();
 		await preloadUnitPicker(getEventHeroIds(event).filter((id) => heroById(id)), getEventPetIds(event).filter((id) => petLib[id]));
 	}

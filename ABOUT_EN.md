@@ -27,6 +27,7 @@ If a run does not work out, it resets the chapter and tries again.
 - **Ready-made builds** — teams of other players from open videos, collected on [HWDaily](https://hwdaily.win/) (by Fragator)
   and [HWMAP](https://hwmap.online/) (by Kircheis). One button runs the chapter with the chosen build. The builds are
   loaded from our server on Netlify or its mirrors on jsDelivr and GitHub, no player data is sent. Thanks to the video authors and to both sites.
+- **Settings of their own for each chapter**, within the event only: what you fill in is kept, a new event starts empty.
 - **Run log** on the right, a Stop button, an optional report before the final shopping.
 - The chapter's main boss cannot be skipped: its result goes after the battle length, as the helper does.
 - Paid chapters are never touched.
