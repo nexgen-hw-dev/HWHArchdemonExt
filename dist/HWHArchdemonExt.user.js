@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.24-beta
+// @version         1.25-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -157,6 +157,12 @@
 	var NX_DEFAULT_SACRIFICE_POINT = 5;
 	var NX_DEFAULT_POINT_COUNT = 7;
 	var NX_MAX_SACRIFICE_POINT = 20;
+	var NX_MAX_CHAPTER = 20;
+	var NX_UNKNOWN_CARDS = [
+		"none",
+		"cheap",
+		"any"
+	];
 	var NX_FULL_BATTLE = {
 		subscriptionSpeed: 5,
 		freeSpeed: 1.5,
@@ -281,7 +287,12 @@
 			NX_PRESETS_VIDEO: "Open the video",
 			NX_PRESETS_NO_PET: "No main pet",
 			NX_PRESETS_GO: "Let's go",
-			NX_PRESETS_GO_HINT: "Run the chosen chapter with this build: carry {carry}, {sacrifice} throws point {point} ({source}), no spare refreshes and no unknown cards",
+			NX_PRESETS_GO_HINT: "Run the chosen chapter with this build: carry {carry}, {sacrifice} throws point {point}; unknown cards on point 1: {cards}; spare refreshes: {reserve}, refreshes for the throwing hero: {refreshes} ({source})",
+			NX_PRESETS_CARDS_NONE: "not bought",
+			NX_PRESETS_CARDS_CHEAP: "only cheaper than their sale",
+			NX_PRESETS_CARDS_ANY: "all of them",
+			NX_PRESETS_CHAPTER: "chapter {chapter}",
+			NX_PRESETS_NO_CHAPTER: "No builds for chapter {chapter} yet. There are builds for chapters: {list}. Pick another chapter in the setup window",
 			NX_PRESETS_STRATEGY_PRESET: "the build's own strategy",
 			NX_PRESETS_STRATEGY_EVENT: "the event strategy",
 			NX_PRESETS_STRATEGY_BUILTIN: "the built-in strategy",
@@ -528,7 +539,12 @@
 			NX_PRESETS_VIDEO: "Открыть видео",
 			NX_PRESETS_NO_PET: "Без основного питомца",
 			NX_PRESETS_GO: "Поехали",
-			NX_PRESETS_GO_HINT: "Пройти выбранную главу по этой сборке: проходные {carry}, точку {point} сливает {sacrifice} ({source}), без запаса обновлений и без неизвестных карт",
+			NX_PRESETS_GO_HINT: "Пройти выбранную главу по этой сборке: проходные {carry}, точку {point} сливает {sacrifice}; неизвестные карты на точке 1 — {cards}; запас обновлений — {reserve}, обновлений ради героя для слива — {refreshes} ({source})",
+			NX_PRESETS_CARDS_NONE: "не берём",
+			NX_PRESETS_CARDS_CHEAP: "только дешевле своей продажи",
+			NX_PRESETS_CARDS_ANY: "все",
+			NX_PRESETS_CHAPTER: "глава {chapter}",
+			NX_PRESETS_NO_CHAPTER: "Для главы {chapter} сборок пока нет. Есть для глав: {list}. Другую главу можно выбрать в окне настройки",
 			NX_PRESETS_STRATEGY_PRESET: "стратегия сборки",
 			NX_PRESETS_STRATEGY_EVENT: "общая стратегия события",
 			NX_PRESETS_STRATEGY_BUILTIN: "встроенная стратегия",
@@ -7378,7 +7394,7 @@
 	}
 	function decodePresetRow(row) {
 		if (!Array.isArray(row) || row.length < 9) return null;
-		const [author, videoType, videoId, damage, buff, coins, talismans, mainPet, heroes, strategy] = row;
+		const [author, videoType, videoId, damage, buff, coins, talismans, mainPet, heroes, strategy, chapter] = row;
 		if (typeof author !== "string") return null;
 		if (!Array.isArray(talismans) || talismans.length !== 2 || !talismans.every(Number.isInteger)) return null;
 		if (!Array.isArray(heroes) || !heroes.length || heroes.length % 3 || heroes.length > 15 || !heroes.every(Number.isInteger)) return null;
@@ -7402,15 +7418,19 @@
 			talismanIds: talismans.map(Number),
 			mainPet: Number.isInteger(mainPet) && mainPet > 0 ? petId(mainPet) : 0,
 			teamRaw: blocks.join(", "),
-			strategy: strategy === void 0 ? null : decodeStrategy(strategy)
+			strategy: strategy == null ? null : decodeStrategy(strategy),
+			chapter: Number.isInteger(chapter) && chapter >= 1 && chapter <= NX_MAX_CHAPTER ? chapter : 0
 		};
 	}
 	function isStrategyRow(row) {
 		return Boolean(row) && typeof row === "object" && !Array.isArray(row) && "strategy" in row;
 	}
+	function intIn(value, min, max) {
+		return Number.isInteger(value) && value >= min && value <= max ? value : null;
+	}
 	function decodeStrategy(raw) {
 		if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-		const { buff, carry, sacrifice, point } = raw;
+		const { buff, carry, sacrifice, point, chapters, cards, reserve, refreshes } = raw;
 		const isId = (v) => Number.isInteger(v) && v > 0;
 		if (!Array.isArray(buff) || buff.length !== 2) return null;
 		const [buffMin, buffMax] = buff;
@@ -7431,14 +7451,26 @@
 		const sacrificeHeroes = Array.isArray(sacrifice) ? sacrifice : [sacrifice];
 		if (!sacrificeHeroes.length || sacrificeHeroes.length > NX_SACRIFICE_CANDIDATES || !sacrificeHeroes.every(isId)) return null;
 		if (new Set(sacrificeHeroes).size !== sacrificeHeroes.length) return null;
-		if (!Number.isInteger(point) || point < 1 || point > NX_MAX_SACRIFICE_POINT) return null;
+		if (intIn(point, 1, NX_MAX_SACRIFICE_POINT) === null) return null;
+		const chapterList = chapters === void 0 ? [] : chapters;
+		if (!Array.isArray(chapterList) || !chapterList.every((n) => intIn(n, 1, NX_MAX_CHAPTER) !== null)) return null;
+		if (new Set(chapterList).size !== chapterList.length) return null;
+		const cardsRule = cards === void 0 ? "none" : cards;
+		if (!NX_UNKNOWN_CARDS.includes(cardsRule)) return null;
+		const reserveCount = reserve === void 0 ? 0 : intIn(reserve, 0, NX_POINT1_MAX_REFRESHES);
+		const refreshCount = refreshes === void 0 ? 0 : intIn(refreshes, 0, NX_SACRIFICE_MAX_REFRESHES);
+		if (reserveCount === null || refreshCount === null) return null;
 		return {
 			buffMin,
 			buffMax,
 			carryHeroes,
 			carryTargets,
 			sacrificeHeroes: [...sacrificeHeroes],
-			sacrificePoint: point
+			sacrificePoint: point,
+			chapters: chapterList.map(Number),
+			cards: cardsRule,
+			reserve: reserveCount,
+			refreshes: refreshCount
 		};
 	}
 	function decodeStrategyList(raw) {
@@ -7447,31 +7479,34 @@
 		if (list.length !== raw.length) console.log(`Стратегии: испорчены ${raw.length - list.length} из ${raw.length}`);
 		return list;
 	}
-	var coversBuff = (strategy, buff) => buff >= strategy.buffMin && buff <= strategy.buffMax;
-	function strategyCandidates(preset, buff, eventStrategies = []) {
+	var covers = (strategy, buff, chapter) => buff >= strategy.buffMin && buff <= strategy.buffMax && (strategy.chapters.length === 0 || strategy.chapters.includes(chapter));
+	function strategyCandidates(preset, buff, eventStrategies = [], chapter = 0) {
 		const list = [];
-		if (preset.strategy && coversBuff(preset.strategy, buff)) list.push({
+		if (preset.strategy && covers(preset.strategy, buff, chapter)) list.push({
 			strategy: preset.strategy,
 			source: "preset"
 		});
-		const event = eventStrategies.find((s) => coversBuff(s, buff));
+		const event = eventStrategies.find((s) => covers(s, buff, chapter));
 		if (event) list.push({
 			strategy: event,
 			source: "event"
 		});
-		const builtin = decodeStrategyList(NX_BUILTIN_STRATEGIES).find((s) => coversBuff(s, buff));
+		const builtin = decodeStrategyList(NX_BUILTIN_STRATEGIES).find((s) => covers(s, buff, chapter));
 		if (builtin) list.push({
 			strategy: builtin,
 			source: "builtin"
 		});
 		return list;
 	}
-	function chooseStrategy(preset, buff, eventStrategies, chapterId) {
-		const list = strategyCandidates(preset, buff, eventStrategies);
+	function chooseStrategy(preset, buff, eventStrategies, chapterId, chapterNumber = 0) {
+		const list = strategyCandidates(preset, buff, eventStrategies, chapterNumber);
 		return list.find((c) => !carryPointOneError({
 			chapterId,
 			carryHeroes: c.strategy.carryHeroes
 		})) ?? list[0] ?? null;
+	}
+	function presetsForChapter(presets, chapter) {
+		return presets.filter((preset) => preset.chapter === 0 || preset.chapter === chapter);
 	}
 	function validatePreset(preset) {
 		const parsed = parseArchdemonNewTeam(preset.teamRaw);
@@ -7493,7 +7528,8 @@
 		});
 	}
 	function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = false, buff = preset.buff, eventStrategies = [] }) {
-		const choice = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? chooseStrategy(preset, buff, eventStrategies, chapterId) : null;
+		const choice = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? chooseStrategy(preset, buff, eventStrategies, chapterId, chapterNumber) : null;
+		const cards = choice?.strategy.cards ?? "none";
 		const carry = choice?.strategy.carryHeroes ?? [];
 		const parsed = preset.parsed ?? parseArchdemonNewTeam(preset.teamRaw);
 		const targetPercent = preset.coins ? coinsToPercent(preset.coins) : 0;
@@ -7514,13 +7550,13 @@
 			carryHeroes: [...carry],
 			carryTargets: { ...choice?.strategy.carryTargets },
 			carryExtraHeroes: [],
-			startRefreshes: 0,
+			startRefreshes: choice?.strategy.reserve ?? 0,
 			sacrificeHeroes: [...choice?.strategy.sacrificeHeroes ?? []],
-			sacrificeRefreshes: 0,
+			sacrificeRefreshes: choice?.strategy.refreshes ?? 0,
 			sacrificePoint: choice?.strategy.sacrificePoint ?? NX_DEFAULT_SACRIFICE_POINT,
 			pauseAfterBoss: false,
-			buyAnyRandomLots: false,
-			skipRandomLots: true,
+			buyAnyRandomLots: cards === "any",
+			skipRandomLots: cards === "none",
 			stopIfIncomplete: false,
 			preset: {
 				author: preset.author,
@@ -7665,9 +7701,11 @@
 	var link = (url, name) => `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${escapeAttr(name)}</a>`;
 	var linkItem = (url, name, about) => `<div style="margin-left: 10px;">• ${link(url, name)} — ${about}</div>`;
 	var REFRESH_BUTTON = "<div id=\"nxPresetsRefresh\" role=\"button\" style=\"flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #88cb13; color: #88cb13; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; line-height: 1; user-select: none;\">↻</div>";
-	function headerHtml(buff) {
+	function headerHtml(buff, chapter = 0) {
 		const sites = NX_PRESET_SITES.map((site) => linkItem(site.url, site.name, I18N(site.key))).join("");
-		return `<div style="font-size: 22px; color: #ffcf84; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: `<span style="color: LimeGreen;">${Number(buff) || 0}</span>` })}</div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}${sites}</div><div style="margin-top: 8px;">${I18N("NX_PRESETS_AUTHORS")}</div>`;
+		const green = (value) => `<span style="color: LimeGreen;">${value}</span>`;
+		const chapterText = chapter > 0 ? ` · ${I18N("NX_PRESETS_CHAPTER", { chapter: green(toRoman(chapter)) })}` : "";
+		return `<div style="font-size: 22px; color: #ffcf84; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: green(Number(buff) || 0) })}${chapterText}</div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}${sites}</div><div style="margin-top: 8px;">${I18N("NX_PRESETS_AUTHORS")}</div>`;
 	}
 	function presetsWaitHtml(tr) {
 		const lang = tr("NX_LANG") === "ru" ? "ru" : "en";
@@ -7686,7 +7724,7 @@
 		return `<div style="${TABLE_STYLE}">${columnsHtml()}${presets.map((preset, index) => presetRowHtml(preset, index, ctx)).join("")}</div>`;
 	}
 	function presetRowHtml(preset, index, ctx) {
-		const { library, heroIcons, petIcons, buff, strategies = [] } = ctx;
+		const { library, heroIcons, petIcons, buff, strategies = [], chapter = 0 } = ctx;
 		const slot = (...args) => framedSlotHtml(library, ...args) + "</div>";
 		const heroes = preset.parsed.heroes.map((id) => ({
 			id,
@@ -7715,31 +7753,39 @@
 		const author = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${authorText}</a>` : authorText;
 		const video = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(I18N("NX_PRESETS_VIDEO"))}" style="flex: none;">${PLAY_ICON}</a>` : "";
 		const matched = preset.buff === Number(buff);
-		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(preset, buff, strategies), I18N("NX_PRESETS_GO"))}</div>`;
+		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(preset, buff, strategies, chapter), I18N("NX_PRESETS_GO"))}</div>`;
 	}
 	var STRATEGY_SOURCE_TEXT = {
 		preset: () => I18N("NX_PRESETS_STRATEGY_PRESET"),
 		event: () => I18N("NX_PRESETS_STRATEGY_EVENT"),
 		builtin: () => I18N("NX_PRESETS_STRATEGY_BUILTIN")
 	};
-	function goHint(preset, buff, strategies) {
-		const choice = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? strategyCandidates(preset, buff, strategies)[0] : void 0;
+	var UNKNOWN_CARDS_TEXT = {
+		none: () => I18N("NX_PRESETS_CARDS_NONE"),
+		cheap: () => I18N("NX_PRESETS_CARDS_CHEAP"),
+		any: () => I18N("NX_PRESETS_CARDS_ANY")
+	};
+	function goHint(preset, buff, strategies, chapter = 0) {
+		const choice = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? strategyCandidates(preset, buff, strategies, chapter)[0] : void 0;
 		if (!choice) return I18N("NX_PRESETS_GO_HINT_PLAIN");
 		const { strategy, source } = choice;
 		return I18N("NX_PRESETS_GO_HINT", {
 			carry: strategy.carryHeroes.map(unitName).join(", "),
 			sacrifice: strategy.sacrificeHeroes.map(unitName).join(", "),
 			point: strategy.sacrificePoint,
+			cards: UNKNOWN_CARDS_TEXT[strategy.cards](),
+			reserve: strategy.reserve,
+			refreshes: strategy.refreshes,
 			source: STRATEGY_SOURCE_TEXT[source]()
 		});
 	}
-	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, client = new PresetsClient() }) {
+	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, chapterNumber = 0, client = new PresetsClient() }) {
 		root.querySelector("#nxPresetsView")?.remove();
 		const view = document.createElement("div");
 		view.id = "nxPresetsView";
 		view.className = "PopUp_text";
 		view.setAttribute("style", "text-align: left; max-width: 820px; font-size: 16px;");
-		view.innerHTML = `<div data-part="top" style="display: none;">${headerHtml(buff)}${keepCoinsHtml(keepExtraCoins)}</div><div data-part="list" style="margin-top: 6px;">${I18N("NX_PRESETS_LOADING")}</div><div data-part="error" style="color: #ff6b6b; margin-top: 10px; min-height: 1px;"></div><div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">` + REFRESH_BUTTON.replace("role=\"button\"", `role="button" title="${escapeAttr(I18N("NX_PRESETS_REFRESH"))}"`) + "<span data-part=\"refresh-note\" style=\"font-size: 13px; opacity: 0.8;\"></span>" + editButtonHtml("nxPresetsBack", "", I18N("NX_PRESETS_BACK")) + "</div>";
+		view.innerHTML = `<div data-part="top" style="display: none;">${headerHtml(buff, chapterNumber)}${keepCoinsHtml(keepExtraCoins)}</div><div data-part="list" style="margin-top: 6px;">${I18N("NX_PRESETS_LOADING")}</div><div data-part="error" style="color: #ff6b6b; margin-top: 10px; min-height: 1px;"></div><div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">` + REFRESH_BUTTON.replace("role=\"button\"", `role="button" title="${escapeAttr(I18N("NX_PRESETS_REFRESH"))}"`) + "<span data-part=\"refresh-note\" style=\"font-size: 13px; opacity: 0.8;\"></span>" + editButtonHtml("nxPresetsBack", "", I18N("NX_PRESETS_BACK")) + "</div>";
 		form.style.display = "none";
 		setButtonsVisible(false);
 		root.append(view);
@@ -7797,8 +7843,18 @@
 				list.innerHTML = presetsWaitHtml(I18N);
 				return;
 			}
-			const heroIds = [...new Set(loaded.presets.flatMap((p) => p.parsed.heroes))];
-			const petIds = [...new Set(loaded.presets.flatMap((p) => [p.mainPet, ...p.parsed.favorPets]).filter(Boolean))];
+			const presets = presetsForChapter(loaded.presets, chapterNumber);
+			if (!presets.length) {
+				showTable(true);
+				const chapters = [...new Set(loaded.presets.map((p) => p.chapter))].sort((a, b) => a - b).map(toRoman);
+				list.innerHTML = `<div style="color: #ffb347;">${I18N("NX_PRESETS_NO_CHAPTER", {
+					chapter: toRoman(chapterNumber),
+					list: chapters.join(", ")
+				})}</div>`;
+				return;
+			}
+			const heroIds = [...new Set(presets.flatMap((p) => p.parsed.heroes))];
+			const petIds = [...new Set(presets.flatMap((p) => [p.mainPet, ...p.parsed.favorPets]).filter(Boolean))];
 			const [library, heroIcons, petIcons] = await Promise.all([
 				loadGameGui(GUI_FILES),
 				loadHeroIcons(heroIds),
@@ -7810,11 +7866,12 @@
 				heroIcons,
 				petIcons,
 				buff,
-				strategies: loaded.strategies
+				strategies: loaded.strategies,
+				chapter: chapterNumber
 			};
 			showTable(true);
-			list.innerHTML = (loaded.source === "stale" ? `<div style="font-size: 13px; color: #ffb347;">${I18N("NX_PRESETS_STALE")}</div>` : "") + presetsTableHtml(loaded.presets, ctx);
-			loaded.presets.forEach((preset, index) => {
+			list.innerHTML = (loaded.source === "stale" ? `<div style="font-size: 13px; color: #ffb347;">${I18N("NX_PRESETS_STALE")}</div>` : "") + presetsTableHtml(presets, ctx);
+			presets.forEach((preset, index) => {
 				view.querySelector(`#nxPresetGo${index}`)?.addEventListener("click", () => {
 					const problem = onGo(preset, keep ? keep.checked : keepExtraCoins, loaded.strategies);
 					if (problem && error) error.innerHTML = problem;
@@ -8602,6 +8659,7 @@
 					setButtonsVisible,
 					onGo: goWithPreset,
 					keepExtraCoins: loadChapterSettings(eventId, activeChapter).keepExtraCoins,
+					chapterNumber: chapterNumbers[activeChapter] ?? 0,
 					onKeepExtraCoins: (keepExtraCoins) => {
 						state = updateChapterSettings(eventId, activeChapter, { keepExtraCoins });
 					}
