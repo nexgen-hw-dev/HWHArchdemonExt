@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.22-beta
+// @version         1.23-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -168,7 +168,16 @@
 		point: 5
 	}];
 	var NX_STRATEGY_MAX_BUFF = 1e3;
-	var NX_SACRIFICE_POINTS = [5, 7];
+	var NX_DEFAULT_SACRIFICE_POINT = 5;
+	var NX_DEFAULT_POINT_COUNT = 7;
+	var NX_MAX_SACRIFICE_POINT = 20;
+	var NX_FULL_BATTLE = {
+		subscriptionSpeed: 5,
+		freeSpeed: 1.5,
+		extraSeconds: 1.5,
+		minSeconds: 4,
+		fallbackSeconds: 180
+	};
 	var NX_WEALTH_TALISMAN_ID = 8008;
 	var NX_EXCLUDED_TALISMAN_IDS = [8005, 8009];
 	var NX_TEAM_SIZE = 5;
@@ -261,9 +270,8 @@
 			NX_REASON_POINT_LOST_REMEMBERED: "Point {point} was not taken, this team is remembered",
 			NX_EVENT_ENDING: "Less than {minutes} minutes are left until the event ends. No new runs are started",
 			NX_BLOCK_SACRIFICE_POINT: "Which point to throw",
-			NX_BLOCK_SACRIFICE_POINT_HINT: "Coins come out the same on points 5 to 7. On point 7 the enemy is stronger, so losing on purpose is easier",
-			NX_SACRIFICE_POINT_5: "Point 5",
-			NX_SACRIFICE_POINT_7: "Point 7, the last before the Archdemon",
+			NX_BLOCK_SACRIFICE_POINT_HINT: "Any regular point of the chapter. Not the main boss: lives left by the end are exchanged for coins anyway. On later points the enemy is stronger, so losing on purpose is easier",
+			NX_SACRIFICE_POINT_TITLE: "Throw point {point}",
 			NX_SPEND_EXTRA: "Spending extra coins: {coins} ({percent}%), the author had {target}%",
 			NX_PRESETS_LINE: "Or pick a ready-made build",
 			NX_PRESETS_BUTTON: "Ready-made builds",
@@ -349,8 +357,10 @@
           The page is <span style="color: LimeGreen;">not</span> reloaded.<br>
           After that, go in and look at the coins.`,
 			NX_BLOCK_TALISMAN_POINT: "Emblem {rollNumber}, before battle {bossNumber}",
+			NX_BLOCK_TALISMAN_ANY_POINT: "Emblem {rollNumber}",
+			NX_BLOCK_TALISMAN_POINT_MAYBE: "Emblem {rollNumber}, before battle {bossNumber}, if offered",
 			NX_ERR_TALISMAN_DUP: "The same emblem cannot be taken on both points: the worn one is not offered again",
-			NX_ERR_NO_FREE_ABYSS: "This event has no free Abyss chapter",
+			NX_ERR_NO_FREE_CHAPTER: "This event has no free chapter with the Archdemon",
 			NX_ERR_PAID_CHAPTER: "Entering this chapter now costs Abyss Seals. The run is stopped, nothing is spent",
 			NX_ERR_HELPER_OLD: "HeroWarsHelper {version} is too old for the add-on, missing: {list}. Update the helper: the add-on works with 2.459 and newer",
 			NX_ERR_RESULT_INVALID: "The game server did not accept a battle result and counted an auto-battle instead. The run is stopped",
@@ -393,7 +403,9 @@
 			NX_LOSS_SEARCH: "Looking for a losing battle to throw the point, {count} of {max}",
 			NX_LOSS_SENT: "Losing battle sent",
 			NX_LOSS_NOT_FOUND: "No losing battle found, the plain auto battle goes",
-			NX_POINT_BLOCKED: "Battle {id} is not a regular point: the game data marks it as the main boss, a rating battle or a battle that cannot be skipped. The run stopped so as not to send such a battle without waiting",
+			NX_POINT_BLOCKED: "Battle {id} is the Archdemon: the game data marks it as a rating battle. The run does not fight the Archdemon and stopped",
+			NX_FULL_BATTLE_WAIT: "The main boss cannot be skipped: the result goes in {seconds} s, as after watching the battle",
+			NX_FULL_BATTLE_SENT: "Main boss battle sent",
 			NX_BLOCK_SQUAD: "Goal: collect this team",
 			NX_SQUAD_EDIT: "Edit",
 			NX_SQUAD_EDIT_HINT: "Pick the heroes, their ranks and patrons, and the main pet",
@@ -422,8 +434,8 @@
 			NX_MENU_ENTRY: "Adventure (Arch)",
 			NX_MENU_TITLE: "Abyss run up to the Archdemon",
 			NX_NO_EVENT: "No Adventure is running right now",
-			NX_NO_ABYSS: "This Adventure has no Abyss and no Archdemon. The add-on works only in Adventures with the Abyss",
-			NX_DEV_NO_RUN: "Developer mode: no Adventure with the Abyss is running, so the run was not started",
+			NX_NO_ARCHDEMON: "This Adventure has no Archdemon. The add-on works only in Adventures with the Archdemon",
+			NX_DEV_NO_RUN: "Developer mode: no Adventure with the Archdemon is running, so the run was not started",
 			NX_FAILED: "The run broke down<br>Add-on version {version}",
 			NX_START_FAILED: "Could not open the setup window<br>Add-on version {version}",
 			NX_DETAILS: "Details",
@@ -434,6 +446,8 @@
 			NX_CANCEL: "Cancel",
 			NX_ENTERING: "Entering the chapter",
 			NX_FREE: "<span style=\"color: LimeGreen;\">free</span>",
+			NX_CHAPTER_DAMAGE: "damage to the Archdemon ×{multiplier}",
+			NX_DECIMAL_SEPARATOR: ".",
 			NX_NEED_RELIC: "<span style=\"color: #ff6b6b;\">{relicName} level {needLevel} is needed, yours is {haveLevel}</span>"
 		},
 		ru: {
@@ -503,9 +517,8 @@
 			NX_REASON_POINT_LOST_REMEMBERED: "Точка {point} не взята, состав запомнили",
 			NX_EVENT_ENDING: "До конца события меньше {minutes} минут. Новых заходов не начинаем",
 			NX_BLOCK_SACRIFICE_POINT: "На какой точке сливаем",
-			NX_BLOCK_SACRIFICE_POINT_HINT: "По монетам точки с 5-й по 7-ю одинаковы. На седьмой противник сильнее, и проиграть нарочно проще",
-			NX_SACRIFICE_POINT_5: "Точка 5",
-			NX_SACRIFICE_POINT_7: "Точка 7, последняя перед Архидемоном",
+			NX_BLOCK_SACRIFICE_POINT_HINT: "Любая обычная точка главы. Не главный босс: дожившие до конца жизни игра и так меняет на монеты. Чем дальше точка, тем сильнее противник, и проиграть нарочно проще",
+			NX_SACRIFICE_POINT_TITLE: "Сливаем точку {point}",
 			NX_SPEND_EXTRA: "Тратим лишние монеты: {coins} ({percent}%), у автора {target}%",
 			NX_PRESETS_LINE: "Или выберите готовую сборку",
 			NX_PRESETS_BUTTON: "Готовые сборки",
@@ -591,8 +604,10 @@
           Страница при этом <span style="color: LimeGreen;">не</span> перезагружается.<br>
           После этого зайдите и посмотрите монеты.`,
 			NX_BLOCK_TALISMAN_POINT: "Эмблема {rollNumber}, перед боем {bossNumber}",
+			NX_BLOCK_TALISMAN_ANY_POINT: "Эмблема {rollNumber}",
+			NX_BLOCK_TALISMAN_POINT_MAYBE: "Эмблема {rollNumber}, перед боем {bossNumber}, если дадут",
 			NX_ERR_TALISMAN_DUP: "Одну и ту же эмблему на обе точки не взять: надетую второй раз не предлагают",
-			NX_ERR_NO_FREE_ABYSS: "В этом событии нет бесплатной главы Бездны",
+			NX_ERR_NO_FREE_CHAPTER: "В этом событии нет бесплатной главы с Архидемоном",
 			NX_ERR_PAID_CHAPTER: "Вход в эту главу теперь стоит Печатей Бездны. Прогон остановлен, ничего не потрачено",
 			NX_ERR_HELPER_OLD: "HeroWarsHelper {version} слишком старый для дополнения, нет: {list}. Обновите помощника: дополнение работает с 2.459 и новее",
 			NX_ERR_RESULT_INVALID: "Сервер игры не принял результат боя и засчитал автобой. Прогон остановлен",
@@ -635,7 +650,9 @@
 			NX_LOSS_SEARCH: "Ищем проигрыш для слива {count} из {max}",
 			NX_LOSS_SENT: "Проигрыш отправлен",
 			NX_LOSS_NOT_FOUND: "Проигрыш не найден, уходит обычный автобой",
-			NX_POINT_BLOCKED: "Бой {id} не похож на обычную точку: по данным игры это главный босс, бой рейтинга или бой без пропуска. Прогон остановлен, чтобы не отправить такой бой без ожидания",
+			NX_POINT_BLOCKED: "Бой {id} — Архидемон: по данным игры это бой рейтинга. С Архидемоном прогон не бьётся и остановлен",
+			NX_FULL_BATTLE_WAIT: "Главного босса не пропустить: результат уйдёт через {seconds} с, как после просмотра боя",
+			NX_FULL_BATTLE_SENT: "Бой с главным боссом отправлен",
 			NX_BLOCK_SQUAD: "Цель — собрать этот состав",
 			NX_SQUAD_EDIT: "Изменить",
 			NX_SQUAD_EDIT_HINT: "Выбрать героев, их ранги и покровителей, основного питомца",
@@ -664,8 +681,8 @@
 			NX_MENU_ENTRY: "Приключение (Arch)",
 			NX_MENU_TITLE: "Прогон Бездны до Архидемона",
 			NX_NO_EVENT: "Сейчас Приключение не идёт",
-			NX_NO_ABYSS: "В этом Приключении нет Бездны и Архидемона. Дополнение работает только в Приключениях с Бездной",
-			NX_DEV_NO_RUN: "Режим разработки: Приключение с Бездной сейчас не идёт, прогон не запущен",
+			NX_NO_ARCHDEMON: "В этом Приключении нет Архидемона. Дополнение работает только в Приключениях с Архидемоном",
+			NX_DEV_NO_RUN: "Режим разработки: Приключение с Архидемоном сейчас не идёт, прогон не запущен",
 			NX_FAILED: "Прогон сорвался<br>Версия дополнения {version}",
 			NX_START_FAILED: "Не удалось открыть окно настройки<br>Версия дополнения {version}",
 			NX_DETAILS: "Подробнее",
@@ -676,6 +693,8 @@
 			NX_CANCEL: "Отмена",
 			NX_ENTERING: "Входим в главу",
 			NX_FREE: "<span style=\"color: LimeGreen;\">бесплатно</span>",
+			NX_CHAPTER_DAMAGE: "урон по Архидемону ×{multiplier}",
+			NX_DECIMAL_SEPARATOR: ",",
 			NX_NEED_RELIC: "<span style=\"color: #ff6b6b;\">нужен {relicName} {needLevel} уровня, у вас {haveLevel}</span>"
 		}
 	};
@@ -796,13 +815,36 @@
 	function chapterById(id) {
 		return lib.data.invasion.chapter[id];
 	}
+	function allPhases() {
+		return Object.values(lib.data.invasion.phase ?? {});
+	}
 	function phaseBoss(chapterId, missionId) {
-		for (const phase of Object.values(lib.data.invasion.phase ?? {})) {
+		for (const phase of allPhases()) {
 			if (Number(phase?.chapterId) !== Number(chapterId)) continue;
 			const boss = phase.phaseData?.boss?.[missionId];
 			if (boss) return boss;
 		}
 		return null;
+	}
+	function chapterBosses(chapterId) {
+		const bosses = new Map();
+		for (const phase of allPhases()) {
+			if (Number(phase?.chapterId) !== Number(chapterId)) continue;
+			for (const [id, boss] of Object.entries(phase.phaseData?.boss ?? {})) bosses.set(String(id), boss);
+		}
+		const next = new Map();
+		const heads = [];
+		for (const [id, boss] of bosses) {
+			const prev = String(boss?.prevId ?? "");
+			if (prev && bosses.has(prev) && !next.has(prev)) next.set(prev, id);
+			else heads.push(id);
+		}
+		const chain = [];
+		for (let id = heads.length === 1 ? heads[0] : void 0; id !== void 0 && !chain.includes(id); id = next.get(id)) chain.push(id);
+		return (chain.length === bosses.size ? chain : [...bosses.keys()].sort((a, b) => Number(a) - Number(b))).map((id) => ({
+			id: Number(id),
+			boss: bosses.get(id)
+		}));
 	}
 	function chapterDate(value) {
 		return Date.parse(String(value).replace(" ", "T") + "Z");
@@ -874,23 +916,77 @@
 		}
 		return text;
 	}
-	function getTalismanRollBosses(chapterId) {
-		const rollBosses = chapterById(chapterId)?.settings?.emblemRollBosses;
-		return Array.isArray(rollBosses) && rollBosses.length ? rollBosses : [0];
+	function bossNumbers(value) {
+		return Array.isArray(value) ? value.map(Number).filter((n) => Number.isInteger(n) && n > 0) : [];
 	}
-	function getAbyssChapters() {
-		return allChapters().filter((e) => e.invasionId === currentEventId() && e.isArchdemon);
+	function emblemPoints(chapterId) {
+		const chapter = chapterById(chapterId);
+		const settings = chapter?.settings && !Array.isArray(chapter.settings) ? chapter.settings : {};
+		const own = bossNumbers(settings.emblemRollBosses);
+		const fromEvent = bossNumbers(eventById(Number(chapter?.invasionId))?.settings?.emblemRollBosses);
+		const sure = own.length ? own : fromEvent.length ? fromEvent : [0];
+		return {
+			sure,
+			maybe: bossNumbers(settings.talismanRollBosses).filter((n) => !sure.includes(n))
+		};
 	}
-	function eventHasAbyss(eventId) {
-		return allChapters().some((e) => e.invasionId === Number(eventId) && e.isArchdemon);
+	function isRatingBoss(boss) {
+		return Boolean(boss?.eventConfig);
 	}
-	function lastAbyssEventId() {
+	function ratingChapterIds() {
+		const ids = new Set();
+		for (const phase of allPhases()) for (const boss of Object.values(phase?.phaseData?.boss ?? {})) if (isRatingBoss(boss)) ids.add(Number(phase.chapterId));
+		return ids;
+	}
+	function chapterHasArchdemon(chapter, rating = ratingChapterIds()) {
+		return Boolean(chapter.isArchdemon) || rating.has(Number(chapter.id));
+	}
+	function getArchdemonChapters() {
+		const rating = ratingChapterIds();
+		return allChapters().filter((e) => e.invasionId === currentEventId() && chapterHasArchdemon(e, rating));
+	}
+	function eventHasArchdemon(eventId) {
+		const rating = ratingChapterIds();
+		return allChapters().some((e) => e.invasionId === Number(eventId) && chapterHasArchdemon(e, rating));
+	}
+	function archdemonDamageMultiplier(chapterId) {
+		const archdemon = chapterBosses(chapterId).find((e) => isRatingBoss(e.boss));
+		const value = Number(archdemon?.boss.eventConfig?.damageMultiplier);
+		return Number.isFinite(value) && value > 0 ? value : null;
+	}
+	function chapterPoints(chapterId) {
+		const bosses = chapterBosses(chapterId);
+		if (bosses.length === 0) return null;
+		const archdemon = bosses.findIndex((e) => isRatingBoss(e.boss));
+		return (archdemon >= 0 ? bosses.slice(0, archdemon) : bosses).map((e, index) => ({
+			point: index + 1,
+			id: e.id,
+			regular: e.boss.isMainBoss !== true && Number(e.boss.skip) === 1
+		}));
+	}
+	function sacrificePointChoices(chapterId) {
+		const points = chapterPoints(chapterId);
+		if (!points) return Array.from({ length: NX_DEFAULT_POINT_COUNT }, (_, index) => index + 1);
+		return points.filter((e) => e.regular).map((e) => e.point);
+	}
+	function nearestSacrificePoint(wanted, choices) {
+		if (choices.length === 0 || choices.includes(wanted)) return wanted;
+		const earlier = choices.filter((point) => point < wanted);
+		return earlier.length ? Math.max(...earlier) : Math.min(...choices);
+	}
+	function pointCount(chapterId, missionIds) {
+		const index = missionIds.findIndex((id) => isRatingBoss(phaseBoss(chapterId, id)));
+		if (index >= 0) return index;
+		return missionIds.some((id) => phaseBoss(chapterId, id)) ? missionIds.length : Math.max(0, missionIds.length - 1);
+	}
+	function lastArchdemonEventId() {
+		const rating = ratingChapterIds();
 		let last = {
 			id: 0,
 			start: -Infinity
 		};
 		for (const chapter of allChapters()) {
-			if (!chapter.isArchdemon) continue;
+			if (!chapterHasArchdemon(chapter, rating)) continue;
 			const start = chapterDate(chapter.startDate);
 			const at = Number.isNaN(start) ? -Infinity : start;
 			const id = Number(chapter.invasionId);
@@ -2187,9 +2283,33 @@
 	}
 	function pointBattleBlock(chapterId, missionId) {
 		const boss = phaseBoss(chapterId, missionId);
-		if (!boss || boss.isMainBoss !== true && Number(boss.skip) === 1 && !boss.eventConfig) return null;
-		console.error(`Бой ${missionId} главы ${chapterId} не начинаем: главный босс ${boss.isMainBoss}, пропуск ${boss.skip}, рейтинг ${boss.eventConfig?.type ?? "нет"}`);
+		if (!isRatingBoss(boss)) return null;
+		console.error(`Бой ${missionId} главы ${chapterId} не начинаем: это бой рейтинга ${boss?.eventConfig?.type ?? ""}, Архидемон`);
 		return I18N("NX_POINT_BLOCKED", { id: missionId });
+	}
+	function needsFullBattle(chapterId, missionId) {
+		const boss = phaseBoss(chapterId, missionId);
+		return boss != null && (boss.isMainBoss === true || Number(boss.skip) !== 1);
+	}
+	function fullBattleSeconds(battleTime, subscription) {
+		const time = Number(battleTime);
+		const length = Number.isFinite(time) && time > 0 ? time : NX_FULL_BATTLE.fallbackSeconds;
+		const speed = subscription ? NX_FULL_BATTLE.subscriptionSpeed : NX_FULL_BATTLE.freeSpeed;
+		return Math.max(Math.ceil(length / speed + NX_FULL_BATTLE.extraSeconds), NX_FULL_BATTLE.minSeconds);
+	}
+	async function waitFullBattle(attempt, startedAt, battleTime) {
+		const seconds = fullBattleSeconds(battleTime, await attempt.session.subscriptionActive());
+		let left = startedAt + seconds * 1e3 - Date.now();
+		while (left > 0) {
+			attempt.progress(I18N("NX_FULL_BATTLE_WAIT", { seconds: Math.ceil(left / 1e3) }), "timer", true);
+			const step = Math.min(1e3, left);
+			await sleep(step);
+			left -= step;
+		}
+		return seconds;
+	}
+	function sentBattleTime(found, auto) {
+		return Number.isFinite(Number(found)) ? Number(found) : Number(auto);
 	}
 	async function sendBattleEnd(attempt, missionId, outcome) {
 		const call = new Caller([{
@@ -2234,6 +2354,7 @@
 				error: true,
 				failure: new Error(blocked)
 			};
+			const fullBattle = needsFullBattle(chapterId, missionId);
 			const battle = await Caller.send({
 				name: "invasion_bossStart",
 				args: {
@@ -2247,6 +2368,7 @@
 			const startedAt = Date.now();
 			const auto = await calcBattle(battle, { log: true });
 			let outcome = auto;
+			let sentTime = auto.battleTime;
 			let improved = false;
 			let skipFrom = startedAt;
 			let story = `автобой выиграл, бой ${secondsText(auto.battleTime)} с`;
@@ -2270,6 +2392,7 @@
 						result: found.result,
 						progress: found.progress
 					};
+					sentTime = sentBattleTime(found.battleTime, auto.battleTime);
 					improved = true;
 					story = `улучшен ${found.stage === "step0" ? "с шагом 0" : "Smartfix"}, победа на таймере ${Number(found.timer).toFixed(2)} с, шаг ${found.stepIndex}, ${searched}, бой ${secondsText(found.battleTime)} с`;
 				} else {
@@ -2277,11 +2400,14 @@
 					attempt.progress(I18N("NX_WIN_NOT_FOUND"), "timer", true);
 				}
 			}
-			await waitSkip(skipFrom);
+			let waited = "";
+			if (fullBattle) waited = `, без пропуска — ждали длину боя ${await waitFullBattle(attempt, startedAt, sentTime)} с`;
+			else await waitSkip(skipFrom);
 			const end = await sendBattleEnd(attempt, missionId, outcome);
 			if (improved) attempt.progress(I18N("NX_WIN_SENT"), "timer", true);
+			else if (fullBattle) attempt.progress(I18N("NX_FULL_BATTLE_SENT"), "timer", true);
 			const where = point ? `точка ${point}` : `бой ${missionId}`;
-			console.log(`${NX_LOG_BATTLE} ${where}: ${story}, отправлен через ${secondsText((Date.now() - startedAt) / 1e3)} с от старта`);
+			console.log(`${NX_LOG_BATTLE} ${where}: ${story}${waited}, отправлен через ${secondsText((Date.now() - startedAt) / 1e3)} с от старта`);
 			return {
 				error: false,
 				...end
@@ -2298,6 +2424,7 @@
 		try {
 			const blocked = pointBattleBlock(chapterId, missionId);
 			if (blocked) return { failure: new Error(blocked) };
+			const fullBattle = needsFullBattle(chapterId, missionId);
 			const battle = await Caller.send({
 				name: "invasion_bossStart",
 				args: {
@@ -2309,7 +2436,9 @@
 			});
 			const startedAt = Date.now();
 			console.log(`Слив: противник на старте ${JSON.stringify(defendersSnapshot(battle))}`);
-			let outcome = await calcBattle(battle);
+			const auto = await calcBattle(battle);
+			let outcome = auto;
+			let sentTime = auto.battleTime;
 			let lossTimer = null;
 			let skipFrom = startedAt;
 			if (outcome.result?.win) {
@@ -2330,6 +2459,7 @@
 						result: found.result,
 						progress: found.progress
 					};
+					sentTime = sentBattleTime(found.battleTime, auto.battleTime);
 					lossTimer = found.timer;
 					console.log(`Слив: проигрыш найден на таймере ${Number(lossTimer).toFixed(2)} с, шаг ${found.stepIndex}, уходит после поиска и пропуска, перебор ${tries} расчётов за ${Date.now() - searchStart} мс, начало с ${Number(lossStart).toFixed(1)} с`);
 				} else {
@@ -2337,7 +2467,8 @@
 					attempt.progress(I18N("NX_LOSS_NOT_FOUND"), "timer", true);
 				}
 			}
-			await waitSkip(skipFrom);
+			if (fullBattle) await waitFullBattle(attempt, startedAt, sentTime);
+			else await waitSkip(skipFrom);
 			const end = await sendBattleEnd(attempt, missionId, outcome);
 			if (lossTimer != null) attempt.progress(I18N("NX_LOSS_SENT"), "timer", true);
 			console.log("Слив, расчёт вернул", JSON.stringify(outcome.result));
@@ -2360,8 +2491,20 @@
 		carryUnseen = {};
 		reporter;
 		holds = new Set();
+		subscription = null;
 		constructor(reporter) {
 			this.reporter = reporter;
+		}
+		subscriptionActive() {
+			this.subscription ??= Caller.send("subscriptionGetInfo").then((answer) => {
+				const active = Number(answer?.subscription?.endTime ?? 0) * 1e3 > Date.now();
+				console.log(`Подписка ${active ? "идёт" : "не идёт"}: бой без пропуска ждём со скоростью ${active ? "подписки" : "без подписки"}`);
+				return active;
+			}, (e) => {
+				console.error("Подписку узнать не удалось, ждём бой без пропуска как без неё", e);
+				return false;
+			});
+			return this.subscription;
 		}
 		carryNeverOnSale() {
 			return Object.entries(this.carryUnseen).filter(([, count]) => count >= NX_CARRY_UNSEEN_LIMIT).map(([id]) => Number(id));
@@ -3126,7 +3269,7 @@
 		await attempt.wallet.onChapterEntry(chapterInfo, attempt.number > 1);
 		attempt.ledger.reset(attempt.wallet.value);
 		const actions = Object.values(chapterInfo.invasion.actions);
-		const lastPoint = actions.length - 1;
+		const lastPoint = pointCount(setup.chapterId, actions.map((action) => Number(action.payload.id)));
 		await pause(NX_PACE.chapterEnter);
 		for (let point = 1; point <= lastPoint; point++) {
 			attempt.point = point;
@@ -3323,6 +3466,10 @@
 				reason: I18N("NX_REASON_NO_CARRY_EXTRA", { list: (setup.carryExtraHeroes ?? []).map(unitLabel).join(", ") })
 			};
 			console.log(`Точка 1: проходные собраны, обновлений потрачено ${refreshes}`);
+			if (sacrificePoint === 1) {
+				const found = await ensureSacrificeHero(attempt, stall, setup, shopSlots, fragments);
+				if (found.kind !== "done") return found;
+			}
 			return {
 				kind: "done",
 				coins: coins.value,
@@ -3520,8 +3667,8 @@
 			carryLines
 		}) };
 	}
-	function currentSacrificePoint(setup, lastPoint) {
-		return Math.min(lastPoint, Math.max(1, Number(setup.sacrificePoint ?? lastPoint) || lastPoint));
+	function currentSacrificePoint(setup, lastPoint, choices = []) {
+		return nearestSacrificePoint(Math.min(lastPoint, Math.max(1, Number(setup.sacrificePoint ?? lastPoint) || lastPoint)), choices.filter((point) => point <= lastPoint));
 	}
 	async function runArchdemonNewChapterWealth(attempt, setup) {
 		attempt.progress(I18N("NX_ENTERING", { attempt: attempt.number }));
@@ -3546,8 +3693,8 @@
 		let lives = chapterInfo.invasion.lives;
 		attempt.ledger.reset(attempt.wallet.value);
 		console.log(`${NX_LOG_CASH} СТАРТ захода ${attempt.number}: ${attempt.ledger.startCoins} монет, жизней ${lives}, сборка расширения ${GM_info.script.version}`);
-		const lastPoint = actions.length - 1;
-		const sacrificePoint = currentSacrificePoint(setup, lastPoint);
+		const lastPoint = pointCount(setup.chapterId, actions.map((action) => Number(action.payload.id)));
+		const sacrificePoint = currentSacrificePoint(setup, lastPoint, sacrificePointChoices(setup.chapterId));
 		await pause(NX_PACE.chapterEnter);
 		let visit = await wealthShopPhase(attempt, setup, 1, sacrificePoint);
 		if (visit.kind === "fatal") return {
@@ -7220,7 +7367,7 @@
 		const sacrificeHeroes = Array.isArray(sacrifice) ? sacrifice : [sacrifice];
 		if (!sacrificeHeroes.length || sacrificeHeroes.length > NX_SACRIFICE_CANDIDATES || !sacrificeHeroes.every(isId)) return null;
 		if (new Set(sacrificeHeroes).size !== sacrificeHeroes.length) return null;
-		if (!NX_SACRIFICE_POINTS.includes(point)) return null;
+		if (!Number.isInteger(point) || point < 1 || point > NX_MAX_SACRIFICE_POINT) return null;
 		return {
 			buffMin,
 			buffMax,
@@ -7306,7 +7453,7 @@
 			startRefreshes: 0,
 			sacrificeHeroes: [...choice?.strategy.sacrificeHeroes ?? []],
 			sacrificeRefreshes: 0,
-			sacrificePoint: choice?.strategy.sacrificePoint ?? NX_SACRIFICE_POINTS[0],
+			sacrificePoint: choice?.strategy.sacrificePoint ?? NX_DEFAULT_SACRIFICE_POINT,
 			pauseAfterBoss: false,
 			buyAnyRandomLots: false,
 			skipRandomLots: true,
@@ -7778,8 +7925,11 @@
 		return `<div style="text-align: left; margin: 14px 0 4px; font-size: 19px; color: #ffcf84;">${title}` + (hint ? `<div style="font-size: 13px; color: #d8cbb8; opacity: 0.85;">${hint}</div>` : "") + "</div>";
 	}
 	function savedSacrificePointChoice() {
-		const saved = Number(getSaveVal(NX_SAVE_KEYS.sacrificePoint, NX_SACRIFICE_POINTS[0]));
-		return NX_SACRIFICE_POINTS.includes(saved) ? saved : NX_SACRIFICE_POINTS[0];
+		const saved = Number(getSaveVal(NX_SAVE_KEYS.sacrificePoint, NX_DEFAULT_SACRIFICE_POINT));
+		return Number.isInteger(saved) && saved > 0 ? saved : NX_DEFAULT_SACRIFICE_POINT;
+	}
+	function multiplierText(multiplier) {
+		return String(Number(multiplier.toFixed(2))).replace(".", I18N("NX_DECIMAL_SEPARATOR"));
 	}
 	function savedChoice() {
 		const talismansRaw = getSaveVal(NX_SAVE_KEYS.talismans, [Number(getSaveVal(NX_SAVE_KEYS.talisman, 0))]);
@@ -7843,7 +7993,8 @@
 		let currentTeam = choice.team;
 		let currentMainPet = choice.mainPet;
 		const savedTalismans = choice.talismans;
-		const rollBosses = getTalismanRollBosses(chapters[0]?.id ?? 0);
+		const emblemRolls = emblemPoints(chapters[0]?.id ?? 0);
+		const rollBosses = [...emblemRolls.sure, ...emblemRolls.maybe];
 		const savedMinCoins = String(getSaveVal(NX_SAVE_KEYS.minCoins, ""));
 		let currentCarry = choice.carry;
 		let currentSacrifice = choice.sacrifice;
@@ -7874,7 +8025,7 @@
 		const radioRow = (group, value, label, checked, title) => `<div class="PopUp_ContCheckbox"><input type="checkbox" class="PopUp_checkbox hwhNewRadio radio_hwhNew_${group}" data-group="${group}" data-value="${escapeAttr(value)}" id="hwhNew_${group}_${escapeAttr(value)}"${checked ? " checked" : ""}><label for="hwhNew_${group}_${escapeAttr(value)}" title="${escapeAttr(title)}">${label}</label></div>`;
 		let html = "<div id=\"nxSetupForm\" class=\"PopUp_text\" style=\"text-align: left; width: 600px; max-width: 100%;\">" + autoNoteHtml();
 		const columns = (count, rows, fill = "row") => `<div style="display: grid; grid-template-columns: repeat(${count}, minmax(0, 1fr)); column-gap: 18px; align-items: start;` + (fill === "column" ? ` grid-auto-flow: column; grid-template-rows: repeat(${rows}, auto);` : "") + "\">";
-		const abyssOrder = getAbyssChapters().map((e) => Number(e.id));
+		const abyssOrder = getArchdemonChapters().map((e) => Number(e.id));
 		const chapterAvailable = {};
 		const chapterNumbers = {};
 		const chapterNeedLevel = {};
@@ -7887,6 +8038,8 @@
 		html += section(I18N("NX_BLOCK_CHAPTER"), "");
 		chapters.forEach((chapter) => {
 			let label = chapterTitle(chapter, chapterNumbers[chapter.id]) + "&nbsp;&mdash;&nbsp;<span>" + I18N("NX_FREE");
+			const multiplier = archdemonDamageMultiplier(Number(chapter.id));
+			if (multiplier !== null) label += ", " + escapeAttr(I18N("NX_CHAPTER_DAMAGE", { multiplier: multiplierText(multiplier) }));
 			if (!chapterAvailable[chapter.id]) label += "<br>" + I18N("NX_NEED_RELIC", {
 				relicName: getAbyssRelicName(),
 				needLevel: chapterNeedLevel[chapter.id],
@@ -7906,11 +8059,15 @@
 			const rollNumber = index + 1;
 			const rows = talismanRowsFor(rollNumber);
 			const saved = initialTalismans[index];
-			html += "<div>";
-			html += section(I18N("NX_BLOCK_TALISMAN_POINT", {
+			const title = index >= emblemRolls.sure.length ? I18N("NX_BLOCK_TALISMAN_POINT_MAYBE", {
 				rollNumber,
 				bossNumber
-			}), "");
+			}) : bossNumber > 0 ? I18N("NX_BLOCK_TALISMAN_POINT", {
+				rollNumber,
+				bossNumber
+			}) : I18N("NX_BLOCK_TALISMAN_ANY_POINT", { rollNumber });
+			html += "<div>";
+			html += section(title, "");
 			const group = `talisman${rollNumber}`;
 			const iconSpace = (url) => url ? `<img src="${url}" alt="" style="width: 30px; height: 30px; vertical-align: middle; margin: -8px 5px -8px 0;">` : "<span style=\"display: inline-block; width: 35px;\"></span>";
 			html += radioRow(group, 0, iconSpace("") + I18N("NX_ANY_TALISMAN"), saved === 0, "");
@@ -7933,11 +8090,13 @@
 		html += section(I18N("NX_BLOCK_SACRIFICE_REFRESH"), I18N("NX_BLOCK_SACRIFICE_REFRESH_HINT"));
 		html += `<input type="text" id="hwhNewSacrificeRefreshInput" class="PopUp_input" style="width: 100%; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_SACRIFICE_REFRESH_HINT"))}" placeholder="0" value="${escapeAttr(savedSacrificeRefreshes)}">`;
 		html += "</div>";
+		const sacrificePointHtml = (chapterId, wanted) => {
+			const choices = sacrificePointChoices(chapterId);
+			const checked = nearestSacrificePoint(wanted, choices);
+			return "<div style=\"display: flex; flex-wrap: wrap; column-gap: 18px;\">" + choices.map((point) => radioRow("sacrificePoint", point, String(point), point === checked, I18N("NX_SACRIFICE_POINT_TITLE", { point }))).join("") + "</div>";
+		};
 		html += section(I18N("NX_BLOCK_SACRIFICE_POINT"), I18N("NX_BLOCK_SACRIFICE_POINT_HINT"));
-		NX_SACRIFICE_POINTS.forEach((point) => {
-			const label = point === 5 ? I18N("NX_SACRIFICE_POINT_5") : I18N("NX_SACRIFICE_POINT_7");
-			html += radioRow("sacrificePoint", point, label, point === savedSacrificePoint, "");
-		});
+		html += `<div id="nxSacrificePointBlock">${sacrificePointHtml(Number(preselected?.id ?? chapters[0]?.id ?? 0), savedSacrificePoint)}</div>`;
 		html += section(I18N("NX_BLOCK_MIN_COINS", { coin: stallCoinName() }), I18N("NX_BLOCK_MIN_COINS_HINT"));
 		html += `<div style="display: flex; align-items: center; gap: 12px;"><input type="text" id="hwhNewMinCoinsInput" class="PopUp_input" style="flex: 1; min-width: 0; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_MIN_COINS_HINT"))}" placeholder="${escapeAttr(I18N("NX_MIN_COINS_PLACEHOLDER"))}" value="${escapeAttr(savedMinCoins)}"><span id="nxMinCoinsBonus" style="flex: none; font-size: 14px; color: #ffcf84;">${minCoinsBonusText(savedMinCoins)}</span></div>`;
 		html += `<div class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewRandomAnyInput"${savedRandomAny ? " checked" : ""}><label for="hwhNewRandomAnyInput" title="${escapeAttr(I18N("NX_BLOCK_RANDOM_ANY_HINT", { price: randomLotResale() }))}">${I18N("NX_BLOCK_RANDOM_ANY")}</label></div>`;
@@ -8134,29 +8293,39 @@
 			host.auto.innerHTML = autoButtonHtml(findAutoScript() !== null);
 			wireAutoButton();
 			refreshVersionLabel(version, update);
-			root.querySelectorAll("input.hwhNewRadio").forEach((checkbox) => {
-				checkbox.addEventListener("change", function() {
-					if (!this.checked) {
-						this.checked = true;
-						return;
-					}
-					root.querySelectorAll(`input.hwhNewRadio[data-group="${this.dataset.group}"]`).forEach((other) => {
-						if (other !== this) other.checked = false;
-					});
-					if (this.dataset.group.startsWith("talisman")) {
-						const value = Number(this.dataset.value);
-						if (value !== 0) root.querySelectorAll("input.hwhNewRadio[data-group^=\"talisman\"]:checked").forEach((other) => {
-							if (other === this || Number(other.dataset.value) !== value) return;
-							other.checked = false;
-							const any = root.querySelector(`input.hwhNewRadio[data-group="${other.dataset.group}"][data-value="0"]`);
-							if (any) any.checked = true;
-						});
-						syncWealthBlock();
-						repaintTalismans();
-						refreshTalismanSlots();
-					}
+			const refreshSacrificePoints = () => {
+				const block = root.querySelector("#nxSacrificePointBlock");
+				const chapterValue = readRadio("chapter");
+				if (!block || chapterValue === null) return;
+				block.innerHTML = sacrificePointHtml(Number(chapterValue), Number(readRadio("sacrificePoint") ?? savedSacrificePoint));
+				bindRadios(block);
+			};
+			function onRadioChange() {
+				if (!this.checked) {
+					this.checked = true;
+					return;
+				}
+				root.querySelectorAll(`input.hwhNewRadio[data-group="${this.dataset.group}"]`).forEach((other) => {
+					if (other !== this) other.checked = false;
 				});
-			});
+				if (this.dataset.group === "chapter") refreshSacrificePoints();
+				if (this.dataset.group.startsWith("talisman")) {
+					const value = Number(this.dataset.value);
+					if (value !== 0) root.querySelectorAll("input.hwhNewRadio[data-group^=\"talisman\"]:checked").forEach((other) => {
+						if (other === this || Number(other.dataset.value) !== value) return;
+						other.checked = false;
+						const any = root.querySelector(`input.hwhNewRadio[data-group="${other.dataset.group}"][data-value="0"]`);
+						if (any) any.checked = true;
+					});
+					syncWealthBlock();
+					repaintTalismans();
+					refreshTalismanSlots();
+				}
+			}
+			function bindRadios(scope) {
+				scope.querySelectorAll("input.hwhNewRadio").forEach((checkbox) => checkbox.addEventListener("change", onRadioChange));
+			}
+			bindRadios(root);
 			syncWealthBlock();
 			repaintTalismans();
 			root.querySelector("#hwhNewMinCoinsInput")?.addEventListener("input", function() {
@@ -8375,9 +8544,9 @@
 		const relic = (await Caller.send("workshop_getInfo")).relics.find((e) => e.id == relicId);
 		const relicLevel = Number(relic?.level ?? 0);
 		const buffAmount = relicLevel <= 1 ? 0 : relicLevel * 10;
-		const chapters = getAbyssChapters().filter((e) => !isPaidChapter(e.id));
+		const chapters = getArchdemonChapters().filter((e) => !isPaidChapter(e.id));
 		if (chapters.length === 0) {
-			await popup.confirm(I18N("NX_ERR_NO_FREE_ABYSS"));
+			await popup.confirm(I18N("NX_ERR_NO_FREE_CHAPTER"));
 			return;
 		}
 		const setup = await archdemonNewSetup(chapters, buffAmount, relicLevel);
@@ -8442,8 +8611,8 @@
 		const now = Date.now();
 		const opened = allChapters().some((chapter) => chapter.invasionId === currentEventId() && chapterDate(chapter.startDate) <= now && !(chapterDate(chapter.endDate) <= now));
 		const running = Boolean(currentEventId()) && opened;
-		if (!(running && eventHasAbyss(currentEventId())) && devKeyOn()) {
-			const last = lastAbyssEventId();
+		if (!(running && eventHasArchdemon(currentEventId())) && devKeyOn()) {
+			const last = lastArchdemonEventId();
 			if (last) {
 				setCurrentEventId(last);
 				await attackArchdemonNew({ dryRun: true });
@@ -8454,8 +8623,8 @@
 			confShow(I18N("NX_NO_EVENT"));
 			return;
 		}
-		if (!eventHasAbyss(currentEventId())) {
-			confShow(I18N("NX_NO_ABYSS"));
+		if (!eventHasArchdemon(currentEventId())) {
+			confShow(I18N("NX_NO_ARCHDEMON"));
 			return;
 		}
 		await attackArchdemonNew();
@@ -8466,7 +8635,7 @@
 	}
 	function preloadEvent(now) {
 		const event = openEventAt(now);
-		return event && eventHasAbyss(Number(event.id)) ? event : null;
+		return event && eventHasArchdemon(Number(event.id)) ? event : null;
 	}
 	async function preloadWindows(now = Date.now) {
 		for (let waited = 0; !gameReady(); waited += NX_PRELOAD_POLL_MS) {

@@ -1,7 +1,8 @@
 # HWHArchdemonExt
 
-An add-on for HeroWarsHelper for the Archdemon event. It runs the free Abyss chapter, collects
-the team you set and stops right before the Archdemon — you attack yourself.
+An add-on for HeroWarsHelper for the Archdemon event. It runs a free chapter that ends with the Archdemon — the Abyss
+chapter or, as from 16.11.2026, any chapter of the event — collects the team you set and stops right before the
+Archdemon — you attack yourself.
 If a run does not work out, it resets the chapter and tries again.
 
 ## Features
@@ -19,7 +20,7 @@ If a run does not work out, it resets the chapter and tries again.
   - needed heroes are pinned in the shop along the way and bought in the final shopping,
     so coins are not spent early and go into the emblem bonus;
   - carry heroes with ranks, topped up along the chapter;
-  - two deliberate losses on the last point for coins;
+  - two deliberate losses for coins on a chosen point — any regular one, never the main boss;
   - resale of profitable lots;
   - discounted pets are bought out and sold later, so the shop offers more heroes;
   - minimum Shop Coins with the emblem bonus shown: the shopping stops once it is out of reach.
@@ -27,7 +28,8 @@ If a run does not work out, it resets the chapter and tries again.
   and [HWMAP](https://hwmap.online/) (by Kircheis). One button runs the chapter with the chosen build. The builds are
   loaded from our server on Netlify or its mirrors on jsDelivr and GitHub, no player data is sent. Thanks to the video authors and to both sites.
 - **Run log** on the right, a Stop button, an optional report before the final shopping.
-- Paid Abyss chapters are never touched.
+- The chapter's main boss cannot be skipped: its result goes after the battle length, as the helper does.
+- Paid chapters are never touched.
 - Does not start a run when less than 10 minutes are left until the event ends.
 
 ## Install
