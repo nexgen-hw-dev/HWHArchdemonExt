@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.25-beta
+// @version         1.26-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -81,17 +81,7 @@
 		prefix: "https://www.youtube.com/watch?v=",
 		id: /^[\w-]{11}$/
 	} };
-	var NX_PRESET_SITES = [{
-		name: "HWDaily",
-		url: "https://hwdaily.win/spooky-festival/archdemon",
-		author: "Fragator",
-		key: "NX_PRESETS_SITE_HWDAILY"
-	}, {
-		name: "HWMAP",
-		url: "https://hwmap.online/invasion/3032000034/teams",
-		author: "Kircheis",
-		key: "NX_PRESETS_SITE_HWMAP"
-	}];
+	var NX_PRESET_SITES_MAX = 4;
 	var NX_PRESETS_WAIT_LINKS = {
 		telegram: {
 			en: [{
@@ -137,7 +127,7 @@
 			key: "NX_PRESETS_SITE_HWMAP"
 		}]
 	};
-	var NX_BUILTIN_STRATEGIES = [{
+	var NX_BUILTIN_STRATEGIES = { 3032000034: [{
 		buff: [0, 199],
 		carry: [
 			46,
@@ -152,7 +142,7 @@
 		carry: [72, 1],
 		sacrifice: 72,
 		point: 5
-	}];
+	}] };
 	var NX_STRATEGY_MAX_BUFF = 1e3;
 	var NX_DEFAULT_SACRIFICE_POINT = 5;
 	var NX_DEFAULT_POINT_COUNT = 7;
@@ -308,6 +298,7 @@
 			NX_PRESETS_ERROR: "The request cannot be completed from your region. Please use additional tools",
 			NX_PRESETS_STALE: "The server did not answer, showing the saved copy",
 			NX_PRESETS_CARRY_POINT1: "Ready-made builds are made for the carry heroes {list} of the previous event: in this one they cannot be had by point 1. Wait for an add-on update or set the run up in the setup window",
+			NX_PRESETS_NO_STRATEGY: "No run strategy for chapter {chapter} at boost {buff}: it is not known who carries and who throws. A strategy comes with the build or for the whole event from the server; until then set the run up in the setup window",
 			NX_PRESETS_REFRESH: "Refresh the builds from the server, at most once a minute",
 			NX_PRESETS_REFRESH_WAIT: "You can refresh again in {seconds} s",
 			NX_REASON_POINT_KNOWN_LOSS: "Point {point}: this team has already lost it, and there is nobody to buy",
@@ -560,6 +551,7 @@
 			NX_PRESETS_ERROR: "Для вашего региона невозможно выполнить запрос. Воспользуйтесь дополнительными инструментами",
 			NX_PRESETS_STALE: "Сервер не ответил, показана сохранённая копия",
 			NX_PRESETS_CARRY_POINT1: "Готовые сборки рассчитаны на проходных {list} прошлого события, в этом их к точке 1 не взять. Дождитесь обновления дополнения или настройте прогон в окне настройки",
+			NX_PRESETS_NO_STRATEGY: "Для главы {chapter} при усилении {buff} стратегии прогона нет: неизвестно, кто проходные и кто сливает. Стратегию дают сборка или общая стратегия события с сервера; пока её нет, настройте прогон в окне настройки",
 			NX_PRESETS_REFRESH: "Обновить сборки с сервера, не чаще раза в минуту",
 			NX_PRESETS_REFRESH_WAIT: "Обновить можно через {seconds} с",
 			NX_REASON_POINT_KNOWN_LOSS: "Точка {point}: этот состав её уже не брал, а докупить некого",
@@ -7328,17 +7320,18 @@
 				console.error(e);
 			}
 		}
-		async load(buff, { force = false } = {}) {
+		async load(buff, { force = false, eventId = currentEventId() } = {}) {
 			const loaded = await this.loadRows({ force });
 			const presets = [];
-			let strategies = [];
 			let dropped = 0;
+			let otherEvent = 0;
 			for (const row of loaded.rows) {
-				if (isStrategyRow(row)) {
-					strategies = decodeStrategyList(row.strategy);
+				if (isEventRow(row)) continue;
+				const preset = decodePresetRow(row);
+				if (preset && preset.event && preset.event !== eventId) {
+					otherEvent++;
 					continue;
 				}
-				const preset = decodePresetRow(row);
 				const parsed = preset && validatePreset(preset);
 				if (!parsed) {
 					dropped++;
@@ -7349,10 +7342,14 @@
 					parsed
 				});
 			}
+			if (otherEvent) console.log(`Сборки: другого события ${otherEvent} из ${loaded.rows.length}`);
 			if (dropped) console.log(`Сборки: не подошли текущему событию или испорчены ${dropped} из ${loaded.rows.length}`);
+			const strategy = eventInfo(loaded.rows, eventId, "strategy");
+			const sites = eventInfo(loaded.rows, eventId, "sites");
 			return {
 				presets: sortPresets(presets, buff),
-				strategies,
+				strategies: decodeStrategyList(strategy?.strategy),
+				sites: sites ? decodeSites(sites.sites) : null,
 				source: loaded.source,
 				error: loaded.error,
 				dropped
@@ -7394,7 +7391,7 @@
 	}
 	function decodePresetRow(row) {
 		if (!Array.isArray(row) || row.length < 9) return null;
-		const [author, videoType, videoId, damage, buff, coins, talismans, mainPet, heroes, strategy, chapter] = row;
+		const [author, videoType, videoId, damage, buff, coins, talismans, mainPet, heroes, strategy, chapter, event] = row;
 		if (typeof author !== "string") return null;
 		if (!Array.isArray(talismans) || talismans.length !== 2 || !talismans.every(Number.isInteger)) return null;
 		if (!Array.isArray(heroes) || !heroes.length || heroes.length % 3 || heroes.length > 15 || !heroes.every(Number.isInteger)) return null;
@@ -7419,11 +7416,40 @@
 			mainPet: Number.isInteger(mainPet) && mainPet > 0 ? petId(mainPet) : 0,
 			teamRaw: blocks.join(", "),
 			strategy: strategy == null ? null : decodeStrategy(strategy),
-			chapter: Number.isInteger(chapter) && chapter >= 1 && chapter <= NX_MAX_CHAPTER ? chapter : 0
+			chapter: Number.isInteger(chapter) && chapter >= 1 && chapter <= NX_MAX_CHAPTER ? chapter : 0,
+			event: Number.isInteger(event) && event > 0 ? event : 0
 		};
 	}
-	function isStrategyRow(row) {
-		return Boolean(row) && typeof row === "object" && !Array.isArray(row) && "strategy" in row;
+	function isEventRow(row) {
+		return Boolean(row) && typeof row === "object" && !Array.isArray(row);
+	}
+	function eventInfo(rows, eventId, field) {
+		const infos = rows.filter(isEventRow).filter((row) => field in row);
+		return (eventId > 0 ? infos.find((row) => Number(row.event) === eventId) : void 0) ?? infos.find((row) => row.event === void 0 || row.event === null || row.event === 0);
+	}
+	function decodeSites(raw) {
+		if (!Array.isArray(raw)) return [];
+		const sites = [];
+		for (const item of raw) {
+			if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+			const { name, url } = item;
+			if (typeof name !== "string" || !name.trim() || name.length > 40) continue;
+			if (typeof url !== "string" || url.length > 300 || !isHttpsUrl(url)) continue;
+			sites.push({
+				name: name.trim(),
+				url
+			});
+			if (sites.length === NX_PRESET_SITES_MAX) break;
+		}
+		return sites;
+	}
+	function isHttpsUrl(value) {
+		try {
+			const url = new URL(value);
+			return url.protocol === "https:" && Boolean(url.hostname);
+		} catch {
+			return false;
+		}
 	}
 	function intIn(value, min, max) {
 		return Number.isInteger(value) && value >= min && value <= max ? value : null;
@@ -7480,7 +7506,10 @@
 		return list;
 	}
 	var covers = (strategy, buff, chapter) => buff >= strategy.buffMin && buff <= strategy.buffMax && (strategy.chapters.length === 0 || strategy.chapters.includes(chapter));
-	function strategyCandidates(preset, buff, eventStrategies = [], chapter = 0) {
+	function builtinStrategies(eventId) {
+		return decodeStrategyList(NX_BUILTIN_STRATEGIES[eventId] ?? []);
+	}
+	function strategyCandidates(preset, buff, eventStrategies = [], chapter = 0, eventId = currentEventId()) {
 		const list = [];
 		if (preset.strategy && covers(preset.strategy, buff, chapter)) list.push({
 			strategy: preset.strategy,
@@ -7491,15 +7520,15 @@
 			strategy: event,
 			source: "event"
 		});
-		const builtin = decodeStrategyList(NX_BUILTIN_STRATEGIES).find((s) => covers(s, buff, chapter));
+		const builtin = builtinStrategies(eventId).find((s) => covers(s, buff, chapter));
 		if (builtin) list.push({
 			strategy: builtin,
 			source: "builtin"
 		});
 		return list;
 	}
-	function chooseStrategy(preset, buff, eventStrategies, chapterId, chapterNumber = 0) {
-		const list = strategyCandidates(preset, buff, eventStrategies, chapterNumber);
+	function chooseStrategy(preset, buff, eventStrategies, chapterId, chapterNumber = 0, eventId = currentEventId()) {
+		const list = strategyCandidates(preset, buff, eventStrategies, chapterNumber, eventId);
 		return list.find((c) => !carryPointOneError({
 			chapterId,
 			carryHeroes: c.strategy.carryHeroes
@@ -7527,8 +7556,8 @@
 			return (a.buff === buff ? 0 : 1) - (b.buff === buff ? 0 : 1) || a.buff - b.buff || b.damage - a.damage;
 		});
 	}
-	function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = false, buff = preset.buff, eventStrategies = [] }) {
-		const choice = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? chooseStrategy(preset, buff, eventStrategies, chapterId, chapterNumber) : null;
+	function presetSetup(preset, { chapterId, chapterNumber = 0, keepExtraCoins = false, buff = preset.buff, eventStrategies = [], eventId = currentEventId() }) {
+		const choice = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? chooseStrategy(preset, buff, eventStrategies, chapterId, chapterNumber, eventId) : null;
 		const cards = choice?.strategy.cards ?? "none";
 		const carry = choice?.strategy.carryHeroes ?? [];
 		const parsed = preset.parsed ?? parseArchdemonNewTeam(preset.teamRaw);
@@ -7701,11 +7730,17 @@
 	var link = (url, name) => `<a href="${escapeAttr(url)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${escapeAttr(name)}</a>`;
 	var linkItem = (url, name, about) => `<div style="margin-left: 10px;">• ${link(url, name)} — ${about}</div>`;
 	var REFRESH_BUTTON = "<div id=\"nxPresetsRefresh\" role=\"button\" style=\"flex: none; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #88cb13; color: #88cb13; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 18px; line-height: 1; user-select: none;\">↻</div>";
+	function presetSitesHtml(sites) {
+		const known = NX_PRESETS_WAIT_LINKS.sites;
+		return (sites?.length ? sites : known).map((site) => {
+			const key = known.find((k) => k.name.toLowerCase() === site.name.toLowerCase())?.key;
+			return key ? linkItem(site.url, site.name, I18N(key)) : `<div style="margin-left: 10px;">• ${link(site.url, site.name)}</div>`;
+		}).join("");
+	}
 	function headerHtml(buff, chapter = 0) {
-		const sites = NX_PRESET_SITES.map((site) => linkItem(site.url, site.name, I18N(site.key))).join("");
 		const green = (value) => `<span style="color: LimeGreen;">${value}</span>`;
 		const chapterText = chapter > 0 ? ` · ${I18N("NX_PRESETS_CHAPTER", { chapter: green(toRoman(chapter)) })}` : "";
-		return `<div style="font-size: 22px; color: #ffcf84; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: green(Number(buff) || 0) })}${chapterText}</div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}${sites}</div><div style="margin-top: 8px;">${I18N("NX_PRESETS_AUTHORS")}</div>`;
+		return `<div style="font-size: 22px; color: #ffcf84; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: green(Number(buff) || 0) })}${chapterText}</div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}<div data-part="sites">${presetSitesHtml(null)}</div></div><div style="margin-top: 8px;">${I18N("NX_PRESETS_AUTHORS")}</div>`;
 	}
 	function presetsWaitHtml(tr) {
 		const lang = tr("NX_LANG") === "ru" ? "ru" : "en";
@@ -7724,7 +7759,7 @@
 		return `<div style="${TABLE_STYLE}">${columnsHtml()}${presets.map((preset, index) => presetRowHtml(preset, index, ctx)).join("")}</div>`;
 	}
 	function presetRowHtml(preset, index, ctx) {
-		const { library, heroIcons, petIcons, buff, strategies = [], chapter = 0 } = ctx;
+		const { library, heroIcons, petIcons, buff, strategies = [], chapter = 0, eventId = currentEventId() } = ctx;
 		const slot = (...args) => framedSlotHtml(library, ...args) + "</div>";
 		const heroes = preset.parsed.heroes.map((id) => ({
 			id,
@@ -7753,7 +7788,7 @@
 		const author = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${authorText}</a>` : authorText;
 		const video = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(I18N("NX_PRESETS_VIDEO"))}" style="flex: none;">${PLAY_ICON}</a>` : "";
 		const matched = preset.buff === Number(buff);
-		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(preset, buff, strategies, chapter), I18N("NX_PRESETS_GO"))}</div>`;
+		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(preset, buff, strategies, chapter, eventId), I18N("NX_PRESETS_GO"))}</div>`;
 	}
 	var STRATEGY_SOURCE_TEXT = {
 		preset: () => I18N("NX_PRESETS_STRATEGY_PRESET"),
@@ -7765,9 +7800,13 @@
 		cheap: () => I18N("NX_PRESETS_CARDS_CHEAP"),
 		any: () => I18N("NX_PRESETS_CARDS_ANY")
 	};
-	function goHint(preset, buff, strategies, chapter = 0) {
-		const choice = preset.talismanIds[0] === NX_WEALTH_TALISMAN_ID ? strategyCandidates(preset, buff, strategies, chapter)[0] : void 0;
-		if (!choice) return I18N("NX_PRESETS_GO_HINT_PLAIN");
+	function goHint(preset, buff, strategies, chapter = 0, eventId = currentEventId()) {
+		if (preset.talismanIds[0] !== NX_WEALTH_TALISMAN_ID) return I18N("NX_PRESETS_GO_HINT_PLAIN");
+		const choice = strategyCandidates(preset, buff, strategies, chapter, eventId)[0];
+		if (!choice) return I18N("NX_PRESETS_NO_STRATEGY", {
+			chapter: toRoman(chapter),
+			buff: Number(buff) || 0
+		});
 		const { strategy, source } = choice;
 		return I18N("NX_PRESETS_GO_HINT", {
 			carry: strategy.carryHeroes.map(unitName).join(", "),
@@ -7779,7 +7818,7 @@
 			source: STRATEGY_SOURCE_TEXT[source]()
 		});
 	}
-	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, chapterNumber = 0, client = new PresetsClient() }) {
+	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, chapterNumber = 0, eventId = currentEventId(), client = new PresetsClient() }) {
 		root.querySelector("#nxPresetsView")?.remove();
 		const view = document.createElement("div");
 		view.id = "nxPresetsView";
@@ -7831,8 +7870,13 @@
 			if (!list) return;
 			list.innerHTML = I18N("NX_PRESETS_LOADING");
 			if (error) error.innerHTML = "";
-			const loaded = await client.load(Number(buff) || 0, { force });
+			const loaded = await client.load(Number(buff) || 0, {
+				force,
+				eventId
+			});
 			if (!view.isConnected) return;
+			const sitesPart = view.querySelector("[data-part=\"sites\"]");
+			if (sitesPart) sitesPart.innerHTML = presetSitesHtml(loaded.sites);
 			if (!loaded.presets.length) {
 				if (loaded.source === "none") {
 					showTable(true);
@@ -7867,7 +7911,8 @@
 				petIcons,
 				buff,
 				strategies: loaded.strategies,
-				chapter: chapterNumber
+				chapter: chapterNumber,
+				eventId
 			};
 			showTable(true);
 			list.innerHTML = (loaded.source === "stale" ? `<div style="font-size: 13px; color: #ffb347;">${I18N("NX_PRESETS_STALE")}</div>` : "") + presetsTableHtml(presets, ctx);
@@ -8637,12 +8682,18 @@
 					needLevel: chapterNeedLevel[chapterId] ?? 0,
 					haveLevel: relicLevel
 				});
+				const chapterNumber = chapterNumbers[chapterId] ?? 0;
 				const value = presetSetup(preset, {
 					chapterId,
-					chapterNumber: chapterNumbers[chapterId] ?? 0,
+					chapterNumber,
 					keepExtraCoins,
 					buff: buffAmount,
-					eventStrategies: strategies
+					eventStrategies: strategies,
+					eventId
+				});
+				if (value.talismanId === NX_WEALTH_TALISMAN_ID && !value.preset?.strategy) return I18N("NX_PRESETS_NO_STRATEGY", {
+					chapter: toRoman(chapterNumber),
+					buff: buffAmount
 				});
 				if (value.talismanId === NX_WEALTH_TALISMAN_ID && carryPointOneError(value)) return I18N("NX_PRESETS_CARRY_POINT1", { list: value.carryHeroes.map(unitLabel).join(", ") });
 				if (value.preset?.strategy) console.log(`Сборки: стратегия ${value.preset.strategy}, усиление ${buffAmount}, проходные ${value.carryHeroes.join(", ")}, слив ${value.sacrificeHeroes.join(", ")} на точке ${value.sacrificePoint}`);
@@ -8660,6 +8711,7 @@
 					onGo: goWithPreset,
 					keepExtraCoins: loadChapterSettings(eventId, activeChapter).keepExtraCoins,
 					chapterNumber: chapterNumbers[activeChapter] ?? 0,
+					eventId,
 					onKeepExtraCoins: (keepExtraCoins) => {
 						state = updateChapterSettings(eventId, activeChapter, { keepExtraCoins });
 					}
