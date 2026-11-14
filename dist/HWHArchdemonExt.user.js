@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.26-beta
+// @version         1.27-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -235,6 +235,10 @@
 			NX_ERR_CARRY: "Pick the carry heroes with «Edit»",
 			NX_PICK_CARRY_TITLE: "Carry heroes",
 			NX_PICK_SACRIFICE_TITLE: "Who throws the point",
+			NX_BLOCK_ASCEND: "Whom to ascend: {name}",
+			NX_BLOCK_ASCEND_HINT: "When the emblem is taken, the run ascends these heroes before the Archdemon: only heroes collected in full, red rank, {cost} coins each, while the coins stay at or above the minimum for the Capital emblem. Empty — the heroes of the team",
+			NX_ASCEND_EDIT_HINT: "Pick up to five heroes; empty — the team",
+			NX_PICK_ASCEND_TITLE: "Whom to ascend",
 			NX_LIST_EDIT_HINT: "Pick up to five heroes and their ranks",
 			NX_ERR_SACRIFICE: "Pick one to {max} heroes to throw the point with «Edit»",
 			NX_BLOCK_START_REFRESH: "Spare stall refreshes on point 1",
@@ -287,6 +291,8 @@
 			NX_PRESETS_STRATEGY_EVENT: "the event strategy",
 			NX_PRESETS_STRATEGY_BUILTIN: "the built-in strategy",
 			NX_PRESETS_GO_HINT_PLAIN: "Run the chosen chapter with this build",
+			NX_PRESETS_GO_ASCEND: "; ascends before the Archdemon: {list}",
+			NX_PRESETS_ASCEND_TEAM: "the team of the build, those collected in full",
 			NX_PRESETS_BACK: "Back",
 			NX_PRESETS_LOADING: "Loading the builds…",
 			NX_PRESETS_WAIT_SOON: "Ready-made builds for this event will appear on the last day of the Adventure. Until then, try it on your own: put a team together and grab your spot on the leaderboard!",
@@ -338,6 +344,7 @@
 			NX_BOOK_UNKNOWN: "unknown cards",
 			NX_BOOK_PETS_DISCOUNT: "discounted pets",
 			NX_BOOK_ANY_HERO: "any hero",
+			NX_BOOK_ASCEND: "ascension",
 			NX_CONTINUE: "Continue",
 			NX_HALT: "Stop here",
 			NX_HALTED_SYNC: `Stopped before the Archdemon. The chapter is <span style="color: LimeGreen;">not reset</span>.<br>
@@ -430,6 +437,7 @@
 			NX_FAIL_NO_STALL: "The event stall was not found in the game data",
 			NX_FAIL_NO_STATE: "The server did not send the chapter state after the battle",
 			NX_TALISMAN_TAKEN: "Emblem on: {name}",
+			NX_ASCENDED: "Ascended: {name}, −{cost}",
 			NX_CHAPTER: "Chapter",
 			NX_CANCEL: "Cancel",
 			NX_ENTERING: "Entering the chapter",
@@ -488,6 +496,10 @@
 			NX_ERR_CARRY: "Выберите проходных героев кнопкой «Изменить»",
 			NX_PICK_CARRY_TITLE: "Проходные герои",
 			NX_PICK_SACRIFICE_TITLE: "Кем сливаем точку",
+			NX_BLOCK_ASCEND: "Кого возвысить: {name}",
+			NX_BLOCK_ASCEND_HINT: "Когда эмблема взята, прогон перед Архидемоном возвышает этих героев: только собранных полностью, до красного ранга, по {cost} монет за каждого, пока монет не меньше минимума под капитал. Пусто — герои состава",
+			NX_ASCEND_EDIT_HINT: "Выбрать до пяти героев; пусто — состав",
+			NX_PICK_ASCEND_TITLE: "Кого возвысить",
 			NX_LIST_EDIT_HINT: "Выбрать до пяти героев и их ранги",
 			NX_ERR_SACRIFICE: "Выберите от одного до {max} героев для слива кнопкой «Изменить»",
 			NX_BLOCK_START_REFRESH: "Запас обновлений лавки на первой точке",
@@ -540,6 +552,8 @@
 			NX_PRESETS_STRATEGY_EVENT: "общая стратегия события",
 			NX_PRESETS_STRATEGY_BUILTIN: "встроенная стратегия",
 			NX_PRESETS_GO_HINT_PLAIN: "Пройти выбранную главу по этой сборке",
+			NX_PRESETS_GO_ASCEND: "; перед Архидемоном возвысит: {list}",
+			NX_PRESETS_ASCEND_TEAM: "состав сборки, кто собран полностью",
 			NX_PRESETS_BACK: "Назад",
 			NX_PRESETS_LOADING: "Загружаем сборки…",
 			NX_PRESETS_WAIT_SOON: "Готовые сборки для этого события появятся в последний день Приключения. А пока попробуйте свои силы: подберите команду сами и успейте занять место в рейтинге!",
@@ -591,6 +605,7 @@
 			NX_BOOK_UNKNOWN: "неизвестные карты",
 			NX_BOOK_PETS_DISCOUNT: "питомцы со скидкой",
 			NX_BOOK_ANY_HERO: "любой герой",
+			NX_BOOK_ASCEND: "возвышение",
 			NX_CONTINUE: "Продолжить",
 			NX_HALT: "Остановиться",
 			NX_HALTED_SYNC: `Остановились перед Архидемоном. Глава <span style="color: LimeGreen;">не сброшена</span>.<br>
@@ -683,6 +698,7 @@
 			NX_FAIL_NO_STALL: "В данных игры не нашлась лавка события",
 			NX_FAIL_NO_STATE: "Сервер не прислал состояние главы после боя",
 			NX_TALISMAN_TAKEN: "Надели эмблему: {name}",
+			NX_ASCENDED: "Возвышение: {name}, −{cost}",
 			NX_CHAPTER: "Глава",
 			NX_CANCEL: "Отмена",
 			NX_ENTERING: "Входим в главу",
@@ -863,6 +879,9 @@
 	}
 	function allTalismans() {
 		return Object.values(talismanTable());
+	}
+	function allUnitUpgrades() {
+		return Object.values(lib.data.invasion?.unitUpgrades ?? {});
 	}
 	function talismanById(id) {
 		return talismanTable()[id];
@@ -1663,7 +1682,8 @@
 		перепродажа: () => I18N("NX_BOOK_RESALE"),
 		"неизвестные карты": () => I18N("NX_BOOK_UNKNOWN"),
 		"питомцы со скидкой": () => I18N("NX_BOOK_PETS_DISCOUNT"),
-		"любой герой": () => I18N("NX_BOOK_ANY_HERO")
+		"любой герой": () => I18N("NX_BOOK_ANY_HERO"),
+		возвышение: () => I18N("NX_BOOK_ASCEND")
 	};
 	function ledgerEntryText(category) {
 		return ENTRY_TEXT[category]?.() ?? category;
@@ -1869,6 +1889,22 @@
 			this.tell("sell", { [unitId]: amount }, income);
 			return income;
 		}
+		async ascend(unitId, cost) {
+			try {
+				await this.beforeAction();
+				await Caller.send({
+					name: "invasion_emblemElevationUnlock",
+					args: { unitId }
+				});
+				this.wallet.value -= cost;
+				console.log(`${NX_LOG_CASH} -${cost} возвышение ${unitId}, монет ${this.wallet.value}`);
+				return true;
+			} catch (e) {
+				console.error(e);
+				await this.wallet.load();
+				return false;
+			}
+		}
 		async get() {
 			const answer = await Caller.send({
 				name: "shopGet",
@@ -1921,6 +1957,7 @@
 		wallet = new Wallet();
 		ledger = new Ledger();
 		talismans = [];
+		ascended = [];
 		session;
 		number;
 		point = null;
@@ -3171,6 +3208,67 @@
 		}
 		return { coins: coins.value };
 	}
+	var ASCENSION_IDENT = "elevation";
+	var FULL_HERO_FRAGMENTS = 7;
+	function ascensionEmblem() {
+		return allTalismans().find((e) => e.ident === ASCENSION_IDENT);
+	}
+	function ascensionEmblemId() {
+		return Number(ascensionEmblem()?.id ?? 0);
+	}
+	function ascensionCost() {
+		const cost = Number(ascensionEmblem()?.effectConfig?.unlockCost?.coin?.[1080] ?? NaN);
+		return Number.isFinite(cost) && cost > 0 ? cost : null;
+	}
+	function fullHeroFragments() {
+		const counts = allUnitUpgrades().filter((e) => e.type === "hero").map((e) => Number(e.fragmentCount)).filter((n) => Number.isFinite(n) && n > 0);
+		return counts.length ? Math.max(...counts) : FULL_HERO_FRAGMENTS;
+	}
+	function ascensionQueue(setup, fragments, done = []) {
+		const wanted = setup.ascendHeroes?.length ? setup.ascendHeroes : setup.heroes;
+		const full = fullHeroFragments();
+		const queue = [];
+		for (const raw of wanted ?? []) {
+			const id = Number(raw);
+			if (!Number.isInteger(id) || id <= 0 || queue.includes(id) || done.includes(id)) continue;
+			if (Number(fragments[id] ?? 0) >= full) queue.push(id);
+		}
+		return queue;
+	}
+	async function ascendHeroes(attempt, setup) {
+		const emblemId = ascensionEmblemId();
+		if (!emblemId || !attempt.talismans.includes(emblemId)) return [];
+		const cost = ascensionCost();
+		const stall = attempt.stall;
+		if (!cost || !stall) {
+			console.warn("Возвышение: нет цены в данных эмблемы или лавки события", {
+				cost,
+				stall: Boolean(stall)
+			});
+			return [];
+		}
+		const fragments = (await attempt.units()).fragments;
+		const queue = ascensionQueue(setup, fragments, attempt.ascended);
+		const floor = Math.max(0, Number(setup.minCoins ?? 0) || 0);
+		const done = [];
+		for (const heroId of queue) {
+			if (attempt.stopped) break;
+			if (attempt.wallet.value - cost < floor) {
+				console.log(`Возвышение: монет ${attempt.wallet.value}, после ${cost} стало бы меньше ${floor} — дальше не возвышаем`);
+				break;
+			}
+			if (!await stall.ascend(heroId, cost)) break;
+			attempt.ascended.push(heroId);
+			attempt.ledger.add("возвышение", -cost);
+			attempt.progress(I18N("NX_ASCENDED", {
+				name: unitLabel(heroId),
+				cost
+			}), null, true);
+			done.push(heroId);
+		}
+		if (queue.length) console.log(`Возвышение: в очереди ${queue.join(", ")}, возвышены ${done.join(", ") || "никто"}`);
+		return done;
+	}
 	function packOwned(setup, heroIds) {
 		return setup.heroes.every((id) => heroIds.includes(id));
 	}
@@ -3356,6 +3454,8 @@
 				error: e
 			};
 		}
+		if (attempt.stopped) return stoppedOutcome();
+		await ascendHeroes(attempt, setup);
 		if (attempt.stopped) return stoppedOutcome();
 		const result = checkArchdemonNewConditions(setup, attempt.wallet.value, (await attempt.units()).fragments);
 		if (result.kind === "retry" && result.missing && setup.stopIfIncomplete) return {
@@ -3858,6 +3958,8 @@
 			kind: "retry",
 			reason: finalOutcome.reason
 		};
+		if (attempt.stopped) return stoppedOutcome();
+		await ascendHeroes(attempt, setup);
 		if (attempt.stopped) return stoppedOutcome();
 		const spent = await spendExtraCoins(attempt, setup);
 		if (spent.kind === "fatal") return {
@@ -5470,7 +5572,8 @@
 			pauseAfterBoss: false,
 			buyAnyRandomLots: false,
 			stopIfIncomplete: false,
-			keepExtraCoins: false
+			keepExtraCoins: false,
+			ascend: ""
 		};
 	}
 	function chapterSettingsKey(eventId, chapterId) {
@@ -5506,7 +5609,8 @@
 			pauseAfterBoss: isTrue(saved.pauseAfterBoss),
 			buyAnyRandomLots: isTrue(saved.buyAnyRandomLots),
 			stopIfIncomplete: isTrue(saved.stopIfIncomplete),
-			keepExtraCoins: isTrue(saved.keepExtraCoins)
+			keepExtraCoins: isTrue(saved.keepExtraCoins),
+			ascend: text(saved.ascend, empty.ascend)
 		};
 	}
 	function saveChapterSettings(eventId, chapterId, settings) {
@@ -7456,7 +7560,7 @@
 	}
 	function decodeStrategy(raw) {
 		if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-		const { buff, carry, sacrifice, point, chapters, cards, reserve, refreshes } = raw;
+		const { buff, carry, sacrifice, point, chapters, cards, reserve, refreshes, ascend } = raw;
 		const isId = (v) => Number.isInteger(v) && v > 0;
 		if (!Array.isArray(buff) || buff.length !== 2) return null;
 		const [buffMin, buffMax] = buff;
@@ -7486,6 +7590,9 @@
 		const reserveCount = reserve === void 0 ? 0 : intIn(reserve, 0, NX_POINT1_MAX_REFRESHES);
 		const refreshCount = refreshes === void 0 ? 0 : intIn(refreshes, 0, NX_SACRIFICE_MAX_REFRESHES);
 		if (reserveCount === null || refreshCount === null) return null;
+		const ascendList = ascend === void 0 ? [] : ascend;
+		if (!Array.isArray(ascendList) || ascendList.length > NX_TEAM_SIZE || !ascendList.every(isId)) return null;
+		if (new Set(ascendList).size !== ascendList.length) return null;
 		return {
 			buffMin,
 			buffMax,
@@ -7496,7 +7603,8 @@
 			chapters: chapterList.map(Number),
 			cards: cardsRule,
 			reserve: reserveCount,
-			refreshes: refreshCount
+			refreshes: refreshCount,
+			ascend: [...ascendList]
 		};
 	}
 	function decodeStrategyList(raw) {
@@ -7583,6 +7691,7 @@
 			sacrificeHeroes: [...choice?.strategy.sacrificeHeroes ?? []],
 			sacrificeRefreshes: choice?.strategy.refreshes ?? 0,
 			sacrificePoint: choice?.strategy.sacrificePoint ?? NX_DEFAULT_SACRIFICE_POINT,
+			ascendHeroes: [...choice?.strategy.ascend ?? []],
 			pauseAfterBoss: false,
 			buyAnyRandomLots: cards === "any",
 			skipRandomLots: cards === "none",
@@ -7801,7 +7910,7 @@
 		any: () => I18N("NX_PRESETS_CARDS_ANY")
 	};
 	function goHint(preset, buff, strategies, chapter = 0, eventId = currentEventId()) {
-		if (preset.talismanIds[0] !== NX_WEALTH_TALISMAN_ID) return I18N("NX_PRESETS_GO_HINT_PLAIN");
+		if (preset.talismanIds[0] !== NX_WEALTH_TALISMAN_ID) return I18N("NX_PRESETS_GO_HINT_PLAIN") + ascendHint(preset, null);
 		const choice = strategyCandidates(preset, buff, strategies, chapter, eventId)[0];
 		if (!choice) return I18N("NX_PRESETS_NO_STRATEGY", {
 			chapter: toRoman(chapter),
@@ -7816,7 +7925,13 @@
 			reserve: strategy.reserve,
 			refreshes: strategy.refreshes,
 			source: STRATEGY_SOURCE_TEXT[source]()
-		});
+		}) + ascendHint(preset, strategy);
+	}
+	function ascendHint(preset, strategy) {
+		const emblemId = ascensionEmblemId();
+		if (!emblemId || !preset.talismanIds.includes(emblemId)) return "";
+		const list = strategy?.ascend.length ? strategy.ascend.map(unitName).join(", ") : I18N("NX_PRESETS_ASCEND_TEAM");
+		return I18N("NX_PRESETS_GO_ASCEND", { list });
 	}
 	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, chapterNumber = 0, eventId = currentEventId(), client = new PresetsClient() }) {
 		root.querySelector("#nxPresetsView")?.remove();
@@ -8092,6 +8207,12 @@
 	function sacrificeText(raw) {
 		return (parseIdList(String(raw ?? "")) ?? []).slice(0, NX_SACRIFICE_CANDIDATES).join(", ");
 	}
+	function ascendItems(raw) {
+		return (parseIdList(String(raw ?? "")) ?? []).slice(0, NX_TEAM_SIZE).map((id) => ({
+			id,
+			rank: 7
+		}));
+	}
 	function initialChapter(eventId, chapters, available = () => true) {
 		const saved = savedEventChapter(eventId);
 		const pick = chapters.find((c) => Number(c.id) === saved && available(Number(c.id))) ?? chapters.find((c) => available(Number(c.id))) ?? chapters[0];
@@ -8105,7 +8226,8 @@
 			talismans: settings.talismans,
 			carry: settings.carry,
 			sacrifice: sacrificeText(settings.sacrifice),
-			sacrificePoint: settings.sacrificePoint
+			sacrificePoint: settings.sacrificePoint,
+			ascend: settings.ascend
 		};
 	}
 	function setupTalismans() {
@@ -8132,6 +8254,7 @@
 		await squadHtml(saved.team, saved.mainPet, saved.talismans, pace);
 		await heroListHtml(parseRankedIdList(saved.carry) ?? [], "nxCarryEdit", "", pace);
 		await heroListHtml(parseRankedIdList(saved.sacrifice) ?? [], "nxSacrificeEdit", "", pace);
+		if (ascensionEmblemId()) await heroListHtml(ascendItems(saved.ascend), "nxAscendEdit", "", pace);
 	}
 	function talismanSlotsHtml(library, talismanIds) {
 		return talismanIds.map((id) => {
@@ -8173,6 +8296,8 @@
 		const rollBosses = [...emblemRolls.sure, ...emblemRolls.maybe];
 		let currentCarry = state.carry;
 		let currentSacrifice = sacrificeText(state.sacrifice);
+		let currentAscend = state.ascend;
+		const ascensionId = ascensionEmblemId();
 		const talismanRowsFor = (rollNumber) => setupTalismans().filter((e) => rollNumber === 1 || !e.firstChoiceOnly).map((e) => {
 			let description = "";
 			try {
@@ -8235,6 +8360,12 @@
 			html += "</div>";
 		});
 		html += "</div>";
+		if (ascensionId) {
+			html += "<div id=\"nxAscendRow\">";
+			html += section(I18N("NX_BLOCK_ASCEND", { name: escapeAttr(emblemName(ascensionId)) }), I18N("NX_BLOCK_ASCEND_HINT", { cost: ascensionCost() ?? "?" }));
+			html += `<div id="nxAscendBlock">${await heroListHtml(ascendItems(currentAscend), "nxAscendEdit", I18N("NX_ASCEND_EDIT_HINT"))}</div>`;
+			html += "</div>";
+		}
 		html += "<div id=\"hwhNewWealthNote\" style=\"text-align: left; margin: 16px 0 0; font-size: 14px; color: #ffcf84;\">" + I18N("NX_WEALTH_ONLY_NOTE") + "</div>";
 		html += `<div id="hwhNewDefaultBlock" class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewStopIncompleteInput"${state.stopIfIncomplete ? " checked" : ""}><label for="hwhNewStopIncompleteInput" title="${escapeAttr(I18N("NX_BLOCK_STOP_INCOMPLETE_HINT"))}">${I18N("NX_BLOCK_STOP_INCOMPLETE")}</label></div>`;
 		html += "<div id=\"hwhNewWealthBlock\">";
@@ -8276,6 +8407,12 @@
 			if (note) note.style.display = wealth ? "none" : "";
 			const defaultBlock = root.querySelector("#hwhNewDefaultBlock");
 			if (defaultBlock) defaultBlock.style.display = wealth ? "none" : "";
+		};
+		const syncAscendRow = () => {
+			const row = root.querySelector("#nxAscendRow");
+			if (!row) return;
+			const chosen = rollBosses.some((bossNumber, index) => Number(readRadio(`talisman${index + 1}`)) === ascensionId);
+			row.style.display = chosen ? "" : "none";
 		};
 		const repaintTalismans = () => {
 			const chosen = {};
@@ -8395,6 +8532,7 @@
 			const stopIfIncompleteRaw = root.querySelector("#hwhNewStopIncompleteInput")?.checked === true;
 			const mainPet = Number(mainPetValue);
 			const chapterId = Number(chapterValue);
+			const ascendHeroes = ascensionId && talismanIds.includes(ascensionId) ? ascendItems(currentAscend).map((e) => e.id) : [];
 			return {
 				kind: "setup",
 				value: {
@@ -8420,6 +8558,7 @@
 					stopIfIncomplete: talismanId !== NX_WEALTH_TALISMAN_ID && stopIfIncompleteRaw,
 					stopIfIncompleteRaw,
 					sacrificePoint: Number(readRadio("sacrificePoint") ?? state.sacrificePoint),
+					ascendHeroes,
 					teamRaw: String(teamRaw).trim(),
 					minCoinsRaw: String(minCoinsRaw).replace(/\s+/g, ""),
 					carryRaw: String(carryRaw).trim(),
@@ -8478,6 +8617,7 @@
 						if (any) any.checked = true;
 					});
 					syncWealthBlock();
+					syncAscendRow();
 					repaintTalismans();
 					refreshTalismanSlots();
 				}
@@ -8488,6 +8628,7 @@
 			}
 			bindRadios(root);
 			syncWealthBlock();
+			syncAscendRow();
 			repaintTalismans();
 			root.querySelector("#hwhNewMinCoinsInput")?.addEventListener("input", function() {
 				const bonus = root.querySelector("#nxMinCoinsBonus");
@@ -8523,7 +8664,8 @@
 					pauseAfterBoss: value.pauseAfterBoss,
 					buyAnyRandomLots: value.buyAnyRandomLots,
 					stopIfIncomplete: value.stopIfIncompleteRaw,
-					keepExtraCoins: loadChapterSettings(eventId, value.chapterId).keepExtraCoins
+					keepExtraCoins: loadChapterSettings(eventId, value.chapterId).keepExtraCoins,
+					ascend: currentAscend
 				};
 				saveChapterSettings(eventId, value.chapterId, state);
 				saveEventChapter(eventId, value.chapterId);
@@ -8561,23 +8703,25 @@
 				row.style.display = sacrifice.length > 0 && !sacrifice.some((id) => carry.includes(id)) ? "" : "none";
 			};
 			syncSacrificeRefreshRow();
-			const bindListEdit = (buttonId, pickerId, blockId, title, getRaw, setRaw, max, hint, withRanks) => {
+			const bindListEdit = (buttonId, pickerId, blockId, title, getRaw, setRaw, max, hint, withRanks, toItems = (raw) => parseRankedIdList(raw) ?? []) => {
 				root.querySelector(`#${buttonId}`)?.addEventListener("click", handleAsync(async () => {
 					const picked = await openHeroListPicker(parseRankedIdList(getRaw()) ?? [], title, max, withRanks, pickerId);
 					if (!picked) return;
 					setRaw(picked.heroIds.map((id) => withRanks ? `${id}/${picked.ranks[id]}` : id).join(", "));
 					persist();
 					const block = root.querySelector(`#${blockId}`);
-					if (block) block.innerHTML = await heroListHtml(parseRankedIdList(getRaw()) ?? [], buttonId, hint);
-					bindListEdit(buttonId, pickerId, blockId, title, getRaw, setRaw, max, hint, withRanks);
+					if (block) block.innerHTML = await heroListHtml(toItems(getRaw()), buttonId, hint);
+					bindListEdit(buttonId, pickerId, blockId, title, getRaw, setRaw, max, hint, withRanks, toItems);
 					syncSacrificeRefreshRow();
 					showError("");
 				}));
 			};
 			const bindCarryEdit = () => bindListEdit("nxCarryEdit", "nxCarryPicker", "nxCarryBlock", I18N("NX_PICK_CARRY_TITLE"), () => currentCarry, (v) => currentCarry = v, NX_TEAM_SIZE, I18N("NX_LIST_EDIT_HINT"), true);
 			const bindSacrificeEdit = () => bindListEdit("nxSacrificeEdit", "nxSacrificePicker", "nxSacrificeBlock", I18N("NX_PICK_SACRIFICE_TITLE"), () => currentSacrifice, (v) => currentSacrifice = v, NX_SACRIFICE_CANDIDATES, I18N("NX_SACRIFICE_EDIT_HINT"), false);
+			const bindAscendEdit = () => bindListEdit("nxAscendEdit", "nxAscendPicker", "nxAscendBlock", I18N("NX_PICK_ASCEND_TITLE"), () => currentAscend, (v) => currentAscend = v, NX_TEAM_SIZE, I18N("NX_ASCEND_EDIT_HINT"), false, ascendItems);
 			bindCarryEdit();
 			bindSacrificeEdit();
+			bindAscendEdit();
 			const inputValue = (selector) => root.querySelector(selector)?.value ?? "";
 			const isChecked = (selector) => root.querySelector(selector)?.checked === true;
 			const setValue = (selector, value) => {
@@ -8606,7 +8750,8 @@
 				pauseAfterBoss: isChecked("#hwhNewPauseInput"),
 				buyAnyRandomLots: isChecked("#hwhNewRandomAnyInput"),
 				stopIfIncomplete: isChecked("#hwhNewStopIncompleteInput"),
-				keepExtraCoins: loadChapterSettings(eventId, activeChapter).keepExtraCoins
+				keepExtraCoins: loadChapterSettings(eventId, activeChapter).keepExtraCoins,
+				ascend: currentAscend
 			});
 			function persist() {
 				state = readState();
@@ -8618,6 +8763,7 @@
 				currentMainPet = next.mainPet;
 				currentCarry = next.carry;
 				currentSacrifice = sacrificeText(next.sacrifice);
+				currentAscend = next.ascend;
 				talismansFor(next).forEach((id, index) => checkRadio(`talisman${index + 1}`, id));
 				setValue("#hwhNewMinCoinsInput", next.minCoins);
 				const bonus = root.querySelector("#nxMinCoinsBonus");
@@ -8629,14 +8775,16 @@
 				setChecked("#hwhNewStopIncompleteInput", next.stopIfIncomplete);
 				renderSacrificePoints();
 				syncWealthBlock();
+				syncAscendRow();
 				repaintTalismans();
 				syncSacrificeRefreshRow();
 				setStartEnabled(isSquadReady(currentTeam));
 				showError("");
-				const [squad, carry, sacrifice] = await Promise.all([
+				const [squad, carry, sacrifice, ascend] = await Promise.all([
 					squadHtml(currentTeam, currentMainPet, readTalismanIds()),
 					heroListHtml(parseRankedIdList(currentCarry) ?? [], "nxCarryEdit", I18N("NX_LIST_EDIT_HINT")),
-					heroListHtml(parseRankedIdList(currentSacrifice) ?? [], "nxSacrificeEdit", I18N("NX_SACRIFICE_EDIT_HINT"))
+					heroListHtml(parseRankedIdList(currentSacrifice) ?? [], "nxSacrificeEdit", I18N("NX_SACRIFICE_EDIT_HINT")),
+					heroListHtml(ascendItems(currentAscend), "nxAscendEdit", I18N("NX_ASCEND_EDIT_HINT"))
 				]);
 				if (!current()) return;
 				const blocks = [
@@ -8654,6 +8802,11 @@
 						"#nxSacrificeBlock",
 						sacrifice,
 						bindSacrificeEdit
+					],
+					[
+						"#nxAscendBlock",
+						ascend,
+						bindAscendEdit
 					]
 				];
 				for (const [selector, markup, bind] of blocks) {
