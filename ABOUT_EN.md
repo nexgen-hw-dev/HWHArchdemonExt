@@ -24,6 +24,7 @@ If a run does not work out, it resets the chapter and tries again.
   - resale of profitable lots;
   - discounted pets are bought out and sold later, so the shop offers more heroes;
   - minimum Shop Coins with the emblem bonus shown: the shopping stops once it is out of reach.
+- **The needed emblem was not offered** — the chapter's free rerolls go first, then the chapter restarts.
 - **Emblem of Ascension** — once it is taken, the run ascends the heroes of the team or the ones picked in the window,
   collected in full, before the Archdemon: +20% to all stats for 30 Shop Coins each, never below the minimum for the Emblem of Capital.
 - **Ready-made builds** — per event and chapter: the window lists the builds of the running event and the chosen chapter — teams of other players from open videos, collected on [HWDaily](https://hwdaily.win/) (by Fragator)

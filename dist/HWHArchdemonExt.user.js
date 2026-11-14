@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.27-beta
+// @version         1.28-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -162,6 +162,7 @@
 	};
 	var NX_WEALTH_TALISMAN_ID = 8008;
 	var NX_EXCLUDED_TALISMAN_IDS = [8005, 8009];
+	var NX_MAX_EMBLEM_REROLLS = 10;
 	var NX_TEAM_SIZE = 5;
 	var NX_MIN_LOT_COST = 12;
 	var NX_STALL_REFRESH_COST = 3;
@@ -438,6 +439,7 @@
 			NX_FAIL_NO_STATE: "The server did not send the chapter state after the battle",
 			NX_TALISMAN_TAKEN: "Emblem on: {name}",
 			NX_ASCENDED: "Ascended: {name}, −{cost}",
+			NX_TALISMAN_REROLL: "Emblems rerolled ({number}), {left} rerolls left",
 			NX_CHAPTER: "Chapter",
 			NX_CANCEL: "Cancel",
 			NX_ENTERING: "Entering the chapter",
@@ -699,6 +701,7 @@
 			NX_FAIL_NO_STATE: "Сервер не прислал состояние главы после боя",
 			NX_TALISMAN_TAKEN: "Надели эмблему: {name}",
 			NX_ASCENDED: "Возвышение: {name}, −{cost}",
+			NX_TALISMAN_REROLL: "Переброс эмблем ({number}), осталось перебросов: {left}",
 			NX_CHAPTER: "Глава",
 			NX_CANCEL: "Отмена",
 			NX_ENTERING: "Входим в главу",
@@ -1723,6 +1726,10 @@
 		if (answer != null && !Array.isArray(answer.emblemIds)) console.warn("Выдача эмблем: нет emblemIds в ответе", answer);
 		return (Array.isArray(answer?.emblemIds) ? answer.emblemIds : []).map(Number).filter((id) => Number.isFinite(id) && id > 0 && id !== NX_SALE_TALISMAN_ID);
 	}
+	function rerollsLeftOf(answer) {
+		const left = Math.floor(Number(answer?.rerollsLeft ?? 0));
+		return Number.isFinite(left) && left > 0 ? left : 0;
+	}
 	function pickTalisman(setup, offered, taken) {
 		const wanted = Number(setup.talismanIds?.[taken] ?? 0);
 		const pick = wanted ? offered.find((id) => id === wanted) : offered[0];
@@ -1785,7 +1792,8 @@
 				kind: "retry",
 				reason: I18N("NX_REASON_STOPPED")
 			};
-			const offered = offeredTalismans(await Caller.send("invasion_rollEmblems"));
+			const roll = await Caller.send("invasion_rollEmblems");
+			const offered = offeredTalismans(roll);
 			if (offered.length > 0) {
 				await pause(NX_PACE.stallAll);
 				await Caller.send("shopGetAll");
@@ -1794,7 +1802,7 @@
 					kind: "retry",
 					reason: I18N("NX_REASON_STOPPED")
 				};
-				const reason = onTalismans ? await onTalismans(offered) : I18N("NX_REASON_NO_TALISMAN");
+				const reason = onTalismans ? await onTalismans(offered, rerollsLeftOf(roll)) : I18N("NX_REASON_NO_TALISMAN");
 				if (reason) return {
 					kind: "retry",
 					reason
@@ -1812,6 +1820,14 @@
 			return {
 				kind: "open",
 				slots
+			};
+		}
+		async rerollEmblems() {
+			await pause(NX_PACE.talismanPick);
+			const roll = await Caller.send("invasion_rollEmblems");
+			return {
+				offered: offeredTalismans(roll),
+				rerollsLeft: rerollsLeftOf(roll)
 			};
 		}
 		async refresh() {
@@ -2011,8 +2027,26 @@
 		async units() {
 			return ownedUnits(this.live ?? this.setFragments((await Caller.send("invasion_getInfo"))?.fragments));
 		}
-		async takeTalisman(setup, offered) {
-			const pick = pickTalisman(setup, offered, this.talismans.length);
+		async takeTalisman(setup, offered, rerollsLeft = 0) {
+			let pick = pickTalisman(setup, offered, this.talismans.length);
+			let left = rerollsLeft;
+			for (let number = 1; !pick && left > 0 && number <= NX_MAX_EMBLEM_REROLLS; number++) {
+				const stall = this.stall;
+				if (this.stopped || !stall) break;
+				let next;
+				try {
+					next = await stall.rerollEmblems();
+				} catch (e) {
+					console.error(e);
+					break;
+				}
+				left = Math.min(next.rerollsLeft, left - 1);
+				this.progress(I18N("NX_TALISMAN_REROLL", {
+					number,
+					left
+				}), null, true);
+				pick = pickTalisman(setup, next.offered, this.talismans.length);
+			}
 			if (!pick) return I18N("NX_REASON_NO_TALISMAN");
 			await Caller.send({
 				name: "invasion_selectEmblem",
@@ -3304,7 +3338,7 @@
 			error: I18N("NX_FAIL_NO_STALL")
 		};
 		try {
-			const opened = await stall.open((offered) => attempt.takeTalisman(setup, offered));
+			const opened = await stall.open((offered, rerollsLeft) => attempt.takeTalisman(setup, offered, rerollsLeft));
 			if (opened.kind === "retry") return {
 				kind: "retry",
 				reason: opened.reason
@@ -3439,7 +3473,7 @@
 			error: I18N("NX_FAIL_NO_STALL")
 		};
 		try {
-			const finalVisit = await stall.open((offered) => attempt.takeTalisman(setup, offered));
+			const finalVisit = await stall.open((offered, rerollsLeft) => attempt.takeTalisman(setup, offered, rerollsLeft));
 			if (finalVisit.kind === "retry") return {
 				kind: "retry",
 				reason: finalVisit.reason
@@ -3472,7 +3506,7 @@
 			error: I18N("NX_FAIL_NO_STALL")
 		};
 		try {
-			const opened = await stall.open((offered) => attempt.takeTalisman(setup, offered));
+			const opened = await stall.open((offered, rerollsLeft) => attempt.takeTalisman(setup, offered, rerollsLeft));
 			if (opened.kind === "retry") return {
 				kind: "retry",
 				reason: opened.reason
@@ -3928,7 +3962,7 @@
 		};
 		let finalVisit;
 		try {
-			finalVisit = await stall.open((offered) => attempt.takeTalisman(setup, offered));
+			finalVisit = await stall.open((offered, rerollsLeft) => attempt.takeTalisman(setup, offered, rerollsLeft));
 		} catch (e) {
 			console.error(e);
 			return {
