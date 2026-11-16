@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.28-beta
+// @version         1.29-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -21,6 +21,7 @@
 	var NX_PET_ID_THRESHOLD = 4400;
 	var NX_TIMER_SEARCH_MAX_TRIES = 1e3;
 	var NX_SMARTFIX_FIRST_ULT_CAP = 15;
+	var NX_LOG_TIMER_MAX_TRIES = 500;
 	var NX_SMARTFIX_BUDGET_MS = 4e4;
 	var NX_STEP0_TIMER_MAX = 120;
 	var NX_TIMER_SEARCH_BUDGET_MS = 6e4;
@@ -1270,7 +1271,8 @@
 		const first = Result ? (results?.[protoMethod(Result, 2)])?.[0] : void 0;
 		if (!Encoder || !Reader || first === void 0 || typeof Encoder.read !== "function") return {
 			battleTime: NaN,
-			firstUltTime: null
+			firstUltTime: null,
+			times: null
 		};
 		const log = Encoder.read(new Reader(first));
 		let battleTime = 0;
@@ -1284,9 +1286,11 @@
 		} catch (e) {
 			console.warn("Расчёт боя: первый готовый ульт найти не удалось", e);
 		}
+		const times = [...new Set(log.map((event) => Number(event.time)).filter((time) => Number.isFinite(time)))];
 		return {
 			battleTime,
-			firstUltTime
+			firstUltTime,
+			times
 		};
 	}
 	function disposeLater(play) {
@@ -1336,7 +1340,8 @@
 						const timeLimit = Number(call(presets, propertyMethod(Presets, "get_timeLimit")));
 						const parsed = log ? readLog(results, timeLimit) : {
 							battleTime: NaN,
-							firstUltTime: null
+							firstUltTime: null,
+							times: null
 						};
 						const map = capturing ? validSteps(points) : null;
 						const lastStep = points.length ? points[points.length - 1].time : NaN;
@@ -1345,7 +1350,8 @@
 							progress: plain(call(results, propertyMethod(Result, "get_progress"))),
 							battleTime: Number.isFinite(parsed.battleTime) ? parsed.battleTime : lastStep,
 							firstUltTime: parsed.firstUltTime,
-							steps: map
+							steps: map,
+							logTimes: parsed.times
 						});
 					} catch (e) {
 						reject(e);
@@ -2241,6 +2247,36 @@
 		}
 		return best;
 	}
+	function logTimerQueue(times) {
+		return [...new Set(times.filter((time) => Number.isFinite(time)))].sort(() => Math.random() - .5);
+	}
+	async function logStage(battle, times, control, tally) {
+		let tried = 0;
+		for (const timer of logTimerQueue(times)) {
+			if (tried >= NX_LOG_TIMER_MAX_TRIES || exhausted(control, tally.count)) break;
+			tried++;
+			await nextTask();
+			let outcome;
+			try {
+				outcome = await calcBattle(withInput(battle, timerInput(0, timer)), { log: true });
+			} catch (e) {
+				tally.counted();
+				console.warn(`Подбор: движок не принял «авто» на ${timer} с с шагом 0`, e);
+				continue;
+			}
+			tally.counted();
+			if (outcome.result?.win === true) return {
+				result: outcome.result,
+				progress: outcome.progress,
+				timer,
+				stepIndex: 0,
+				battleTime: outcome.battleTime,
+				count: tally.count,
+				stage: "log"
+			};
+		}
+		return null;
+	}
 	async function searchWin(battle, auto, control) {
 		const tally = {
 			count: 0,
@@ -2258,6 +2294,10 @@
 			count: tally.count,
 			stage
 		} : null;
+		if (auto.logTimes?.length) {
+			const byLog = await logStage(battle, auto.logTimes, control, tally);
+			if (byLog) return byLog;
+		}
 		const ref = await referenceRun(battle);
 		tally.count++;
 		const min = Math.max(NX_BATTLE_TIMER_RANGE.min, Math.min(ref.firstUltTime ?? NX_SMARTFIX_FIRST_ULT_CAP, NX_SMARTFIX_FIRST_ULT_CAP));
@@ -2462,7 +2502,7 @@
 					};
 					sentTime = sentBattleTime(found.battleTime, auto.battleTime);
 					improved = true;
-					story = `улучшен ${found.stage === "step0" ? "с шагом 0" : "Smartfix"}, победа на таймере ${Number(found.timer).toFixed(2)} с, шаг ${found.stepIndex}, ${searched}, бой ${secondsText(found.battleTime)} с`;
+					story = `улучшен ${found.stage === "log" ? "моментом из журнала боя, как «Улучшить» помощника" : found.stage === "step0" ? "с шагом 0" : "Smartfix"}, победа на таймере ${Number(found.timer).toFixed(2)} с, шаг ${found.stepIndex}, ${searched}, бой ${secondsText(found.battleTime)} с`;
 				} else {
 					story = `победы не нашлось, ${searched}, уходит автобой, бой ${secondsText(auto.battleTime)} с`;
 					attempt.progress(I18N("NX_WIN_NOT_FOUND"), "timer", true);
