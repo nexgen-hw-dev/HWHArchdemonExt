@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.29-beta
+// @version         1.30-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -24,6 +24,7 @@
 	var NX_LOG_TIMER_MAX_TRIES = 500;
 	var NX_SMARTFIX_BUDGET_MS = 4e4;
 	var NX_STEP0_TIMER_MAX = 120;
+	var NX_SMARTFIX_ON = false;
 	var NX_TIMER_SEARCH_BUDGET_MS = 6e4;
 	var NX_LOSS_TIMER_RANGE = {
 		min: 1.3,
@@ -2298,6 +2299,19 @@
 			const byLog = await logStage(battle, auto.logTimes, control, tally);
 			if (byLog) return byLog;
 		}
+		const none = {
+			result: null,
+			progress: null,
+			timer: 0,
+			stepIndex: 0,
+			battleTime: NaN,
+			count: 0,
+			stage: null
+		};
+		if (!(control.smartfix ?? NX_SMARTFIX_ON)) return found(await bisect(battle, auto, null, NX_BATTLE_TIMER_RANGE.min, NX_STEP0_TIMER_MAX, control.endTime, control, tally), "step0") ?? {
+			...none,
+			count: tally.count
+		};
 		const ref = await referenceRun(battle);
 		tally.count++;
 		const min = Math.max(NX_BATTLE_TIMER_RANGE.min, Math.min(ref.firstUltTime ?? NX_SMARTFIX_FIRST_ULT_CAP, NX_SMARTFIX_FIRST_ULT_CAP));
@@ -2313,13 +2327,8 @@
 			if (step0) return step0;
 		}
 		return {
-			result: null,
-			progress: null,
-			timer: 0,
-			stepIndex: 0,
-			battleTime: NaN,
-			count: tally.count,
-			stage: null
+			...none,
+			count: tally.count
 		};
 	}
 	function lossTimerQueue(start, range = NX_LOSS_TIMER_RANGE, step = NX_LOSS_TIMER_STEP) {
