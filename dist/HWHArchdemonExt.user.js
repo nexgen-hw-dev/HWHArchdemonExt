@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.37-beta
+// @version         1.38-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -299,6 +299,8 @@
 			NX_PRESETS_STRATEGY_BUILTIN: "the built-in strategy",
 			NX_PRESETS_GO_HINT_PLAIN: "Run the chosen chapter with this build",
 			NX_PRESETS_GO_ASCEND: "; ascends before the Archdemon: {list}",
+			NX_PRESETS_GO_START: "; at point 1 buys {count} more heroes — discounted pairs and random fragments, then discounted final heroes along the way",
+			NX_PRESETS_WEAKEST: "the weakest hero on hand",
 			NX_PRESETS_ASCEND_TEAM: "the team of the build, those collected in full",
 			NX_PRESETS_BACK: "Back",
 			NX_PRESETS_LOADING: "Loading the builds…",
@@ -352,6 +354,8 @@
 			NX_BOOK_PETS_DISCOUNT: "discounted pets",
 			NX_BOOK_ANY_HERO: "any hero",
 			NX_BOOK_ASCEND: "ascension",
+			NX_BOOK_START_HEROES: "start heroes",
+			NX_BOOK_MAIN_ALONG: "main pack along the way",
 			NX_CONTINUE: "Continue",
 			NX_HALT: "Stop here",
 			NX_HALTED_SYNC: `Stopped before the Archdemon. The chapter is <span style="color: LimeGreen;">not reset</span>.<br>
@@ -379,11 +383,13 @@
 			NX_LOG_TARGET_MIN: "→ {from}+",
 			NX_LOG_TARGET_HINT: "Coins target before the Archdemon: Emblem of Capital {percent}%",
 			NX_POINT_TAKEN: "Point {point} taken",
+			NX_START_TEAM: "Start: {have} of {goal} heroes on hand",
 			NX_PROGRESS_TEAM: "Team",
 			NX_PROGRESS_CARRY: "Carry",
 			NX_PROGRESS_SACRIFICE: "To throw",
 			NX_PROGRESS_PETS: "Pets",
 			NX_PROGRESS_EXTRA: "Extra for sale",
+			NX_PROGRESS_START: "Start",
 			NX_EVENT_PIN: "Pinned for <span style=\"color: #a8a8a8;\">{coins}</span>",
 			NX_UPDATE_SHORT: "{version} is out",
 			NX_UPDATE_BUTTON: "Update",
@@ -569,6 +575,8 @@
 			NX_PRESETS_STRATEGY_BUILTIN: "встроенная стратегия",
 			NX_PRESETS_GO_HINT_PLAIN: "Пройти выбранную главу по этой сборке",
 			NX_PRESETS_GO_ASCEND: "; перед Архидемоном возвысит: {list}",
+			NX_PRESETS_GO_START: "; на точке 1 докупит героев: {count} — пары со скидкой и случайные фрагменты, дальше финальных со скидкой по ходу",
+			NX_PRESETS_WEAKEST: "самый слабый на руках",
 			NX_PRESETS_ASCEND_TEAM: "состав сборки, кто собран полностью",
 			NX_PRESETS_BACK: "Назад",
 			NX_PRESETS_LOADING: "Загружаем сборки…",
@@ -622,6 +630,8 @@
 			NX_BOOK_PETS_DISCOUNT: "питомцы со скидкой",
 			NX_BOOK_ANY_HERO: "любой герой",
 			NX_BOOK_ASCEND: "возвышение",
+			NX_BOOK_START_HEROES: "докупка на старте",
+			NX_BOOK_MAIN_ALONG: "основной пак по ходу",
 			NX_CONTINUE: "Продолжить",
 			NX_HALT: "Остановиться",
 			NX_HALTED_SYNC: `Остановились перед Архидемоном. Глава <span style="color: LimeGreen;">не сброшена</span>.<br>
@@ -649,11 +659,13 @@
 			NX_LOG_TARGET_MIN: "→ от {from}",
 			NX_LOG_TARGET_HINT: "Цель по монетам перед Архидемоном: Эмблема капитала {percent}%",
 			NX_POINT_TAKEN: "Точка {point} взята",
+			NX_START_TEAM: "Старт: героев на руках {have} из {goal}",
 			NX_PROGRESS_TEAM: "Состав",
 			NX_PROGRESS_CARRY: "Проходные",
 			NX_PROGRESS_SACRIFICE: "Для слива",
 			NX_PROGRESS_PETS: "Питомцы",
 			NX_PROGRESS_EXTRA: "Экстра на продажу",
+			NX_PROGRESS_START: "Старт",
 			NX_EVENT_PIN: "Закрепили за <span style=\"color: #a8a8a8;\">{coins}</span>",
 			NX_UPDATE_SHORT: "доступна {version}",
 			NX_UPDATE_BUTTON: "Обновить",
@@ -1529,6 +1541,67 @@
 		if (ids.some((e) => !Number.isInteger(e) || e <= 0)) return null;
 		return [...new Set(ids)];
 	}
+	function startActive(setup) {
+		return Number(setup.startBuy ?? 0) > 0;
+	}
+	function handHeroes(fragments) {
+		return Object.entries(fragments).filter(([id, count]) => Number(id) > 0 && Number(id) < NX_PET_ID_THRESHOLD && Number(count) > 0).map(([id]) => Number(id));
+	}
+	function fixedHero(setup, id) {
+		return Number(setup.targets?.[id] ?? 0) > 0 || (setup.carryHeroes ?? []).includes(id) || (setup.carryExtraHeroes ?? []).includes(id) || (setup.sacrificeHeroes ?? []).includes(id);
+	}
+	function startGoal(setup, fragments) {
+		if (!startActive(setup)) return 0;
+		const hand = handHeroes(fragments);
+		const carryMissing = (setup.carryHeroes ?? []).filter((id) => !hand.includes(id)).length;
+		return Math.min(NX_TEAM_SIZE, hand.length + carryMissing + Number(setup.startBuy));
+	}
+	function roleTier(id) {
+		const roles = heroRoles(id);
+		for (const [at, role] of NX_SACRIFICE_ROLES.entries()) {
+			if (roles[0] === role) return at * 2;
+			if (roles.includes(role)) return at * 2 + 1;
+		}
+		return NX_SACRIFICE_ROLES.length * 2;
+	}
+	function weakestBody(bodies, hand, fragments) {
+		const mainRole = (id) => heroRoles(id)[0] ?? "";
+		const twin = (id) => {
+			const role = mainRole(id);
+			return role !== "" && hand.some((other) => other !== id && mainRole(other) === role);
+		};
+		let worst = 0;
+		for (const id of bodies) {
+			if (!worst) {
+				worst = id;
+				continue;
+			}
+			const [a, b] = [twin(id), twin(worst)];
+			if (a !== b) {
+				if (a) worst = id;
+				continue;
+			}
+			const [ta, tb] = [roleTier(id), roleTier(worst)];
+			if (ta !== tb) {
+				if (ta < tb) worst = id;
+				continue;
+			}
+			if (Number(fragments[id] ?? 0) < Number(fragments[worst] ?? 0)) worst = id;
+		}
+		return worst;
+	}
+	function keptBodies(setup, fragments) {
+		if (!startActive(setup)) return [];
+		const hand = handHeroes(fragments);
+		const fixed = hand.filter((id) => fixedHero(setup, id));
+		let bodies = hand.filter((id) => !fixedHero(setup, id));
+		const free = Math.max(0, NX_TEAM_SIZE - fixed.length);
+		while (bodies.length > free) {
+			const worst = weakestBody(bodies, [...fixed, ...bodies], fragments);
+			bodies = bodies.filter((id) => id !== worst);
+		}
+		return bodies;
+	}
 	function carryPackReady(setup, fragments) {
 		const mainReady = setup.carryHeroes.every((id) => Number(fragments[id] ?? 0) > 0);
 		const extras = setup.carryExtraHeroes ?? [];
@@ -1556,6 +1629,11 @@
 		return candidates.length > 0 && !candidates.some((id) => setup.carryHeroes.includes(id)) && !sacrificeOwned(setup, fragments);
 	}
 	function pickSacrificeHero(setup, fragments) {
+		if (!(setup.sacrificeHeroes ?? []).length && startActive(setup)) {
+			const hand = handHeroes(fragments);
+			const bodies = keptBodies(setup, fragments);
+			return weakestBody(bodies.length ? bodies : hand, hand, fragments);
+		}
 		const tier = (id) => {
 			const roles = heroRoles(id);
 			for (const [at, role] of NX_SACRIFICE_ROLES.entries()) {
@@ -1663,7 +1741,7 @@
 			const heroId = Number(id);
 			const have = Number(count);
 			if (!(have > 0) || heroId >= NX_PET_ID_THRESHOLD) continue;
-			const need = startNeed(setup, heroId);
+			const need = Math.max(startNeed(setup, heroId), startActive(setup) ? 1 : 0);
 			const keep = need > 0 ? Math.max(need, rankFloor(have)) : 0;
 			if (have > keep) sales.push([heroId, have - keep]);
 		}
@@ -1699,6 +1777,10 @@
 				kind: "carry",
 				units: take([...setup.carryHeroes ?? [], ...setup.carryExtraHeroes ?? []], (id) => setup.carryTargets?.[id], true)
 			},
+			...Number(setup.startBuy ?? 0) > 0 ? [{
+				kind: "start",
+				units: []
+			}] : [],
 			{
 				kind: "sacrifice",
 				units: take(setup.sacrificeHeroes, () => 1)
@@ -1707,7 +1789,7 @@
 				kind: "pets",
 				units: take(setup.petsToCollect, () => 1)
 			}
-		].filter((group) => group.units.length > 0);
+		].filter((group) => group.units.length > 0 || group.kind === "start");
 	}
 	function extraPets(groups, owned) {
 		const planned = new Set(groups.flatMap((group) => group.units.map((unit) => unit.id)));
@@ -1715,6 +1797,14 @@
 			id: Number(id),
 			count: Number(count)
 		})).filter((unit) => unit.id >= NX_PET_ID_THRESHOLD && unit.count > 0 && !planned.has(unit.id));
+	}
+	function extraHeroes(groups, owned) {
+		if (!groups.some((group) => group.kind === "start")) return [];
+		const planned = new Set(groups.flatMap((group) => group.units.map((unit) => unit.id)));
+		return Object.entries(owned).map(([id, count]) => ({
+			id: Number(id),
+			count: Number(count)
+		})).filter((unit) => unit.id > 0 && unit.id < NX_PET_ID_THRESHOLD && unit.count > 0 && !planned.has(unit.id));
 	}
 	function pinnedFragments(slots, pinned) {
 		const out = {};
@@ -1755,7 +1845,9 @@
 		"неизвестные карты": () => I18N("NX_BOOK_UNKNOWN"),
 		"питомцы со скидкой": () => I18N("NX_BOOK_PETS_DISCOUNT"),
 		"любой герой": () => I18N("NX_BOOK_ANY_HERO"),
-		возвышение: () => I18N("NX_BOOK_ASCEND")
+		возвышение: () => I18N("NX_BOOK_ASCEND"),
+		старт: () => I18N("NX_BOOK_START_HEROES"),
+		"основной пак по ходу": () => I18N("NX_BOOK_MAIN_ALONG")
 	};
 	function ledgerEntryText(category) {
 		return ENTRY_TEXT[category]?.() ?? category;
@@ -2763,6 +2855,27 @@
 		}
 		return base;
 	}
+	function heroShape(reward) {
+		return Object.values(reward?.invasionFragmentHero ?? {}).map(Number).sort((a, b) => a - b).join(",");
+	}
+	function heroLotBaseCost(slot, shopId) {
+		const shape = heroShape(slot.reward);
+		if (!shape) return 0;
+		let base = 0;
+		for (const list of Object.values(shopById(shopId)?.slots ?? {})) for (const lot of list) {
+			if (lot.reward?.invasionFragmentPet || heroShape(lot.reward) !== shape) continue;
+			const cost = Number(lot.cost?.coin?.[1080] ?? 0);
+			if (cost > 0 && (!base || cost < base)) base = cost;
+		}
+		if (base) return base;
+		return shape.split(",").reduce((sum, count) => sum + Number(count), 0) * 2 * fragmentSellPrice("hero");
+	}
+	function isDiscountedHeroSlot(slot, shopId) {
+		if (!slot.reward?.invasionFragmentHero || slot.reward?.invasionFragmentHeroRand || slot.reward?.invasionFragmentPet) return false;
+		const cost = Number(slot.cost?.coin?.[1080] ?? 0);
+		const base = heroLotBaseCost(slot, shopId);
+		return cost > 0 && base > 0 && cost < base;
+	}
 	function isDiscountedPetSlot(slot, shopId) {
 		if (!slot.reward?.invasionFragmentPet) return false;
 		const cost = Number(slot.cost?.coin?.[1080] ?? 0);
@@ -2965,13 +3078,14 @@
 		const coins = attempt.wallet;
 		let sold = 0;
 		let income = 0;
+		const bodies = new Set(keepCarry ? keptBodies(setup, fragments) : []);
 		for (const [id, count] of Object.entries(fragments)) {
 			if (attempt.stopped) break;
 			const fragmentId = Number(id);
 			const have = Number(count);
 			if (have <= 0) continue;
 			if (fragmentId >= NX_PET_ID_THRESHOLD) continue;
-			if (keepAmountFor(setup, fragmentId, keepCarry) > 0) continue;
+			if (keepAmountFor(setup, fragmentId, keepCarry) > 0 || bodies.has(fragmentId)) continue;
 			income += await stall.sell(fragments, fragmentId, have);
 			sold += have;
 			console.log(`Продали героя ${fragmentId} целиком, фрагментов ${have}`);
@@ -3160,6 +3274,98 @@
 			bought,
 			cheap
 		};
+	}
+	function pickStartSlot(shopSlots, setup, fragments, coins, shopId) {
+		const hand = new Set(handHeroes(fragments));
+		let best = null;
+		for (const slot of shopSlots) {
+			if (slot.bought || slot.reward?.invasionFragmentPet) continue;
+			const cost = Number(slot.cost?.coin?.[1080] ?? 0);
+			if (!cost || coins < cost) continue;
+			const random = Boolean(slot.reward?.invasionFragmentHeroRand);
+			let fresh = 0;
+			let useful = 0;
+			if (random) fresh = slot.reward.invasionFragmentHeroRand.length || 1;
+			else {
+				if (!isDiscountedHeroSlot(slot, shopId)) continue;
+				const ids = Object.keys(slot.reward?.invasionFragmentHero ?? {}).map(Number).filter((id) => id > 0);
+				fresh = ids.filter((id) => !hand.has(id)).length;
+				useful = ids.filter((id) => Number(setup.targets[id] ?? 0) > Number(fragments[id] ?? 0)).length;
+			}
+			if (fresh <= 0) continue;
+			if (!best || fresh > best.fresh || fresh === best.fresh && (Number(!random) > Number(!best.random) || random === best.random && (useful > best.useful || useful === best.useful && cost < best.cost))) best = {
+				slot,
+				cost,
+				random,
+				fresh,
+				useful
+			};
+		}
+		return best;
+	}
+	async function buyStartHeroes(attempt, stall, shopSlots, setup, fragments, goal) {
+		const coins = attempt.wallet;
+		let bought = 0;
+		for (let guard = 0; guard < 20; guard++) {
+			if (attempt.stopped) break;
+			if (handHeroes(fragments).length >= goal) break;
+			const pick = pickStartSlot(shopSlots, setup, fragments, coins.value, stall.shopId);
+			if (!pick) break;
+			const result = await stall.buy(pick.slot);
+			coins.value -= pick.cost;
+			pick.slot.bought = true;
+			applyReward(fragments, pick.random ? result : pick.slot.reward);
+			attempt.ledger.add("старт", -pick.cost);
+			bought++;
+			const got = pick.random ? result?.invasionFragmentHero : pick.slot.reward?.invasionFragmentHero;
+			console.log(`${NX_LOG_CASH} -${pick.cost} старт ${pick.random ? "случайные фрагменты" : "пара со скидкой"} ${Object.keys(got ?? {}).join("+")}, героев на руках ${handHeroes(fragments).length} из ${goal}, остаток ${coins.value}`);
+		}
+		return bought;
+	}
+	function pickAlongSlot(shopSlots, setup, fragments, coins, shopId) {
+		let best = null;
+		for (const slot of shopSlots) {
+			if (slot.bought || slot.reward?.invasionFragmentHeroRand || slot.reward?.invasionFragmentPet) continue;
+			const heroes = Object.entries(slot.reward?.invasionFragmentHero ?? {}).map(([id, amount]) => [Number(id), Number(amount)]);
+			const cost = Number(slot.cost?.coin?.[1080] ?? 0);
+			if (!heroes.length || !cost || coins < cost) continue;
+			const useful = heroes.reduce((sum, [id, amount]) => sum + Math.min(amount, Math.max(0, Number(setup.targets[id] ?? 0) - Number(fragments[id] ?? 0))), 0);
+			if (useful <= 0) continue;
+			const discounted = isDiscountedHeroSlot(slot, shopId);
+			if (!discounted && !(slot.pinned && heroes.length >= 2)) continue;
+			const price = cost / useful;
+			if (!best || discounted && !best.discounted || discounted === best.discounted && (price < best.price || price === best.price && cost < best.cost)) best = {
+				slot,
+				cost,
+				useful,
+				discounted,
+				price
+			};
+		}
+		return best ? {
+			slot: best.slot,
+			cost: best.cost,
+			useful: best.useful,
+			discounted: best.discounted
+		} : null;
+	}
+	async function buyStartAlong(attempt, stall, shopSlots, setup, fragments) {
+		if (!startActive(setup)) return 0;
+		const coins = attempt.wallet;
+		let bought = 0;
+		for (let guard = 0; guard < 20; guard++) {
+			if (attempt.stopped) break;
+			const pick = pickAlongSlot(shopSlots, setup, fragments, coins.value, stall.shopId);
+			if (!pick) break;
+			await stall.buy(pick.slot);
+			coins.value -= pick.cost;
+			pick.slot.bought = true;
+			applyReward(fragments, pick.slot.reward);
+			attempt.ledger.add("основной пак по ходу", -pick.cost);
+			bought++;
+			console.log(`${NX_LOG_CASH} -${pick.cost} по ходу ${pick.discounted ? "со скидкой" : "закреплённая пара"} ${lotUnits(pick.slot)}, нужных частей ${pick.useful}, остаток ${coins.value}`);
+		}
+		return bought;
 	}
 	function preFinalNeed(setup, fragments, heroId) {
 		const carryTarget = setup.carryHeroes?.includes(heroId) ? Number(setup.carryTargets?.[heroId] ?? 1) : 0;
@@ -3649,6 +3855,7 @@
 			}));
 			if (point !== 1) {
 				await buyCarryRanks(attempt, stall, shopSlots, setup, fragments);
+				await buyStartAlong(attempt, stall, shopSlots, setup, fragments);
 				await buyCheapLots(attempt, stall, shopSlots, setup, fragments);
 				await sellUnneededFragments(attempt, stall, setup, fragments, true);
 				await applyStallPins(attempt, stall, shopSlots, setup, fragments);
@@ -3672,12 +3879,15 @@
 			const needExtra = () => (setup.carryExtraHeroes ?? []).length > 0 && !carryExtraOwned(setup, fragments);
 			let refreshes = 0;
 			let budgetLeft = Number(setup.startRefreshes ?? 0);
-			console.log(`Точка 1: старт, монет ${coins.value}, ищем проходных ${setup.carryHeroes.join(", ")}`);
+			const goal = startGoal(setup, fragments);
+			const startShort = () => goal - handHeroes(fragments).length;
+			console.log(`Точка 1: старт, монет ${coins.value}, ищем проходных ${setup.carryHeroes.join(", ")}` + (goal ? `, героев на руках ${handHeroes(fragments).length}, нужно ${goal}` : ""));
 			while (refreshes <= NX_POINT1_MAX_REFRESHES) {
 				if (attempt.stopped) break;
 				const passStartCoins = coins.value;
 				await buyCarryHeroes(attempt, stall, shopSlots, setup, fragments);
 				if (carryPackReady(setup, fragments)) await buyCarryRanks(attempt, stall, shopSlots, setup, fragments);
+				if (goal) await buyStartHeroes(attempt, stall, shopSlots, setup, fragments, goal);
 				await buyCheapLots(attempt, stall, shopSlots, setup, fragments);
 				const random = setup.skipRandomLots ? {
 					bought: 0,
@@ -3686,7 +3896,7 @@
 				await sellUnneededFragments(attempt, stall, setup, fragments, true);
 				await applyStallPins(attempt, stall, shopSlots, setup, fragments);
 				console.log(`${NX_LOG_CASH} ИТОГ круга ${refreshes + 1}: было ${passStartCoins}, стало ${coins.value}, разница ${coins.value - passStartCoins}, неизвестных взято ${random.bought}, из них дешевле ${randomLotResale()}: ${random.cheap}`);
-				if (carryPackReady(setup, fragments)) break;
+				if (carryPackReady(setup, fragments) && startShort() <= 0) break;
 				let fromBudget = false;
 				if (random.cheap < NX_LOTS_PER_EARNED_REFRESH) {
 					if (budgetLeft <= 0) {
@@ -3725,6 +3935,14 @@
 				reason: I18N("NX_REASON_NO_CARRY_EXTRA", { list: (setup.carryExtraHeroes ?? []).map(unitLabel).join(", ") })
 			};
 			console.log(`Точка 1: проходные собраны, обновлений потрачено ${refreshes}`);
+			if (goal) {
+				const have = handHeroes(fragments).length;
+				console.log(`Точка 1: старт — героев на руках ${have} из ${goal}${have < goal ? ", идём теми, кто есть" : ""}`);
+				attempt.progress(I18N("NX_START_TEAM", {
+					have,
+					goal
+				}), null, true);
+			}
 			if (sacrificePoint === 1) {
 				const found = await ensureSacrificeHero(attempt, stall, setup, shopSlots, fragments);
 				if (found.kind !== "done") return found;
@@ -3867,6 +4085,7 @@
 		let heroes = setup.carryHeroes.filter((id) => have.heroIds.includes(id));
 		const extra = (setup.carryExtraHeroes ?? []).find((id) => have.heroIds.includes(id));
 		if (extra !== void 0) heroes = [...heroes, extra];
+		if (startActive(setup)) heroes = [...heroes, ...have.heroIds.filter((id) => !heroes.includes(id))].slice(0, NX_TEAM_SIZE);
 		if (heroes.length === 0) heroes = have.bestFive;
 		const havePets = have.pets;
 		let pet;
@@ -4512,6 +4731,7 @@
 		switch (kind) {
 			case "team": return I18N("NX_PROGRESS_TEAM");
 			case "carry": return I18N("NX_PROGRESS_CARRY");
+			case "start": return I18N("NX_PROGRESS_START");
 			case "sacrifice": return I18N("NX_PROGRESS_SACRIFICE");
 			case "pets": return I18N("NX_PROGRESS_PETS");
 		}
@@ -4569,10 +4789,16 @@
 		return `<div style="margin-bottom: 6px;"><div style="font-size: 11px; color: #e8c9a0; margin-bottom: 3px;">${title}</div><div style="display: grid; grid-template-columns: repeat(${PROGRESS_PER_ROW}, ${TILE}px); gap: ${GAP}px;">${tiles}</div></div>`;
 	}
 	function progressColumnHtml(groups, state, icons) {
-		const plan = groups.map((group) => groupHtml(groupTitle(group.kind), group.units.map((unit) => progressTileHtml(unit.id, unit.need, group.kind === "carry" ? {
-			owned: state.owned,
-			pinned: {}
-		} : state, icons[unit.id] ?? "")).join(""))).join("");
+		const plan = groups.map((group) => {
+			if (group.kind === "start") {
+				const bodies = extraHeroes(groups, state.owned);
+				return bodies.length ? groupHtml(groupTitle("start"), bodies.map((unit) => extraTileHtml(unit.id, unit.count, icons[unit.id] ?? "")).join("")) : "";
+			}
+			return groupHtml(groupTitle(group.kind), group.units.map((unit) => progressTileHtml(unit.id, unit.need, group.kind === "carry" ? {
+				owned: state.owned,
+				pinned: {}
+			} : state, icons[unit.id] ?? "")).join(""));
+		}).join("");
 		const extra = extraPets(groups, state.owned);
 		if (extra.length === 0) return plan;
 		return plan + groupHtml(I18N("NX_PROGRESS_EXTRA"), extra.map((unit) => extraTileHtml(unit.id, unit.count, icons[unit.id] ?? "")).join(""));
@@ -4766,7 +4992,7 @@
 			};
 			this.drawProgress();
 			if (this.groups.length === 0) return;
-			const missing = extraPets(this.groups, this.state.owned).map((unit) => unit.id).filter((id) => !(id in this.icons));
+			const missing = [...extraPets(this.groups, this.state.owned), ...extraHeroes(this.groups, this.state.owned)].map((unit) => unit.id).filter((id) => !(id in this.icons));
 			if (missing.length) this.loadIcons(missing).catch((e) => console.error(e));
 		}
 		drawProgress() {
@@ -7748,12 +7974,14 @@
 	}
 	function decodeStrategy(raw) {
 		if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-		const { buff, carry, sacrifice, point, chapters, cards, reserve, refreshes, ascend } = raw;
+		const { buff, carry, sacrifice, point, chapters, cards, reserve, refreshes, ascend, start } = raw;
+		const startCount = start === void 0 ? 0 : intIn(start, 0, NX_TEAM_SIZE);
+		if (startCount === null) return null;
 		const isId = (v) => Number.isInteger(v) && v > 0;
 		if (!Array.isArray(buff) || buff.length !== 2) return null;
 		const [buffMin, buffMax] = buff;
 		if (!Number.isInteger(buffMin) || !Number.isInteger(buffMax) || buffMin < 0 || buffMin > buffMax || buffMax > NX_STRATEGY_MAX_BUFF) return null;
-		if (!Array.isArray(carry) || !carry.length || carry.length % 2 || carry.length > NX_TEAM_SIZE * 2) return null;
+		if (!Array.isArray(carry) || !carry.length && !startCount || carry.length % 2 || carry.length > NX_TEAM_SIZE * 2) return null;
 		const carryHeroes = [];
 		const carryTargets = {};
 		for (let i = 0; i < carry.length; i += 2) {
@@ -7766,8 +7994,8 @@
 			carryHeroes.push(hero);
 			carryTargets[hero] = rank;
 		}
-		const sacrificeHeroes = Array.isArray(sacrifice) ? sacrifice : [sacrifice];
-		if (!sacrificeHeroes.length || sacrificeHeroes.length > NX_SACRIFICE_CANDIDATES || !sacrificeHeroes.every(isId)) return null;
+		const sacrificeHeroes = Array.isArray(sacrifice) ? sacrifice : sacrifice === void 0 && startCount ? [] : [sacrifice];
+		if (!sacrificeHeroes.length && !startCount || sacrificeHeroes.length > NX_SACRIFICE_CANDIDATES || !sacrificeHeroes.every(isId)) return null;
 		if (new Set(sacrificeHeroes).size !== sacrificeHeroes.length) return null;
 		if (intIn(point, 1, NX_MAX_SACRIFICE_POINT) === null) return null;
 		const chapterList = chapters === void 0 ? [] : chapters;
@@ -7792,7 +8020,8 @@
 			cards: cardsRule,
 			reserve: reserveCount,
 			refreshes: refreshCount,
-			ascend: [...ascendList]
+			ascend: [...ascendList],
+			start: startCount
 		};
 	}
 	function decodeStrategyList(raw) {
@@ -7880,6 +8109,7 @@
 			sacrificeRefreshes: choice?.strategy.refreshes ?? 0,
 			sacrificePoint: choice?.strategy.sacrificePoint ?? NX_DEFAULT_SACRIFICE_POINT,
 			ascendHeroes: [...choice?.strategy.ascend ?? []],
+			startBuy: choice?.strategy.start ?? 0,
 			pauseAfterBoss: false,
 			buyAnyRandomLots: cards === "any",
 			skipRandomLots: cards === "none",
@@ -8105,15 +8335,16 @@
 			buff: Number(buff) || 0
 		});
 		const { strategy, source } = choice;
+		const names = (ids) => ids.length ? ids.map(unitName).join(", ") : "—";
 		return I18N("NX_PRESETS_GO_HINT", {
-			carry: strategy.carryHeroes.map(unitName).join(", "),
-			sacrifice: strategy.sacrificeHeroes.map(unitName).join(", "),
+			carry: names(strategy.carryHeroes),
+			sacrifice: strategy.sacrificeHeroes.length ? names(strategy.sacrificeHeroes) : I18N("NX_PRESETS_WEAKEST"),
 			point: strategy.sacrificePoint,
 			cards: UNKNOWN_CARDS_TEXT[strategy.cards](),
 			reserve: strategy.reserve,
 			refreshes: strategy.refreshes,
 			source: STRATEGY_SOURCE_TEXT[source]()
-		}) + ascendHint(preset, strategy);
+		}) + (strategy.start > 0 ? I18N("NX_PRESETS_GO_START", { count: strategy.start }) : "") + ascendHint(preset, strategy);
 	}
 	function ascendHint(preset, strategy) {
 		const emblemId = ascensionEmblemId();

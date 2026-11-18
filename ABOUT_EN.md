@@ -20,6 +20,8 @@ If a run does not work out, it resets the chapter and tries again.
   - needed heroes are pinned in the shop along the way and bought in the final shopping,
     so coins are not spent early and go into the emblem bonus;
   - carry heroes with ranks, topped up along the chapter;
+  - with "start" in the build strategy it buys heroes on the first point — discounted pairs and random fragments —
+    so five heroes fight, and along the way buys team heroes at a discount and sells the weakest spare ones;
   - two deliberate losses for coins on a chosen point — any regular one, never the main boss;
   - resale of profitable lots;
   - discounted pets are bought out and sold later, so the shop offers more heroes;
