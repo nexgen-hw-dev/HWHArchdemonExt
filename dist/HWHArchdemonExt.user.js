@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.33-beta
+// @version         1.34-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -8023,7 +8023,7 @@
 		const talismans = preset.talismanIds.map((id) => {
 			const url = talismanIconUrl(library, id, TALISMAN);
 			const title = escapeAttr(emblemName(id));
-			return url ? `<img src="${url}" alt="" title="${title}" style="width: ${TALISMAN}px; height: ${TALISMAN}px; margin: 0 -6px; flex: none;">` : `<div title="${title}" style="width: 18px; flex: none;">?</div>`;
+			return url ? `<img src="${url}" alt="" title="${title}" style="width: ${TALISMAN}px; height: ${TALISMAN}px; margin: 0 1px; flex: none;">` : `<div title="${title}" style="width: ${TALISMAN}px; margin: 0 1px; flex: none; text-align: center;">?</div>`;
 		}).join("");
 		const authorText = preset.author ? escapeAttr(preset.author) : muted(I18N("NX_PRESETS_UNKNOWN_AUTHOR"));
 		const author = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${authorText}</a>` : authorText;
@@ -8391,7 +8391,7 @@
 	function talismanSlotsHtml(library, talismanIds) {
 		return talismanIds.map((id) => {
 			const url = id ? talismanIconUrl(library, id, 58) : "";
-			return url ? `<img src="${url}" alt="" title="${escapeAttr(emblemName(id))}" style="width: 58px; height: 58px; margin: 0 -9px; flex: none;">` : `<div title="${escapeAttr(I18N("NX_ANY_TALISMAN"))}" style="width: 40px; height: 40px; margin: 9px 0; flex: none; border-radius: 50%; box-sizing: border-box; border: 2px dashed rgba(206, 151, 103, 0.45);"></div>`;
+			return url ? `<img src="${url}" alt="" title="${escapeAttr(emblemName(id))}" style="width: 58px; height: 58px; margin: 0 1px; flex: none;">` : `<div title="${escapeAttr(I18N("NX_ANY_TALISMAN"))}" style="width: 40px; height: 40px; margin: 9px 10px; flex: none; border-radius: 50%; box-sizing: border-box; border: 2px dashed rgba(206, 151, 103, 0.45);"></div>`;
 		}).join("");
 	}
 	var VERSION_LABEL_ID = "nxVersionLabel";
