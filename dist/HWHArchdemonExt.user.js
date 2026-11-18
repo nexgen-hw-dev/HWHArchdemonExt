@@ -1545,6 +1545,11 @@
 	function handHeroes(fragments) {
 		return Object.entries(fragments).filter(([id, count]) => Number(id) > 0 && Number(id) < NX_PET_ID_THRESHOLD && Number(count) > 0).map(([id]) => Number(id));
 	}
+	function startTeam(carry, fragments) {
+		const hand = handHeroes(fragments).sort((a, b) => Number(fragments[b] ?? 0) - Number(fragments[a] ?? 0));
+		const first = carry.filter((id) => hand.includes(id));
+		return [...first, ...hand.filter((id) => !first.includes(id))].slice(0, NX_TEAM_SIZE);
+	}
 	function fixedHero(setup, id) {
 		return Number(setup.targets?.[id] ?? 0) > 0 || (setup.carryHeroes ?? []).includes(id) || (setup.carryExtraHeroes ?? []).includes(id) || (setup.sacrificeHeroes ?? []).includes(id);
 	}
@@ -4080,7 +4085,7 @@
 		let heroes = setup.carryHeroes.filter((id) => have.heroIds.includes(id));
 		const extra = (setup.carryExtraHeroes ?? []).find((id) => have.heroIds.includes(id));
 		if (extra !== void 0) heroes = [...heroes, extra];
-		if (startActive(setup)) heroes = [...heroes, ...have.heroIds.filter((id) => !heroes.includes(id))].slice(0, NX_TEAM_SIZE);
+		if (startActive(setup)) heroes = startTeam(heroes, have.fragments);
 		if (heroes.length === 0) heroes = have.bestFive;
 		const havePets = have.pets;
 		let pet;
@@ -4784,11 +4789,12 @@
 	}
 	function progressColumnHtml(groups, state, icons) {
 		const plan = groups.map((group) => {
-			const bodies = group.start ? extraHeroes(groups, state.owned).map((unit) => ({
-				id: unit.id,
+			const own = group.units.map((unit) => unit.id);
+			const fighters = group.start ? startTeam(own, state.owned).filter((id) => !own.includes(id)).map((id) => ({
+				id,
 				need: 1
 			})) : [];
-			const units = [...group.units, ...bodies];
+			const units = [...group.units, ...fighters];
 			if (!units.length) return "";
 			return groupHtml(groupTitle(group.kind), units.map((unit) => progressTileHtml(unit.id, unit.need, group.kind === "carry" ? {
 				owned: state.owned,
