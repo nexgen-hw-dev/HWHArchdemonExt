@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.31-beta
+// @version         1.32-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -1611,6 +1611,27 @@
 		if (setup.targets[fragmentId]) return setup.targets[fragmentId];
 		return 0;
 	}
+	function rankFloor(have) {
+		return have >= 7 ? 7 : have >= 3 ? 3 : have >= 1 ? 1 : 0;
+	}
+	function startNeed(setup, heroId) {
+		const team = Number(setup.targets[heroId] ?? 0);
+		const carry = setup.carryHeroes.includes(heroId) || (setup.carryExtraHeroes ?? []).includes(heroId) ? Number(setup.carryTargets?.[heroId] ?? 1) : 0;
+		const sacrifice = (setup.sacrificeHeroes ?? []).includes(heroId) ? 1 : 0;
+		return Math.max(team, carry, sacrifice);
+	}
+	function startSales(setup, fragments) {
+		const sales = [];
+		for (const [id, count] of Object.entries(fragments)) {
+			const heroId = Number(id);
+			const have = Number(count);
+			if (!(have > 0) || heroId >= NX_PET_ID_THRESHOLD) continue;
+			const need = startNeed(setup, heroId);
+			const keep = need > 0 ? Math.max(need, rankFloor(have)) : 0;
+			if (have > keep) sales.push([heroId, have - keep]);
+		}
+		return sales;
+	}
 	function rewardUnits(reward) {
 		const out = {};
 		applyReward(out, reward);
@@ -2923,6 +2944,22 @@
 		}
 		return sold;
 	}
+	async function sellStartSurplus(attempt, stall, setup, fragments) {
+		const coins = attempt.wallet;
+		let income = 0;
+		for (const [heroId, count] of startSales(setup, fragments)) {
+			if (attempt.stopped) break;
+			const whole = count >= Number(fragments[heroId] ?? 0);
+			const got = await stall.sell(fragments, heroId, count);
+			coins.value += got;
+			income += got;
+			console.log(whole ? `Начало главы: продали героя ${heroId} целиком, частей ${count}` : `Начало главы: продали лишние части героя ${heroId}: ${count}, осталось ${fragments[heroId]}`);
+		}
+		if (!income) return 0;
+		attempt.ledger.add("продажи", income);
+		console.log(`${NX_LOG_CASH} +${income} продажа в начале главы, остаток ${coins.value}`);
+		return income;
+	}
 	function surplusParts(setup, fragments) {
 		return setup.heroes.map((heroId) => [heroId, Number(fragments[heroId] ?? 0) - Number(setup.targets[heroId] ?? 0)]).filter(([, extra]) => extra > 0);
 	}
@@ -3586,6 +3623,7 @@
 					coinsOnEntry
 				};
 			}
+			await sellStartSurplus(attempt, stall, setup, fragments);
 			const missingMain = () => setup.carryHeroes.filter((id) => Number(fragments[id] ?? 0) <= 0);
 			const seen = new Set();
 			const look = (slots) => {

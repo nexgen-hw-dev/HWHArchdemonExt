@@ -19,6 +19,8 @@ If a run does not work out, it resets the chapter and tries again.
   the main team at the very end:
   - needed heroes are pinned in the shop along the way and bought in the final shopping,
     so coins are not spent early and go into the emblem bonus;
+  - at the very start of the chapter the starting heroes keep only as many parts as the build needs, without
+    losing a rank; spare parts and unneeded heroes are sold, so the coins go straight into shopping;
   - carry heroes with ranks, topped up along the chapter;
   - two deliberate losses for coins on a chosen point — any regular one, never the main boss;
   - resale of profitable lots;
