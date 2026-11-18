@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.34-beta
+// @version         1.35-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -261,7 +261,7 @@
 			NX_BLOCK_SACRIFICE_POINT: "Which point to throw",
 			NX_BLOCK_SACRIFICE_POINT_HINT: "Any regular point of the chapter. Not the main boss: lives left by the end are exchanged for coins anyway. On later points the enemy is stronger, so losing on purpose is easier",
 			NX_SACRIFICE_POINT_TITLE: "Throw point {point}",
-			NX_SPEND_EXTRA: "Spending extra coins: {coins} ({percent}%), the author had {target}%",
+			NX_SPEND_EXTRA: "Spending extra coins: {coins} ({percent}%) → {from}–{to} ({target}%), as the author had",
 			NX_PRESETS_LINE: "Or pick a ready-made build",
 			NX_PRESETS_BUTTON: "Ready-made builds",
 			NX_PRESETS_BUTTON_HINT: "Builds of other players from open videos: team, pet and emblems. Your settings here stay as they are",
@@ -373,6 +373,9 @@
 			NX_LOG_POINT: "point {point}",
 			NX_LOG_COINS: "<span style=\"font-size: 15px; color: LimeGreen;\">{coins}</span> coins",
 			NX_LOG_COINS_PEAK: "<span style=\"font-size: 15px; color: LimeGreen;\">{coins}</span> of <span style=\"color: #a8a8a8;\">{peak}</span> coins",
+			NX_LOG_TARGET: "→ {from}–{to}",
+			NX_LOG_TARGET_MIN: "→ {from}+",
+			NX_LOG_TARGET_HINT: "Coins target before the Archdemon: Emblem of Capital {percent}%",
 			NX_POINT_TAKEN: "Point {point} taken",
 			NX_PROGRESS_TEAM: "Team",
 			NX_PROGRESS_CARRY: "Carry",
@@ -526,7 +529,7 @@
 			NX_BLOCK_SACRIFICE_POINT: "На какой точке сливаем",
 			NX_BLOCK_SACRIFICE_POINT_HINT: "Любая обычная точка главы. Не главный босс: дожившие до конца жизни игра и так меняет на монеты. Чем дальше точка, тем сильнее противник, и проиграть нарочно проще",
 			NX_SACRIFICE_POINT_TITLE: "Сливаем точку {point}",
-			NX_SPEND_EXTRA: "Тратим лишние монеты: {coins} ({percent}%), у автора {target}%",
+			NX_SPEND_EXTRA: "Тратим лишние монеты: {coins} ({percent}%) → {from}–{to} ({target}%), как у автора",
 			NX_PRESETS_LINE: "Или выберите готовую сборку",
 			NX_PRESETS_BUTTON: "Готовые сборки",
 			NX_PRESETS_BUTTON_HINT: "Сборки других игроков из открытых видео: команда, питомец и эмблемы. Ваши настройки здесь не меняются",
@@ -638,6 +641,9 @@
 			NX_LOG_POINT: "точка {point}",
 			NX_LOG_COINS: "монет <span style=\"font-size: 15px; color: LimeGreen;\">{coins}</span>",
 			NX_LOG_COINS_PEAK: "монет <span style=\"font-size: 15px; color: LimeGreen;\">{coins}</span> из <span style=\"color: #a8a8a8;\">{peak}</span>",
+			NX_LOG_TARGET: "→ {from}–{to}",
+			NX_LOG_TARGET_MIN: "→ от {from}",
+			NX_LOG_TARGET_HINT: "Цель по монетам перед Архидемоном: Эмблема капитала {percent}%",
 			NX_POINT_TAKEN: "Точка {point} взята",
 			NX_PROGRESS_TEAM: "Состав",
 			NX_PROGRESS_CARRY: "Проходные",
@@ -1614,6 +1620,21 @@
 		}
 		if (setup.targets[fragmentId]) return setup.targets[fragmentId];
 		return 0;
+	}
+	function coinTarget(setup) {
+		if (setup.talismanId !== NX_WEALTH_TALISMAN_ID) return null;
+		const percent = Number(setup.presetPercent ?? 0);
+		if (percent > 0 && setup.keepExtraCoins === false) return {
+			from: minCoinsForPercent(percent),
+			to: minCoinsForPercent(percent + 1) - 1,
+			percent
+		};
+		const min = Number(setup.minCoins ?? 0);
+		return min > 0 ? {
+			from: min,
+			to: null,
+			percent: coinsToPercent(min)
+		} : null;
 	}
 	function rankFloor(have) {
 		return have >= 7 ? 7 : have >= 3 ? 3 : have >= 1 ? 1 : 0;
@@ -3795,11 +3816,15 @@
 		const wallet = attempt.wallet;
 		const startCoins = wallet.value;
 		let refreshes = 0;
+		const from = minCoinsForPercent(target);
+		const to = minCoinsForPercent(target + 1) - 1;
 		const spendLine = () => I18N("NX_SPEND_EXTRA", {
 			attempt: attempt.number,
 			coins: wallet.value,
 			percent: coinsToPercent(wallet.value),
-			target
+			target,
+			from,
+			to
 		});
 		let shown = false;
 		try {
@@ -4106,6 +4131,7 @@
 		const reporter = session.reporter;
 		reporter.open(() => session.stop());
 		reporter.plan?.(progressPlan(setup));
+		reporter.target?.(coinTarget(setup));
 		try {
 			return await runLoopAttempts(session, setup);
 		} finally {
@@ -4598,6 +4624,7 @@
 		box = null;
 		live = null;
 		titleHtml = "";
+		coinTarget = null;
 		briefHtml = "";
 		lastHtml = "";
 		collapsed = false;
@@ -4659,7 +4686,7 @@
 			const box = this.box;
 			if (!box) return;
 			this.titleHtml = I18N("NX_ATTEMPT", { attempt });
-			box.title.innerHTML = this.titleHtml;
+			box.title.innerHTML = this.titleHtml + this.targetHtml();
 			box.list.innerHTML = "";
 			box.footer.innerHTML = "";
 			box.footer.style.display = "none";
@@ -4742,7 +4769,7 @@
 			const box = this.box;
 			if (!box || !this.titleHtml) return;
 			if (!point) {
-				box.title.innerHTML = this.titleHtml;
+				box.title.innerHTML = this.titleHtml + this.targetHtml();
 				return;
 			}
 			const money = peak == null ? I18N("NX_LOG_COINS", { coins }) : I18N("NX_LOG_COINS_PEAK", {
@@ -4750,7 +4777,19 @@
 				peak
 			});
 			const parts = [I18N("NX_LOG_POINT", { point }), money];
-			box.title.innerHTML = `${this.titleHtml}<span style="font-size: 12px; color: #e8c9a0;"> · ${parts.join(" · ")}</span>`;
+			box.title.innerHTML = `${this.titleHtml}<span style="font-size: 12px; color: #e8c9a0;"> · ${parts.join(" · ")}</span>${this.targetHtml()}`;
+		}
+		target(target) {
+			this.coinTarget = target;
+		}
+		targetHtml() {
+			const target = this.coinTarget;
+			if (!target) return "";
+			const text = target.to == null ? I18N("NX_LOG_TARGET_MIN", { from: target.from }) : I18N("NX_LOG_TARGET", {
+				from: target.from,
+				to: target.to
+			});
+			return `<span title="${escapeAttr(I18N("NX_LOG_TARGET_HINT", { percent: target.percent }))}" style="font-size: 12px; color: #e8c9a0;"> ${text}</span>`;
 		}
 		addLine(box, html) {
 			const line = document.createElement("div");
@@ -4909,6 +4948,9 @@
 		}
 		plan(groups) {
 			this.log.plan(groups);
+		}
+		target(target) {
+			this.log.target(target);
 		}
 		units(state) {
 			this.log.units(state);
