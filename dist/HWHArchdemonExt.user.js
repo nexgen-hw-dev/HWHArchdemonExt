@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.30-beta
+// @version         1.31-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -447,6 +447,7 @@
 			NX_ENTERING: "Entering the chapter",
 			NX_FREE: "<span style=\"color: LimeGreen;\">free</span>",
 			NX_CHAPTER_DAMAGE: "damage to the Archdemon ×{multiplier}",
+			NX_RELIC_HAVE_NEED: "<span style=\"color: #ff6b6b;\">Amulet {haveLevel}/{needLevel}</span>",
 			NX_DECIMAL_SEPARATOR: ".",
 			NX_NEED_RELIC: "<span style=\"color: #ff6b6b;\">{relicName} level {needLevel} is needed, yours is {haveLevel}</span>"
 		},
@@ -709,6 +710,7 @@
 			NX_ENTERING: "Входим в главу",
 			NX_FREE: "<span style=\"color: LimeGreen;\">бесплатно</span>",
 			NX_CHAPTER_DAMAGE: "урон по Архидемону ×{multiplier}",
+			NX_RELIC_HAVE_NEED: "<span style=\"color: #ff6b6b;\">Амулет {haveLevel}/{needLevel}</span>",
 			NX_DECIMAL_SEPARATOR: ",",
 			NX_NEED_RELIC: "<span style=\"color: #ff6b6b;\">нужен {relicName} {needLevel} уровня, у вас {haveLevel}</span>"
 		}
@@ -8164,19 +8166,19 @@
 	}
 	var SETUP_WINDOW_ID = "nxSetupWindow";
 	var SETUP_Z = 10040;
-	var STAGE_W = 720;
+	var STAGE_W = 800;
 	var STAGE_H = 816;
 	var MIN_STAGE_H = 560;
 	var MAX_SCALE = 1;
 	var SCREEN_MARGIN = 32;
 	var FRAME_X = 7;
 	var FRAME_Y = 41;
-	var FRAME_W = 706;
+	var FRAME_W = 786;
 	var HEADER_W = 360;
 	var TOP_ROW = 75;
 	var CONTENT_TOP = 121;
 	var CONTENT_X = 33;
-	var CONTENT_W = 654;
+	var CONTENT_W = 734;
 	var C = {
 		title: "#ffcf84",
 		hint: "#fce5b7"
@@ -8195,13 +8197,13 @@
 			library: options.library
 		});
 		const { piece, label } = win;
-		const headerX = 360 - HEADER_W / 2;
+		const headerX = 400 - HEADER_W / 2;
 		win.render(piece("PopupBG_12_12_12_12", 20, 55, {
 			render: {
-				width: 680,
+				width: 760,
 				height: frameH - 22
 			},
-			size: [680, frameH - 22],
+			size: [760, frameH - 22],
 			fallback: "background: #190e08; border-radius: 10px;"
 		}) + piece("mainframeSep_64_64_2_2", FRAME_X, FRAME_Y, {
 			render: {
@@ -8216,13 +8218,13 @@
 			size: [HEADER_W, 56],
 			fallback: "background: linear-gradient(180deg, #8a5a2a, #4a2a10); border-radius: 10px;",
 			cls: "nxNoHit"
-		}) + label(options.title, 240, 14, 240, 56, 24, C.title) + label(options.hint, 157, TOP_ROW, 406, 24, 16, C.hint) + piece("closeButton_32", 670, 26, {
+		}) + label(options.title, 280, 14, 240, 56, 24, C.title) + label(options.hint, 157, TOP_ROW, 486, 24, 16, C.hint) + piece("closeButton_32", 750, 26, {
 			size: [46, 46],
 			fallback: "background: #8a1c12; border: 2px solid #ce9767; border-radius: 50%; color: #fff; font: 700 20px/42px sans-serif; text-align: center;",
 			inner: "✕",
 			attrs: "data-cancel=\"1\"",
 			cls: "nxBox"
-		}) + `<div data-slot="version" style="position: absolute; left: 37px; top: 78px; font-family: sans-serif; font-weight: 600; font-stretch: condensed; letter-spacing: 1px; color: #FDE5B6;"></div><div data-slot="auto" style="position: absolute; right: 67px; top: 71px;"></div><div class="nxList" data-slot="content" style="left: ${CONTENT_X}px; top: ${CONTENT_TOP}px; width: ${CONTENT_W}px; height: ${contentH}px; user-select: text; padding-top: 6px; mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);"></div>` + win.part("data-part=\"start\"", mediumButton(win, "green", 210, buttonsY, options.startText, "data-start=\"1\"")) + win.part("data-part=\"cancel\"", mediumButton(win, "boring", 370, buttonsY, options.cancelText, "data-cancel=\"1\"")));
+		}) + `<div data-slot="version" style="position: absolute; left: 37px; top: 78px; font-family: sans-serif; font-weight: 600; font-stretch: condensed; letter-spacing: 1px; color: #FDE5B6;"></div><div data-slot="auto" style="position: absolute; right: 67px; top: 71px;"></div><div class="nxList" data-slot="content" style="left: ${CONTENT_X}px; top: ${CONTENT_TOP}px; width: ${CONTENT_W}px; height: ${contentH}px; user-select: text; padding-top: 6px; mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);"></div>` + win.part("data-part=\"start\"", mediumButton(win, "green", 250, buttonsY, options.startText, "data-start=\"1\"")) + win.part("data-part=\"cancel\"", mediumButton(win, "boring", 410, buttonsY, options.cancelText, "data-cancel=\"1\"")));
 		win.paintTexts();
 		const slot = (name) => win.stage.querySelector(`[data-slot="${name}"]`);
 		const part = (name) => win.stage.querySelector(`[data-part="${name}"]`);
@@ -8396,22 +8398,22 @@
 				icon: rowIconUrl(library, Number(e.id))
 			};
 		}).sort((a, b) => a.name.localeCompare(b.name));
-		const radioRow = (group, value, label, checked, title) => `<div class="PopUp_ContCheckbox"><input type="checkbox" class="PopUp_checkbox hwhNewRadio radio_hwhNew_${group}" data-group="${group}" data-value="${escapeAttr(value)}" id="hwhNew_${group}_${escapeAttr(value)}"${checked ? " checked" : ""}><label for="hwhNew_${group}_${escapeAttr(value)}" title="${escapeAttr(title)}">${label}</label></div>`;
-		let html = "<div id=\"nxSetupForm\" class=\"PopUp_text\" style=\"text-align: left; width: 600px; max-width: 100%;\">" + autoNoteHtml();
+		const radioRow = (group, value, label, checked, title, disabled = false) => `<div class="PopUp_ContCheckbox"${disabled ? " style=\"opacity: 0.45; pointer-events: none;\"" : ""}><input type="checkbox" class="PopUp_checkbox hwhNewRadio radio_hwhNew_${group}" data-group="${group}" data-value="${escapeAttr(value)}" id="hwhNew_${group}_${escapeAttr(value)}"${checked ? " checked" : ""}${disabled ? " disabled" : ""}><label for="hwhNew_${group}_${escapeAttr(value)}" title="${escapeAttr(title)}">${label}</label></div>`;
+		let html = "<div id=\"nxSetupForm\" class=\"PopUp_text\" style=\"text-align: left; width: 680px; max-width: 100%;\">" + autoNoteHtml();
 		const columns = (count, rows, fill = "row") => `<div style="display: grid; grid-template-columns: repeat(${count}, minmax(0, 1fr)); column-gap: 18px; align-items: start;` + (fill === "column" ? ` grid-auto-flow: column; grid-template-rows: repeat(${rows}, auto);` : "") + "\">";
 		const preselected = chapterAvailable[activeChapter] ? chapters.find((e) => Number(e.id) === activeChapter) : void 0;
 		html += section(I18N("NX_BLOCK_CHAPTER"), "");
 		chapters.forEach((chapter) => {
-			let label = chapterTitle(chapter, chapterNumbers[chapter.id]) + "&nbsp;&mdash;&nbsp;<span>" + I18N("NX_FREE");
+			const parts = [];
+			if (chapter.isArchdemon) parts.push(I18N("NX_FREE"));
 			const multiplier = archdemonDamageMultiplier(Number(chapter.id));
-			if (multiplier !== null) label += ", " + escapeAttr(I18N("NX_CHAPTER_DAMAGE", { multiplier: multiplierText(multiplier) }));
-			if (!chapterAvailable[chapter.id]) label += "<br>" + I18N("NX_NEED_RELIC", {
-				relicName: getAbyssRelicName(),
-				needLevel: chapterNeedLevel[chapter.id],
-				haveLevel: relicLevel
-			});
-			label += "</span>";
-			html += radioRow("chapter", chapter.id, label, chapter === preselected, "");
+			if (multiplier !== null) parts.push(escapeAttr(I18N("NX_CHAPTER_DAMAGE", { multiplier: multiplierText(multiplier) })));
+			if (!chapterAvailable[chapter.id]) parts.push(I18N("NX_RELIC_HAVE_NEED", {
+				haveLevel: relicLevel,
+				needLevel: chapterNeedLevel[chapter.id]
+			}));
+			const label = chapterTitle(chapter, chapterNumbers[chapter.id]) + (parts.length ? `&nbsp;&mdash;&nbsp;<span>${parts.join(" · ")}</span>` : "");
+			html += radioRow("chapter", chapter.id, label, chapter === preselected, "", !chapterAvailable[chapter.id]);
 		});
 		const talismansFor = (settings) => rollBosses.map((bossNumber, index) => {
 			const saved = Number(settings.talismans[index] ?? 0);
