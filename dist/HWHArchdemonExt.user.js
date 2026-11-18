@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.35-beta
+// @version         1.36-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -262,6 +262,8 @@
 			NX_BLOCK_SACRIFICE_POINT_HINT: "Any regular point of the chapter. Not the main boss: lives left by the end are exchanged for coins anyway. On later points the enemy is stronger, so losing on purpose is easier",
 			NX_SACRIFICE_POINT_TITLE: "Throw point {point}",
 			NX_SPEND_EXTRA: "Spending extra coins: {coins} ({percent}%) → {from}–{to} ({target}%), as the author had",
+			NX_SPEND_EXTRA_MIN: "Spending extra coins: {coins} ({percent}%) → {from}–{to} ({target}%), as the minimum gives",
+			NX_MANUAL_KEEP_COINS_HINT: "The minimum sets the Emblem of Capital bonus. Checked: coins above the minimum stay and the bonus is higher. Unchecked: the extra is spent on stall refreshes, 3 coins each, until the bonus matches the minimum, never below the minimum itself: 900 gives 270%, 900–903 remain",
 			NX_PRESETS_LINE: "Or pick a ready-made build",
 			NX_PRESETS_BUTTON: "Ready-made builds",
 			NX_PRESETS_BUTTON_HINT: "Builds of other players from open videos: team, pet and emblems. Your settings here stay as they are",
@@ -530,6 +532,8 @@
 			NX_BLOCK_SACRIFICE_POINT_HINT: "Любая обычная точка главы. Не главный босс: дожившие до конца жизни игра и так меняет на монеты. Чем дальше точка, тем сильнее противник, и проиграть нарочно проще",
 			NX_SACRIFICE_POINT_TITLE: "Сливаем точку {point}",
 			NX_SPEND_EXTRA: "Тратим лишние монеты: {coins} ({percent}%) → {from}–{to} ({target}%), как у автора",
+			NX_SPEND_EXTRA_MIN: "Тратим лишние монеты: {coins} ({percent}%) → {from}–{to} ({target}%), как у минимума",
+			NX_MANUAL_KEEP_COINS_HINT: "От минимума зависит бонус Эмблемы капитала. С галкой монеты сверх минимума остаются, бонус выше. Без галки лишнее тратится обновлениями лавки по 3 монеты, пока бонус не станет как у минимума, но не ниже самого минимума: 900 — 270%, останется 900–903",
 			NX_PRESETS_LINE: "Или выберите готовую сборку",
 			NX_PRESETS_BUTTON: "Готовые сборки",
 			NX_PRESETS_BUTTON_HINT: "Сборки других игроков из открытых видео: команда, питомец и эмблемы. Ваши настройки здесь не меняются",
@@ -1621,14 +1625,22 @@
 		if (setup.targets[fragmentId]) return setup.targets[fragmentId];
 		return 0;
 	}
-	function coinTarget(setup) {
-		if (setup.talismanId !== NX_WEALTH_TALISMAN_ID) return null;
-		const percent = Number(setup.presetPercent ?? 0);
-		if (percent > 0 && setup.keepExtraCoins === false) return {
-			from: minCoinsForPercent(percent),
+	function spendTarget(setup) {
+		if (setup.keepExtraCoins !== false) return null;
+		const preset = Number(setup.presetPercent ?? 0);
+		const min = Number(setup.minCoins ?? 0);
+		const percent = preset > 0 ? preset : min > 0 ? coinsToPercent(min) : 0;
+		if (percent <= 0) return null;
+		return {
+			from: Math.max(minCoinsForPercent(percent), min),
 			to: minCoinsForPercent(percent + 1) - 1,
 			percent
 		};
+	}
+	function coinTarget(setup) {
+		if (setup.talismanId !== NX_WEALTH_TALISMAN_ID) return null;
+		const spend = spendTarget(setup);
+		if (spend) return spend;
 		const min = Number(setup.minCoins ?? 0);
 		return min > 0 ? {
 			from: min,
@@ -2999,7 +3011,7 @@
 		if (setup.talismanId !== NX_WEALTH_TALISMAN_ID) return 0;
 		const coins = attempt.wallet;
 		const target = Number(setup.minCoins) || 0;
-		const all = target <= 0 || setup.keepExtraCoins === true;
+		const all = target <= 0 || setup.keepExtraCoins === true && Boolean(setup.preset);
 		const parts = surplusParts(setup, fragments);
 		const available = parts.reduce((sum, [, extra]) => sum + extra, 0);
 		if (!available) return 0;
@@ -3804,8 +3816,9 @@
 		}
 	}
 	async function spendExtraCoins(attempt, setup) {
-		const target = Number(setup.presetPercent ?? 0);
-		if (!target || setup.keepExtraCoins !== false) return { kind: "done" };
+		const goal = spendTarget(setup);
+		if (!goal) return { kind: "done" };
+		const { from, to, percent: target } = goal;
 		const fragments = (await attempt.units()).fragments;
 		if (!collectedState(setup, fragments).done) return { kind: "done" };
 		const stall = attempt.stall;
@@ -3816,9 +3829,8 @@
 		const wallet = attempt.wallet;
 		const startCoins = wallet.value;
 		let refreshes = 0;
-		const from = minCoinsForPercent(target);
-		const to = minCoinsForPercent(target + 1) - 1;
-		const spendLine = () => I18N("NX_SPEND_EXTRA", {
+		const textKey = Number(setup.presetPercent ?? 0) > 0 ? "NX_SPEND_EXTRA" : "NX_SPEND_EXTRA_MIN";
+		const spendLine = () => I18N(textKey, {
 			attempt: attempt.number,
 			coins: wallet.value,
 			percent: coinsToPercent(wallet.value),
@@ -3830,7 +3842,7 @@
 		try {
 			while (coinsToPercent(wallet.value) > target && wallet.value >= NX_STALL_REFRESH_COST) {
 				if (attempt.stopped) break;
-				if (coinsToPercent(wallet.value - NX_STALL_REFRESH_COST) < target) break;
+				if (wallet.value - NX_STALL_REFRESH_COST < from) break;
 				attempt.progress(spendLine(), "spend", true);
 				shown = true;
 				const before = wallet.value;
@@ -3847,7 +3859,7 @@
 			};
 		}
 		if (shown && !attempt.stopped) attempt.progress(spendLine(), "spend", true);
-		if (refreshes) console.log(`${NX_LOG_CASH} лишние монеты: было ${startCoins} (${coinsToPercent(startCoins)}%), обновлений ${refreshes}, стало ${wallet.value} (${coinsToPercent(wallet.value)}%), у автора ${target}%`);
+		if (refreshes) console.log(`${NX_LOG_CASH} лишние монеты: было ${startCoins} (${coinsToPercent(startCoins)}%), обновлений ${refreshes}, стало ${wallet.value} (${coinsToPercent(wallet.value)}%), цель ${target}% (${from}–${to})`);
 		return { kind: "done" };
 	}
 	async function buildCarryTeam(attempt, setup) {
@@ -5747,6 +5759,7 @@
 			buyAnyRandomLots: false,
 			stopIfIncomplete: false,
 			keepExtraCoins: false,
+			manualKeepExtraCoins: true,
 			ascend: ""
 		};
 	}
@@ -5784,6 +5797,7 @@
 			buyAnyRandomLots: isTrue(saved.buyAnyRandomLots),
 			stopIfIncomplete: isTrue(saved.stopIfIncomplete),
 			keepExtraCoins: isTrue(saved.keepExtraCoins),
+			manualKeepExtraCoins: saved.manualKeepExtraCoins === void 0 ? empty.manualKeepExtraCoins : isTrue(saved.manualKeepExtraCoins),
 			ascend: text(saved.ascend, empty.ascend)
 		};
 	}
@@ -8562,7 +8576,8 @@
 		html += `<div id="nxSacrificePointBlock">${sacrificePointHtml(activeChapter, state.sacrificePoint)}</div>`;
 		html += section(I18N("NX_BLOCK_MIN_COINS", { coin: stallCoinName() }), I18N("NX_BLOCK_MIN_COINS_HINT"));
 		html += `<div style="display: flex; align-items: center; gap: 12px;"><input type="text" id="hwhNewMinCoinsInput" class="PopUp_input" style="flex: 1; min-width: 0; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_MIN_COINS_HINT"))}" placeholder="${escapeAttr(I18N("NX_MIN_COINS_PLACEHOLDER"))}" value="${escapeAttr(state.minCoins)}"><span id="nxMinCoinsBonus" style="flex: none; font-size: 14px; color: #ffcf84;">${minCoinsBonusText(state.minCoins)}</span></div>`;
-		html += `<div class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewRandomAnyInput"${state.buyAnyRandomLots ? " checked" : ""}><label for="hwhNewRandomAnyInput" title="${escapeAttr(I18N("NX_BLOCK_RANDOM_ANY_HINT", { price: randomLotResale() }))}">${I18N("NX_BLOCK_RANDOM_ANY")}</label></div>`;
+		html += `<div class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="nxManualKeepCoins"${state.manualKeepExtraCoins ? " checked" : ""}><label for="nxManualKeepCoins" title="${escapeAttr(I18N("NX_MANUAL_KEEP_COINS_HINT"))}">${I18N("NX_PRESETS_KEEP_COINS")}</label></div>`;
+		html += `<div class="PopUp_ContCheckbox" style="margin-top: 6px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewRandomAnyInput"${state.buyAnyRandomLots ? " checked" : ""}><label for="hwhNewRandomAnyInput" title="${escapeAttr(I18N("NX_BLOCK_RANDOM_ANY_HINT", { price: randomLotResale() }))}">${I18N("NX_BLOCK_RANDOM_ANY")}</label></div>`;
 		html += `<div class="PopUp_ContCheckbox" style="margin-top: 6px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewPauseInput"${state.pauseAfterBoss ? " checked" : ""}><label for="hwhNewPauseInput" title="${escapeAttr(I18N("NX_BLOCK_PAUSE_HINT"))}">${I18N("NX_BLOCK_PAUSE")}</label></div>`;
 		html += "</div>";
 		html += "<div id=\"hwhNewError\" style=\"color: #ff6b6b; text-align: left; margin-top: 12px; min-height: 1px;\"></div>";
@@ -8704,6 +8719,7 @@
 			const pauseAfterBoss = root.querySelector("#hwhNewPauseInput")?.checked === true;
 			const buyAnyRandomLots = root.querySelector("#hwhNewRandomAnyInput")?.checked === true;
 			const stopIfIncompleteRaw = root.querySelector("#hwhNewStopIncompleteInput")?.checked === true;
+			const keepExtraCoins = root.querySelector("#nxManualKeepCoins")?.checked !== false;
 			const mainPet = Number(mainPetValue);
 			const chapterId = Number(chapterValue);
 			const ascendHeroes = ascensionId && talismanIds.includes(ascensionId) ? ascendItems(currentAscend).map((e) => e.id) : [];
@@ -8721,6 +8737,7 @@
 					talismanId,
 					talismanIds,
 					minCoins,
+					keepExtraCoins,
 					carryHeroes,
 					carryTargets,
 					carryExtraHeroes,
@@ -8816,7 +8833,8 @@
 			for (const id of [
 				"#hwhNewPauseInput",
 				"#hwhNewRandomAnyInput",
-				"#hwhNewStopIncompleteInput"
+				"#hwhNewStopIncompleteInput",
+				"#nxManualKeepCoins"
 			]) root.querySelector(id)?.addEventListener("change", () => persist());
 			const onStart = () => {
 				const result = validate();
@@ -8839,6 +8857,7 @@
 					buyAnyRandomLots: value.buyAnyRandomLots,
 					stopIfIncomplete: value.stopIfIncompleteRaw,
 					keepExtraCoins: loadChapterSettings(eventId, value.chapterId).keepExtraCoins,
+					manualKeepExtraCoins: value.keepExtraCoins !== false,
 					ascend: currentAscend
 				};
 				saveChapterSettings(eventId, value.chapterId, state);
@@ -8925,6 +8944,7 @@
 				buyAnyRandomLots: isChecked("#hwhNewRandomAnyInput"),
 				stopIfIncomplete: isChecked("#hwhNewStopIncompleteInput"),
 				keepExtraCoins: loadChapterSettings(eventId, activeChapter).keepExtraCoins,
+				manualKeepExtraCoins: isChecked("#nxManualKeepCoins"),
 				ascend: currentAscend
 			});
 			function persist() {
@@ -8947,6 +8967,7 @@
 				setChecked("#hwhNewPauseInput", next.pauseAfterBoss);
 				setChecked("#hwhNewRandomAnyInput", next.buyAnyRandomLots);
 				setChecked("#hwhNewStopIncompleteInput", next.stopIfIncomplete);
+				setChecked("#nxManualKeepCoins", next.manualKeepExtraCoins);
 				renderSacrificePoints();
 				syncWealthBlock();
 				syncAscendRow();

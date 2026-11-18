@@ -19,13 +19,12 @@ If a run does not work out, it resets the chapter and tries again.
   the main team at the very end:
   - needed heroes are pinned in the shop along the way and bought in the final shopping,
     so coins are not spent early and go into the emblem bonus;
-  - at the very start of the chapter the starting heroes keep only as many parts as the build needs, without
-    losing a rank; spare parts and unneeded heroes are sold, so the coins go straight into shopping;
   - carry heroes with ranks, topped up along the chapter;
   - two deliberate losses for coins on a chosen point — any regular one, never the main boss;
   - resale of profitable lots;
   - discounted pets are bought out and sold later, so the shop offers more heroes;
-  - minimum Shop Coins with the emblem bonus shown: the shopping stops once it is out of reach.
+  - minimum Shop Coins with the emblem bonus shown: the shopping stops once it is out of reach;
+    with "Keep extra coins" unchecked, coins above the minimum are spent down to its bonus.
 - **The needed emblem was not offered** — the chapter's free rerolls go first, then the chapter restarts.
 - **Emblem of Ascension** — once it is taken, the run ascends the heroes of the team or the ones picked in the window,
   collected in full, before the Archdemon: +20% to all stats for 30 Shop Coins each, never below the minimum for the Emblem of Capital.
