@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.32-beta
+// @version         1.33-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -274,6 +274,8 @@
 			NX_PRESETS_AUTHORS: "Every build has an author. If a build helped you, drop by their video and leave a 👍",
 			NX_PRESETS_HEAD_DAMAGE: "Damage",
 			NX_PRESETS_HEAD_BUFF: "Buff",
+			NX_PRESETS_HEAD_CHAPTER: "Chapter",
+			NX_PRESETS_ANY_CHAPTER: "any",
 			NX_PRESETS_HEAD_COINS: "Coins",
 			NX_PRESETS_HEAD_TALISMANS: "Emblems",
 			NX_PRESETS_HEAD_PET: "Pet",
@@ -537,6 +539,8 @@
 			NX_PRESETS_AUTHORS: "У каждой сборки есть автор. Если сборка помогла, загляните к нему на видео и поставьте 👍",
 			NX_PRESETS_HEAD_DAMAGE: "Урон",
 			NX_PRESETS_HEAD_BUFF: "Усиление",
+			NX_PRESETS_HEAD_CHAPTER: "Глава",
+			NX_PRESETS_ANY_CHAPTER: "любая",
 			NX_PRESETS_HEAD_COINS: "Монеты",
 			NX_PRESETS_HEAD_TALISMANS: "Эмблемы",
 			NX_PRESETS_HEAD_PET: "Питомец",
@@ -1639,10 +1643,12 @@
 	}
 	function progressPlan(setup) {
 		const seen = new Set();
-		const take = (ids, need) => {
+		const take = (ids, need, fresh = false) => {
 			const units = [];
+			const own = new Set();
 			for (const id of (ids ?? []).map(Number)) {
-				if (!(id > 0) || seen.has(id)) continue;
+				if (!(id > 0) || own.has(id) || !fresh && seen.has(id)) continue;
+				own.add(id);
 				seen.add(id);
 				units.push({
 					id,
@@ -1658,7 +1664,7 @@
 			},
 			{
 				kind: "carry",
-				units: take([...setup.carryHeroes ?? [], ...setup.carryExtraHeroes ?? []], (id) => setup.carryTargets?.[id])
+				units: take([...setup.carryHeroes ?? [], ...setup.carryExtraHeroes ?? []], (id) => setup.carryTargets?.[id], true)
 			},
 			{
 				kind: "sacrifice",
@@ -4525,7 +4531,10 @@
 		return `<div style="margin-bottom: 6px;"><div style="font-size: 11px; color: #e8c9a0; margin-bottom: 3px;">${title}</div><div style="display: grid; grid-template-columns: repeat(${PROGRESS_PER_ROW}, ${TILE}px); gap: ${GAP}px;">${tiles}</div></div>`;
 	}
 	function progressColumnHtml(groups, state, icons) {
-		const plan = groups.map((group) => groupHtml(groupTitle(group.kind), group.units.map((unit) => progressTileHtml(unit.id, unit.need, state, icons[unit.id] ?? "")).join(""))).join("");
+		const plan = groups.map((group) => groupHtml(groupTitle(group.kind), group.units.map((unit) => progressTileHtml(unit.id, unit.need, group.kind === "carry" ? {
+			owned: state.owned,
+			pinned: {}
+		} : state, icons[unit.id] ?? "")).join(""))).join("");
 		const extra = extraPets(groups, state.owned);
 		if (extra.length === 0) return plan;
 		return plan + groupHtml(I18N("NX_PROGRESS_EXTRA"), extra.map((unit) => extraTileHtml(unit.id, unit.count, icons[unit.id] ?? "")).join(""));
@@ -7955,7 +7964,7 @@
 	var GUI_FILES = [PET_HEAD_FILE, "emblem_icons"];
 	var SIZE = 36;
 	var TALISMAN = 30;
-	var TABLE_STYLE = "display: grid; grid-template-columns: repeat(6, max-content) minmax(0, 1fr) max-content; margin-top: 8px;";
+	var TABLE_STYLE = "display: grid; grid-template-columns: repeat(7, max-content) minmax(0, 1fr) max-content; margin-top: 8px;";
 	var CELL = "display: flex; align-items: center; padding: 5px; border-top: 1px solid rgba(206, 151, 103, 0.25);";
 	var PLAY_ICON = "<svg width=\"32\" height=\"23\" viewBox=\"0 0 24 17\" aria-hidden=\"true\" style=\"display: block;\"><rect width=\"24\" height=\"17\" rx=\"4\" fill=\"#e53935\"/><path d=\"M9.5 4.5v8l7-4z\" fill=\"#fff\"/></svg>";
 	var muted = (text) => `<span style="opacity: 0.6;">${text}</span>`;
@@ -7985,7 +7994,7 @@
 	}
 	function columnsHtml() {
 		const cell = (key, align = "center") => `<div style="padding: 0 5px 4px; align-self: end; text-align: ${align}; white-space: nowrap; font-size: 13px; color: #c9b89c;">${I18N(key)}</div>`;
-		return cell("NX_PRESETS_HEAD_DAMAGE", "right") + cell("NX_PRESETS_HEAD_BUFF") + cell("NX_PRESETS_HEAD_COINS") + cell("NX_PRESETS_HEAD_TALISMANS") + cell("NX_PRESETS_HEAD_PET") + cell("NX_PRESETS_HEAD_HEROES") + cell("NX_PRESETS_HEAD_AUTHOR", "left") + "<div></div>";
+		return cell("NX_PRESETS_HEAD_DAMAGE", "right") + cell("NX_PRESETS_HEAD_BUFF") + cell("NX_PRESETS_HEAD_CHAPTER") + cell("NX_PRESETS_HEAD_COINS") + cell("NX_PRESETS_HEAD_TALISMANS") + cell("NX_PRESETS_HEAD_PET") + cell("NX_PRESETS_HEAD_HEROES") + cell("NX_PRESETS_HEAD_AUTHOR", "left") + "<div></div>";
 	}
 	function presetsTableHtml(presets, ctx) {
 		return `<div style="${TABLE_STYLE}">${columnsHtml()}${presets.map((preset, index) => presetRowHtml(preset, index, ctx)).join("")}</div>`;
@@ -8020,7 +8029,7 @@
 		const author = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${authorText}</a>` : authorText;
 		const video = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(I18N("NX_PRESETS_VIDEO"))}" style="flex: none;">${PLAY_ICON}</a>` : "";
 		const matched = preset.buff === Number(buff);
-		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff || "—"}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(preset, buff, strategies, chapter, eventId), I18N("NX_PRESETS_GO"))}</div>`;
+		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.chapter > 0 ? toRoman(preset.chapter) : muted(I18N("NX_PRESETS_ANY_CHAPTER"))}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(preset, buff, strategies, chapter, eventId), I18N("NX_PRESETS_GO"))}</div>`;
 	}
 	var STRATEGY_SOURCE_TEXT = {
 		preset: () => I18N("NX_PRESETS_STRATEGY_PRESET"),
