@@ -389,7 +389,6 @@
 			NX_PROGRESS_SACRIFICE: "To throw",
 			NX_PROGRESS_PETS: "Pets",
 			NX_PROGRESS_EXTRA: "Extra for sale",
-			NX_PROGRESS_START: "Start",
 			NX_EVENT_PIN: "Pinned for <span style=\"color: #a8a8a8;\">{coins}</span>",
 			NX_UPDATE_SHORT: "{version} is out",
 			NX_UPDATE_BUTTON: "Update",
@@ -665,7 +664,6 @@
 			NX_PROGRESS_SACRIFICE: "Для слива",
 			NX_PROGRESS_PETS: "Питомцы",
 			NX_PROGRESS_EXTRA: "Экстра на продажу",
-			NX_PROGRESS_START: "Старт",
 			NX_EVENT_PIN: "Закрепили за <span style=\"color: #a8a8a8;\">{coins}</span>",
 			NX_UPDATE_SHORT: "доступна {version}",
 			NX_UPDATE_BUTTON: "Обновить",
@@ -1775,12 +1773,9 @@
 			},
 			{
 				kind: "carry",
-				units: take([...setup.carryHeroes ?? [], ...setup.carryExtraHeroes ?? []], (id) => setup.carryTargets?.[id], true)
+				units: take([...setup.carryHeroes ?? [], ...setup.carryExtraHeroes ?? []], (id) => setup.carryTargets?.[id], true),
+				...Number(setup.startBuy ?? 0) > 0 ? { start: true } : {}
 			},
-			...Number(setup.startBuy ?? 0) > 0 ? [{
-				kind: "start",
-				units: []
-			}] : [],
 			{
 				kind: "sacrifice",
 				units: take(setup.sacrificeHeroes, () => 1)
@@ -1789,7 +1784,7 @@
 				kind: "pets",
 				units: take(setup.petsToCollect, () => 1)
 			}
-		].filter((group) => group.units.length > 0 || group.kind === "start");
+		].filter((group) => group.units.length > 0 || group.start === true);
 	}
 	function extraPets(groups, owned) {
 		const planned = new Set(groups.flatMap((group) => group.units.map((unit) => unit.id)));
@@ -1799,7 +1794,7 @@
 		})).filter((unit) => unit.id >= NX_PET_ID_THRESHOLD && unit.count > 0 && !planned.has(unit.id));
 	}
 	function extraHeroes(groups, owned) {
-		if (!groups.some((group) => group.kind === "start")) return [];
+		if (!groups.some((group) => group.start === true)) return [];
 		const planned = new Set(groups.flatMap((group) => group.units.map((unit) => unit.id)));
 		return Object.entries(owned).map(([id, count]) => ({
 			id: Number(id),
@@ -4731,7 +4726,6 @@
 		switch (kind) {
 			case "team": return I18N("NX_PROGRESS_TEAM");
 			case "carry": return I18N("NX_PROGRESS_CARRY");
-			case "start": return I18N("NX_PROGRESS_START");
 			case "sacrifice": return I18N("NX_PROGRESS_SACRIFICE");
 			case "pets": return I18N("NX_PROGRESS_PETS");
 		}
@@ -4790,11 +4784,13 @@
 	}
 	function progressColumnHtml(groups, state, icons) {
 		const plan = groups.map((group) => {
-			if (group.kind === "start") {
-				const bodies = extraHeroes(groups, state.owned);
-				return bodies.length ? groupHtml(groupTitle("start"), bodies.map((unit) => extraTileHtml(unit.id, unit.count, icons[unit.id] ?? "")).join("")) : "";
-			}
-			return groupHtml(groupTitle(group.kind), group.units.map((unit) => progressTileHtml(unit.id, unit.need, group.kind === "carry" ? {
+			const bodies = group.start ? extraHeroes(groups, state.owned).map((unit) => ({
+				id: unit.id,
+				need: 1
+			})) : [];
+			const units = [...group.units, ...bodies];
+			if (!units.length) return "";
+			return groupHtml(groupTitle(group.kind), units.map((unit) => progressTileHtml(unit.id, unit.need, group.kind === "carry" ? {
 				owned: state.owned,
 				pinned: {}
 			} : state, icons[unit.id] ?? "")).join(""));
