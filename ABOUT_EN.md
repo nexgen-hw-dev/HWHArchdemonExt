@@ -54,7 +54,7 @@ requests too and can turn an intentional loss into a win. And do not play manual
 <details>
 <summary>Show</summary>
 
-<a href="docs/img/setup.png"><img src="docs/img/setup.png" width="420" alt="Setup window"></a>
-<a href="docs/img/wealth.png"><img src="docs/img/wealth.png" width="420" alt="Emblem of Capital run settings"></a>
+<a href="docs/img/setup_en.png"><img src="docs/img/setup_en.png" width="420" alt="Setup window"></a>
+<a href="docs/img/wealth_en.png"><img src="docs/img/wealth_en.png" width="420" alt="Emblem of Capital run settings"></a>
 
 </details>
