@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.38-beta
+// @version         1.41-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -170,6 +170,10 @@
 	var NX_STALL_REFRESH_COST = 3;
 	var NX_RUN_PAUSE_MIN_SECONDS = 1;
 	var NX_RUN_PAUSE_MAX_SECONDS = 2;
+	var NX_SERVER_ERROR_CALL_RETRIES = 2;
+	var NX_SERVER_ERROR_CALL_PAUSE_MS = 3e3;
+	var NX_SERVER_ERROR_PAUSE_SECONDS = 15;
+	var NX_SERVER_ERROR_ATTEMPTS = 3;
 	var NX_FRAGMENT_SELL_PRICE = 8;
 	var NX_MIN_COINS_SLACK = 30;
 	var NX_SACRIFICE_LOSSES = 2;
@@ -178,7 +182,6 @@
 	var NX_SACRIFICE_MAX_REFRESHES = 30;
 	var NX_LOTS_PER_EARNED_REFRESH = 2;
 	var NX_POINT1_MAX_REFRESHES = 30;
-	var NX_CARRY_UNSEEN_LIMIT = 60;
 	var NX_RANDOM_LOT_FRAGMENTS = 2;
 	var NX_BATTLE_TIMER_RANGE = {
 		min: 1.3,
@@ -227,9 +230,9 @@
 			NX_REASON_STOPPED: "Stopped by you",
 			NX_COOLDOWN: "Restart in {seconds} s",
 			NX_BLOCK_CARRY: "Carry heroes, they only walk you through",
-			NX_BLOCK_CARRY_HINT: "On point 1 at least purple is a must, up to the chosen rank they are topped up as soon as possible. Sold after the last point before the Archdemon",
+			NX_BLOCK_CARRY_HINT: "As many heroes fight as carry heroes are listed. Whoever is not bought on point 1 is bought along the way, a hero on hand takes his place meanwhile and is sold, the weakest first, when the needed one comes. Up to the chosen rank they are topped up as soon as possible. Sold after the last point before the Archdemon. Empty — like a ready-made build with a start: all heroes on hand fight, up to five; chapters I–III start with the starting heroes, chapter IV with three, chapter V and later with five, and every 5 runs short of strength add one more hero",
 			NX_BLOCK_SACRIFICE: "Who throws the point",
-			NX_BLOCK_SACRIFICE_HINT: "Up to five heroes. One throws, the weakest owned: a Support, then a Tank, then anyone, the fewest fragments first. It loses the chosen point twice on purpose, then the carry team takes it",
+			NX_BLOCK_SACRIFICE_HINT: "Up to five heroes. One throws, the weakest owned: a Support, then a Tank, then anyone, the fewest fragments first. It loses the chosen point twice on purpose, then the carry team takes it. Empty or nobody from the list on hand — the weakest hero on hand throws",
 			NX_BLOCK_SACRIFICE_REFRESH: "Stall refreshes on the throw point to find the throwing hero",
 			NX_BLOCK_SACRIFICE_REFRESH_HINT: "Needed when none of them is a carry hero: then one is bought on the throw point. Zero means no refreshes, if nobody is there the run restarts",
 			NX_ERR_SACRIFICE_REFRESH: "Refreshes for the throwing hero must be a whole number from 0 to {max}",
@@ -243,18 +246,18 @@
 			NX_ASCEND_EDIT_HINT: "Pick up to five heroes; empty — the team",
 			NX_PICK_ASCEND_TITLE: "Whom to ascend",
 			NX_LIST_EDIT_HINT: "Pick up to five heroes and their ranks",
-			NX_ERR_SACRIFICE: "Pick one to {max} heroes to throw the point with «Edit»",
+			NX_ERR_SACRIFICE: "Pick up to {max} heroes to throw the point with «Edit»",
 			NX_BLOCK_START_REFRESH: "Spare stall refreshes on point 1",
 			NX_BLOCK_START_REFRESH_HINT: "How many refreshes are allowed when the round did not buy enough unknown pairs to earn one. Zero means earned refreshes only",
 			NX_ERR_START_REFRESH: "Spare refreshes must be a whole number from 0 to {max}",
-			NX_REASON_NO_CARRY_EXTRA: "None of the extra carry heroes were on sale: {list}",
 			NX_WEALTH_SHOP: "Point {point}, stall. Coins: <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_WEALTH_FINAL: "Selling the carry heroes and collecting the real team",
 			NX_SACRIFICE: "Throwing the point on purpose, <span style=\"color: LimeGreen;\">{number}</span> of {total}",
 			NX_REASON_SACRIFICE_WON: "The throwing lineup won, which breaks the plan",
-			NX_REASON_NO_CARRY: "Carry heroes were not on sale: {list}",
-			NX_ERR_CARRY_POINT1: "Carry heroes {list} cannot be had by point 1 of this chapter: they are neither starting heroes nor sold in the first stall. The Capital run would reset the chapter endlessly. Pick others. Starting heroes of the chapter: {start}",
-			NX_CARRY_NEVER_ON_SALE: "Carry heroes {list} were not on sale at point 1 even once in {attempts} runs in a row: it looks like they cannot be had by point 1. The run is stopped, pick other carry heroes",
+			NX_REASON_NO_HEROES: "No heroes on hand after the point 1 shopping: nobody to attack with",
+			NX_AUTO_START: "No carry heroes set: up to {goal} heroes fight. Runs short of strength so far: {weak}, every {step} adds one more hero",
+			NX_REASON_SERVER_ERROR: "The game server answered with an internal error (E_Internal), the chapter starts over after a pause ({tries} of {max} in a row)",
+			NX_CARRY_SHORT: "Carry heroes missing: {list}. {have} heroes fight, the missing ones are bought along the way",
 			NX_REASON_POINT_LOST: "Point {point} was not taken",
 			NX_REASON_POINT_LOST_REMEMBERED: "Point {point} was not taken, this team is remembered",
 			NX_EVENT_ENDING: "Less than {minutes} minutes are left until the event ends. No new runs are started",
@@ -301,6 +304,8 @@
 			NX_PRESETS_GO_ASCEND: "; ascends before the Archdemon: {list}",
 			NX_PRESETS_GO_START: "; at point 1 buys {count} more heroes — discounted pairs and random fragments, then discounted final heroes along the way",
 			NX_PRESETS_WEAKEST: "the weakest hero on hand",
+			NX_PRESETS_GO_ANY_PRICE: "; carry heroes at any price",
+			NX_PRESETS_GO_NO_SACRIFICE: "; no point is thrown on purpose",
 			NX_PRESETS_ASCEND_TEAM: "the team of the build, those collected in full",
 			NX_PRESETS_BACK: "Back",
 			NX_PRESETS_LOADING: "Loading the builds…",
@@ -312,7 +317,6 @@
 			NX_PRESETS_WAIT_SITES: "Websites",
 			NX_PRESETS_ERROR: "The request cannot be completed from your region. Please use additional tools",
 			NX_PRESETS_STALE: "The server did not answer, showing the saved copy",
-			NX_PRESETS_CARRY_POINT1: "Ready-made builds are made for the carry heroes {list} of the previous event: in this one they cannot be had by point 1. Wait for an add-on update or set the run up in the setup window",
 			NX_PRESETS_NO_STRATEGY: "No run strategy for chapter {chapter} at boost {buff}: it is not known who carries and who throws. A strategy comes with the build or for the whole event from the server; until then set the run up in the setup window",
 			NX_PRESETS_REFRESH: "Refresh the builds from the server, at most once a minute",
 			NX_PRESETS_REFRESH_WAIT: "You can refresh again in {seconds} s",
@@ -372,6 +376,13 @@
 			NX_ERR_RESULT_INVALID: "The game server did not accept a battle result and counted an auto-battle instead. The run is stopped",
 			NX_WEALTH_ONLY_NOTE: "Capital strategy settings appear when the Emblem of Capital is picked for point 1",
 			NX_BLOCK_RANDOM_ANY: "Buy unknown cards at any price",
+			NX_CARRY_ANY_PRICE: "Buy carry heroes at any price",
+			NX_CARRY_AUTO_NOTE: "No carry heroes set — the script picks them itself",
+			NX_WARN_CARRY_POINT1: "Carry hero {list} is not there from the start: neither a starting hero of the chapter nor in the first stall. The run buys the hero as soon as it shows up in the stall, until then heroes on hand fight",
+			NX_WARN_CARRY_POINT1_MANY: "Carry heroes {list} are not there from the start: neither starting heroes of the chapter nor in the first stall. The run buys them as soon as they show up in the stall, until then heroes on hand fight",
+			NX_CARRY_ANY_PRICE_HINT: "Unchecked: carry heroes and their parts only from discounted lots. Checked: at full price too",
+			NX_NO_SACRIFICE: "Do not throw a point on purpose",
+			NX_NO_SACRIFICE_HINT: "Checked: every point is fought to win, no throwing hero is needed",
 			NX_BLOCK_RANDOM_ANY_HINT: "Unchecked: only when cheaper than {price}, then resale pays them back. Checked: always, in case needed heroes are inside",
 			NX_LOG_STOP: "Stop",
 			NX_LOG_COLLAPSE: "Collapse the log to two lines",
@@ -441,8 +452,8 @@
 			NX_ERR_SQUAD_EMPTY: "The team is not set yet",
 			NX_START: "Start",
 			NX_SQUAD_REQUIRED: "First pick the goal team with «Edit»",
-			NX_MENU_ENTRY: "Adventure (Arch)",
-			NX_MENU_TITLE: "Abyss run up to the Archdemon",
+			NX_MENU_ENTRY: "ArchRank",
+			NX_MENU_TITLE: "Adventure chapters run up to the Archdemon",
 			NX_NO_EVENT: "No Adventure is running right now",
 			NX_NO_ARCHDEMON: "This Adventure has no Archdemon. The add-on works only in Adventures with the Archdemon",
 			NX_DEV_NO_RUN: "Developer mode: no Adventure with the Archdemon is running, so the run was not started",
@@ -502,9 +513,9 @@
 			NX_REASON_STOPPED: "Остановлено вами",
 			NX_COOLDOWN: "Перезапуск через {seconds} с",
 			NX_BLOCK_CARRY: "Проходные герои, ими только идём",
-			NX_BLOCK_CARRY_HINT: "На первой точке обязательно хотя бы до фиолетового, до выбранного ранга докупаются при первой возможности. Продаются после последней точки перед Архидемоном",
+			NX_BLOCK_CARRY_HINT: "Сколько проходных указано, столько героев идёт в бой. Кого не взяли на первой точке, докупаем по ходу, а пока его место занимает герой с рук — самого слабого продаём, когда придёт нужный. До выбранного ранга докупаются при первой возможности. Продаются после последней точки перед Архидемоном. Пусто — как готовая сборка со стартом: в бой все на руках, до пяти; в главах I–III — стартовые, в IV — трое, в V и дальше — пятеро, а каждые 5 заходов, где не хватило сил, — ещё один герой",
 			NX_BLOCK_SACRIFICE: "Кем сливаем точку",
-			NX_BLOCK_SACRIFICE_HINT: "До пяти героев. Сливает один, самый слабый из тех, что на руках: поддержка, потом танк, потом любой — у кого меньше фрагментов. Он дважды намеренно проигрывает выбранную точку, потом её берёт проходной состав",
+			NX_BLOCK_SACRIFICE_HINT: "До пяти героев. Сливает один, самый слабый из тех, что на руках: поддержка, потом танк, потом любой — у кого меньше фрагментов. Он дважды намеренно проигрывает выбранную точку, потом её берёт проходной состав. Пусто или никого из списка нет на руках — сливает самый слабый на руках",
 			NX_BLOCK_SACRIFICE_REFRESH: "Обновлений лавки на точке слива, чтобы найти героя для слива",
 			NX_BLOCK_SACRIFICE_REFRESH_HINT: "Нужно, если никого из них нет среди проходных: тогда одного докупают на точке слива. Ноль — без обновлений, никого не нашлось — заход заново",
 			NX_ERR_SACRIFICE_REFRESH: "Обновлений для героя слива — целое число от 0 до {max}",
@@ -518,18 +529,18 @@
 			NX_ASCEND_EDIT_HINT: "Выбрать до пяти героев; пусто — состав",
 			NX_PICK_ASCEND_TITLE: "Кого возвысить",
 			NX_LIST_EDIT_HINT: "Выбрать до пяти героев и их ранги",
-			NX_ERR_SACRIFICE: "Выберите от одного до {max} героев для слива кнопкой «Изменить»",
+			NX_ERR_SACRIFICE: "Героев для слива — не больше {max}, выберите кнопкой «Изменить»",
 			NX_BLOCK_START_REFRESH: "Запас обновлений лавки на первой точке",
 			NX_BLOCK_START_REFRESH_HINT: "Сколько раз можно обновить, если за круг не набралось нужного числа случайных фрагментов. Ноль значит только заработанные",
 			NX_ERR_START_REFRESH: "Запас обновлений это целое число от 0 до {max}",
-			NX_REASON_NO_CARRY_EXTRA: "Ни одного дополнительного проходного не было в продаже: {list}",
 			NX_WEALTH_SHOP: "Точка {point}, лавка. Монет: <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_WEALTH_FINAL: "Продаём проходных и собираем основной состав",
 			NX_SACRIFICE: "Намеренно сливаем точку, <span style=\"color: LimeGreen;\">{number}</span> из {total}",
 			NX_REASON_SACRIFICE_WON: "Сливающий состав выиграл, это ломает план",
-			NX_REASON_NO_CARRY: "Проходных не было в продаже: {list}",
-			NX_ERR_CARRY_POINT1: "Проходных {list} к точке 1 этой главы не взять: их нет ни среди стартовых героев, ни в первой лавке. Прогон под капитал сбрасывал бы главу без конца. Выберите других. Стартовые герои главы: {start}",
-			NX_CARRY_NEVER_ON_SALE: "Проходных {list} ни разу не было в лавке на точке 1 за {attempts} заходов подряд: похоже, к точке 1 их не взять. Прогон остановлен, выберите других проходных",
+			NX_REASON_NO_HEROES: "После закупки точки 1 на руках ни одного героя: атаковать некем",
+			NX_AUTO_START: "Проходные не указаны: в бой идут до {goal} героев. Заходов, где не хватило сил: {weak}, каждые {step} — ещё один герой",
+			NX_REASON_SERVER_ERROR: "Сервер игры ответил внутренней ошибкой (E_Internal), после паузы заходим заново ({tries} из {max} подряд)",
+			NX_CARRY_SHORT: "Не хватает проходных: {list}. В бою героев: {have}, недостающих докупим по ходу",
 			NX_REASON_POINT_LOST: "Точка {point} не взята",
 			NX_REASON_POINT_LOST_REMEMBERED: "Точка {point} не взята, состав запомнили",
 			NX_EVENT_ENDING: "До конца события меньше {minutes} минут. Новых заходов не начинаем",
@@ -576,6 +587,8 @@
 			NX_PRESETS_GO_ASCEND: "; перед Архидемоном возвысит: {list}",
 			NX_PRESETS_GO_START: "; на точке 1 докупит героев: {count} — пары со скидкой и случайные фрагменты, дальше финальных со скидкой по ходу",
 			NX_PRESETS_WEAKEST: "самый слабый на руках",
+			NX_PRESETS_GO_ANY_PRICE: "; проходных — по любой цене",
+			NX_PRESETS_GO_NO_SACRIFICE: "; специально не сливаем",
 			NX_PRESETS_ASCEND_TEAM: "состав сборки, кто собран полностью",
 			NX_PRESETS_BACK: "Назад",
 			NX_PRESETS_LOADING: "Загружаем сборки…",
@@ -587,7 +600,6 @@
 			NX_PRESETS_WAIT_SITES: "Сайты",
 			NX_PRESETS_ERROR: "Для вашего региона невозможно выполнить запрос. Воспользуйтесь дополнительными инструментами",
 			NX_PRESETS_STALE: "Сервер не ответил, показана сохранённая копия",
-			NX_PRESETS_CARRY_POINT1: "Готовые сборки рассчитаны на проходных {list} прошлого события, в этом их к точке 1 не взять. Дождитесь обновления дополнения или настройте прогон в окне настройки",
 			NX_PRESETS_NO_STRATEGY: "Для главы {chapter} при усилении {buff} стратегии прогона нет: неизвестно, кто проходные и кто сливает. Стратегию дают сборка или общая стратегия события с сервера; пока её нет, настройте прогон в окне настройки",
 			NX_PRESETS_REFRESH: "Обновить сборки с сервера, не чаще раза в минуту",
 			NX_PRESETS_REFRESH_WAIT: "Обновить можно через {seconds} с",
@@ -647,6 +659,13 @@
 			NX_ERR_RESULT_INVALID: "Сервер игры не принял результат боя и засчитал автобой. Прогон остановлен",
 			NX_WEALTH_ONLY_NOTE: "Настройки стратегии капитала появятся, если на первой точке выбрать Эмблему капитала",
 			NX_BLOCK_RANDOM_ANY: "Скупать случайные фрагменты по любой цене",
+			NX_CARRY_ANY_PRICE: "Покупать проходных за любую цену",
+			NX_CARRY_AUTO_NOTE: "Проходные не указаны — скрипт подберёт их сам",
+			NX_WARN_CARRY_POINT1: "Проходного {list} нет ни среди стартовых героев главы, ни в первой лавке. Прогон купит этого героя, как только он появится в лавке, а пока воюют герои с рук",
+			NX_WARN_CARRY_POINT1_MANY: "Проходных {list} нет ни среди стартовых героев главы, ни в первой лавке. Прогон купит их, как только они появятся в лавке, а пока воюют герои с рук",
+			NX_CARRY_ANY_PRICE_HINT: "Без галки: проходных и их части — только из лотов со скидкой. С галкой: и по полной цене",
+			NX_NO_SACRIFICE: "Не сливать специально",
+			NX_NO_SACRIFICE_HINT: "С галкой: все точки проходим на победу, герой для слива не нужен",
 			NX_BLOCK_RANDOM_ANY_HINT: "Без галки: только дешевле {price}, тогда их окупает продажа. С галкой: всегда, вдруг там нужные герои",
 			NX_LOG_STOP: "Стоп",
 			NX_LOG_COLLAPSE: "Свернуть журнал до двух строк",
@@ -716,8 +735,8 @@
 			NX_ERR_SQUAD_EMPTY: "Состав ещё не задан",
 			NX_START: "Начать",
 			NX_SQUAD_REQUIRED: "Сначала выберите целевой состав кнопкой «Изменить»",
-			NX_MENU_ENTRY: "Приключение (Arch)",
-			NX_MENU_TITLE: "Прогон Бездны до Архидемона",
+			NX_MENU_ENTRY: "ArchRank",
+			NX_MENU_TITLE: "Прогон глав Приключения до Архидемона",
 			NX_NO_EVENT: "Сейчас Приключение не идёт",
 			NX_NO_ARCHDEMON: "В этом Приключении нет Архидемона. Дополнение работает только в Приключениях с Архидемоном",
 			NX_DEV_NO_RUN: "Режим разработки: Приключение с Архидемоном сейчас не идёт, прогон не запущен",
@@ -960,6 +979,9 @@
 		}
 		return text;
 	}
+	function romanHtml(number) {
+		return `<span translate="no" class="notranslate">${toRoman(number)}</span>`;
+	}
 	function bossNumbers(value) {
 		return Array.isArray(value) ? value.map(Number).filter((n) => Number.isInteger(n) && n > 0) : [];
 	}
@@ -1064,7 +1086,7 @@
 		return Number(cost) > 0;
 	}
 	function chapterTitle(chapter, number) {
-		const numeral = `<span style="font-family: 'Times New Roman';">${toRoman(number)}</span>`;
+		const numeral = `<span translate="no" class="notranslate" style="font-family: 'Times New Roman';">${toRoman(number)}</span>`;
 		const key = chapter.clientData?.titleLocale;
 		let name = "";
 		try {
@@ -1080,6 +1102,72 @@
 		} catch {
 			return false;
 		}
+	}
+	function sleep(ms) {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+	function nextTask() {
+		return new Promise((resolve) => {
+			const channel = new MessageChannel();
+			channel.port1.onmessage = () => {
+				channel.port1.close();
+				resolve();
+			};
+			channel.port2.postMessage(0);
+		});
+	}
+	function idle(ms) {
+		return new Promise((resolve) => {
+			if (typeof requestIdleCallback === "function") requestIdleCallback(() => resolve(), { timeout: ms });
+			else setTimeout(resolve, ms);
+		});
+	}
+	var REPEATABLE = new Set([
+		"invasion_getInfo",
+		"invasion_setActiveChapter",
+		"invasion_resetChapter",
+		"shopGet",
+		"shopGetAll",
+		"inventoryGet",
+		"subscriptionGetInfo",
+		"workshop_getInfo"
+	]);
+	function isServerInternal(error) {
+		const message = error?.message;
+		return /\bE_Internal\b/.test(typeof message === "string" ? message : String(error ?? ""));
+	}
+	function callName(call) {
+		if (typeof call === "string") return call;
+		if (Array.isArray(call)) return call.map(callName).join(" + ");
+		return String(call?.name ?? "?");
+	}
+	function withCallName(error, call) {
+		const name = callName(call);
+		const err = error instanceof Error || error && typeof error.message === "string" ? error : new Error(String(error));
+		if (!err.message.startsWith(`${name}: `) && !err.message.includes(` in ${name}:`)) try {
+			err.message = `${name}: ${err.message}`;
+		} catch {
+			return new Error(`${name}: ${err.message}`);
+		}
+		return err;
+	}
+	var gameSend = (async (call) => {
+		const name = callName(call);
+		for (let tries = 0;; tries++) try {
+			return await Caller.send(call);
+		} catch (e) {
+			if (isServerInternal(e) && REPEATABLE.has(name) && tries < NX_SERVER_ERROR_CALL_RETRIES) {
+				console.warn(`Сервер ответил E_Internal на ${name}, повтор ${tries + 1} из ${NX_SERVER_ERROR_CALL_RETRIES}`);
+				await sleep(NX_SERVER_ERROR_CALL_PAUSE_MS);
+				continue;
+			}
+			throw withCallName(e, call);
+		}
+	});
+	var ARCHRANK_ICON = `data:image/svg+xml;charset=utf-8,${encodeURIComponent("<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 96 64\" width=\"96\" height=\"64\"><path d=\"M1 30 H7 M2 36 H9 M1 52 H6\" stroke=\"#ffe7b0\" stroke-width=\"1.6\" stroke-linecap=\"round\" opacity=\"0.7\"/><path d=\"M37 13 Q50 7 60 15\" fill=\"none\" stroke=\"#ffe7b0\" stroke-width=\"2\" stroke-linecap=\"round\" opacity=\"0.85\"/><path d=\"M39 18 Q49 13 56 18.5\" fill=\"none\" stroke=\"#ffe7b0\" stroke-width=\"1.5\" stroke-linecap=\"round\" opacity=\"0.55\"/><path d=\"M19.4 45 Q13.8 48.4 9.8 44.6\" fill=\"none\" stroke=\"#3a1a08\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M19.4 45 Q13.8 48.4 9.8 44.6\" fill=\"none\" stroke=\"#f1c597\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M12.2 46.4 L9.8 44.6\" stroke=\"#ffffff\" stroke-width=\"3\" stroke-linecap=\"round\"/><ellipse cx=\"8\" cy=\"43.4\" rx=\"3.7\" ry=\"2.3\" transform=\"rotate(-62 8 43.4)\" fill=\"#5a3416\" stroke=\"#2a1408\" stroke-width=\"1\"/><path d=\"M25.6 45 Q31.2 48.4 31.8 54\" fill=\"none\" stroke=\"#3a1a08\" stroke-width=\"5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M25.6 45 Q31.2 48.4 31.8 54\" fill=\"none\" stroke=\"#f1c597\" stroke-width=\"2.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M31.6 51.8 L31.8 54.2\" stroke=\"#ffffff\" stroke-width=\"3\" stroke-linecap=\"round\"/><ellipse cx=\"33.6\" cy=\"55.8\" rx=\"3.9\" ry=\"2.3\" fill=\"#5a3416\" stroke=\"#2a1408\" stroke-width=\"1\"/><g transform=\"rotate(5 22 45)\"><path d=\"M15.6 39.5 Q22.4 41 29.6 39.5 L30.6 47.4 L24 47.6 L22.6 44.6 L21.2 47.6 L14.4 47.4 Z\" fill=\"#e0342b\" stroke=\"#3a1a08\" stroke-width=\"1.5\" stroke-linejoin=\"round\"/><circle cx=\"18\" cy=\"42.6\" r=\"0.9\" fill=\"#fff\"/><circle cx=\"21.8\" cy=\"41.8\" r=\"0.9\" fill=\"#fff\"/><circle cx=\"26.4\" cy=\"42.8\" r=\"0.9\" fill=\"#fff\"/><circle cx=\"16.4\" cy=\"45.6\" r=\"0.9\" fill=\"#fff\"/><circle cx=\"28.6\" cy=\"45.6\" r=\"0.9\" fill=\"#fff\"/><circle cx=\"24.4\" cy=\"45.2\" r=\"0.8\" fill=\"#fff\"/><path d=\"M15.4 40 Q22.4 41.6 29.8 40\" fill=\"none\" stroke=\"#f6f0dc\" stroke-width=\"1.4\"/><path d=\"M16 29 L18.4 26.6 L20.4 29.2 Q22.6 30.2 24.8 29.2 L26.8 26.6 L29.6 29.2 Q32.6 34.4 30 40.2 Q22.4 41.8 15.6 40.2 Q14.2 34.4 16 29 Z\" fill=\"#f6f0dc\" stroke=\"#3a1a08\" stroke-width=\"1.6\" stroke-linejoin=\"round\"/><ellipse cx=\"27.6\" cy=\"35.4\" rx=\"1.7\" ry=\"1.3\" fill=\"#d9c27a\" opacity=\"0.8\"/><path d=\"M16.2 16.8 Q12.4 21.4 14.4 27 Q16.6 24.4 17.8 19.6 Z\" fill=\"#7a3e14\" stroke=\"#3a1a08\" stroke-width=\"1.1\" stroke-linejoin=\"round\"/><circle cx=\"23\" cy=\"19.4\" r=\"7\" fill=\"#f1c597\" stroke=\"#3a1a08\" stroke-width=\"1.7\"/><path d=\"M17.6 21 Q18.4 27.6 23.6 27.4 Q29.4 27.2 30 20.4 Q27.6 22.6 25 21.8 Q21 22.2 17.6 21 Z\" fill=\"#7a3e14\" stroke=\"#3a1a08\" stroke-width=\"1.1\" stroke-linejoin=\"round\"/><ellipse cx=\"26.6\" cy=\"23.6\" rx=\"2\" ry=\"1.6\" fill=\"#3a0a06\"/><rect x=\"26.1\" y=\"22.1\" width=\"1\" height=\"1.2\" fill=\"#fff\"/><circle cx=\"26.4\" cy=\"18.8\" r=\"1.1\" fill=\"#1a0a04\"/><path d=\"M24.2 16.4 L28.4 17.6\" stroke=\"#3a1a08\" stroke-width=\"1.3\" stroke-linecap=\"round\"/><path d=\"M15.6 16.6 Q15.8 9 23 9.4 Q30.2 9.8 30.4 16 Z\" fill=\"#f6f0dc\" stroke=\"#3a1a08\" stroke-width=\"1.2\" stroke-linejoin=\"round\"/><path d=\"M18.6 12 L21 15.8 M21 10.4 L23.6 15.6 M16.8 14.2 L18.4 16.2\" stroke=\"#b8b0a0\" stroke-width=\"0.7\"/><path d=\"M22.8 9.5 Q29.8 9.9 30.4 16 L23.6 16 Z\" fill=\"#d23a2a\" stroke=\"#3a1a08\" stroke-width=\"1.2\" stroke-linejoin=\"round\"/><path d=\"M29.6 15.4 L36.4 16.2 Q36.6 18 34.4 18.2 L29.6 17.6 Z\" fill=\"#a82a20\" stroke=\"#3a1a08\" stroke-width=\"1.1\" stroke-linejoin=\"round\"/><path d=\"M32.6 33 L54 23.4\" stroke=\"#3a1a08\" stroke-width=\"6.6\" stroke-linecap=\"round\"/><path d=\"M32.6 33 L54 23.4\" stroke=\"#9a6233\" stroke-width=\"4\" stroke-linecap=\"round\"/><ellipse cx=\"55.4\" cy=\"22.8\" rx=\"5.6\" ry=\"4.3\" transform=\"rotate(-24 55.4 22.8)\" fill=\"#9a6233\" stroke=\"#3a1a08\" stroke-width=\"1.5\"/><path d=\"M52.6 21.4 L56.4 19.8\" stroke=\"#c88a50\" stroke-width=\"1.3\" stroke-linecap=\"round\"/><path d=\"M16.6 30.4 Q22 36.6 32.6 33.4\" fill=\"none\" stroke=\"#3a1a08\" stroke-width=\"4.8\" stroke-linecap=\"round\"/><path d=\"M16.6 30.4 Q22 36.6 32.6 33.4\" fill=\"none\" stroke=\"#f1c597\" stroke-width=\"2.6\" stroke-linecap=\"round\"/><path d=\"M28.4 29.6 Q32.4 31.4 36.2 31.6\" fill=\"none\" stroke=\"#3a1a08\" stroke-width=\"4.8\" stroke-linecap=\"round\"/><path d=\"M28.4 29.6 Q32.4 31.4 36.2 31.6\" fill=\"none\" stroke=\"#f1c597\" stroke-width=\"2.6\" stroke-linecap=\"round\"/><circle cx=\"33.2\" cy=\"33\" r=\"2.7\" fill=\"#f1c597\" stroke=\"#3a1a08\" stroke-width=\"1.3\"/><circle cx=\"36.6\" cy=\"31.4\" r=\"2.7\" fill=\"#f1c597\" stroke=\"#3a1a08\" stroke-width=\"1.3\"/></g><path d=\"M58 16 L60.4 21.4 L66.2 20.6 L62 24.8 L64.4 30.2 L59.2 27.4 L54.4 30.6 L55.6 24.8 L51.2 21 L57 21.4 Z\" fill=\"#ffd23a\" stroke=\"#7a4a00\" stroke-width=\"1.1\" stroke-linejoin=\"round\"/><circle cx=\"58.4\" cy=\"23.6\" r=\"1.8\" fill=\"#fff6c8\"/><path d=\"M65.6 40.4 Q59.6 41.4 57 36.6 Q55.2 33.2 52.4 33.6\" fill=\"none\" stroke=\"#3a1208\" stroke-width=\"3.6\" stroke-linecap=\"round\"/><path d=\"M65.6 40.4 Q59.6 41.4 57 36.6 Q55.2 33.2 52.4 33.6\" fill=\"none\" stroke=\"#d8402c\" stroke-width=\"2\" stroke-linecap=\"round\"/><path d=\"M53.6 30.6 L48.8 32.8 L52.6 36.4 Q52.4 33.4 53.6 30.6 Z\" fill=\"#d8402c\" stroke=\"#3a1208\" stroke-width=\"1.1\" stroke-linejoin=\"round\"/><path d=\"M67.6 42.6 Q63.6 48.4 58.8 46.2\" fill=\"none\" stroke=\"#3a1208\" stroke-width=\"6.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M67.6 42.6 Q63.6 48.4 58.8 46.2\" fill=\"none\" stroke=\"#a92a1b\" stroke-width=\"4.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"57.4\" cy=\"45.2\" rx=\"3.2\" ry=\"2.2\" transform=\"rotate(-55 57.4 45.2)\" fill=\"#2a1008\" stroke=\"#3a1208\" stroke-width=\"0.9\"/><path d=\"M65.2 33.6 Q61.6 35.6 60 38.8\" fill=\"none\" stroke=\"#3a1208\" stroke-width=\"5.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M65.2 33.6 Q61.6 35.6 60 38.8\" fill=\"none\" stroke=\"#a92a1b\" stroke-width=\"3.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"70\" cy=\"36.4\" rx=\"7.4\" ry=\"8.6\" transform=\"rotate(24 70 36.4)\" fill=\"#d8402c\" stroke=\"#3a1208\" stroke-width=\"1.9\"/><ellipse cx=\"71.4\" cy=\"38\" rx=\"3.8\" ry=\"5\" transform=\"rotate(24 71.4 38)\" fill=\"#f08a5d\" opacity=\"0.75\"/><path d=\"M72.6 42.4 Q79.4 45.4 79.8 53.6\" fill=\"none\" stroke=\"#3a1208\" stroke-width=\"6.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M72.6 42.4 Q79.4 45.4 79.8 53.6\" fill=\"none\" stroke=\"#d8402c\" stroke-width=\"4.2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><ellipse cx=\"81.6\" cy=\"55.4\" rx=\"3.6\" ry=\"2.2\" fill=\"#2a1008\" stroke=\"#3a1208\" stroke-width=\"0.9\"/><path d=\"M61.6 15.6 Q57.4 12 58.4 5.6 Q61 10.4 65.2 12.6 Z\" fill=\"#f4d58a\" stroke=\"#3a1208\" stroke-width=\"1.3\" stroke-linejoin=\"round\"/><path d=\"M71.4 12.8 Q75 9.2 74.8 3.6 Q78.8 8.6 75.4 15 Z\" fill=\"#f4d58a\" stroke=\"#3a1208\" stroke-width=\"1.3\" stroke-linejoin=\"round\"/><path d=\"M75.6 19.6 L81 17.4 L76.6 23.4 Z\" fill=\"#d8402c\" stroke=\"#3a1208\" stroke-width=\"1.2\" stroke-linejoin=\"round\"/><ellipse cx=\"68\" cy=\"21\" rx=\"8.4\" ry=\"7.8\" fill=\"#d8402c\" stroke=\"#3a1208\" stroke-width=\"1.9\"/><ellipse cx=\"71.4\" cy=\"17.2\" rx=\"2.6\" ry=\"1.5\" fill=\"#f2785c\" opacity=\"0.7\"/><ellipse cx=\"63.4\" cy=\"20.6\" rx=\"2.9\" ry=\"3.4\" fill=\"#fff\" stroke=\"#3a1208\" stroke-width=\"1\"/><ellipse cx=\"69.2\" cy=\"20.4\" rx=\"2.8\" ry=\"3.3\" fill=\"#fff\" stroke=\"#3a1208\" stroke-width=\"1\"/><circle cx=\"62.3\" cy=\"21\" r=\"1.35\" fill=\"#1a0a04\"/><circle cx=\"68.1\" cy=\"20.8\" r=\"1.35\" fill=\"#1a0a04\"/><circle cx=\"61.9\" cy=\"20.5\" r=\"0.45\" fill=\"#fff\"/><circle cx=\"67.7\" cy=\"20.3\" r=\"0.45\" fill=\"#fff\"/><path d=\"M60.4 16.4 Q62.4 15.6 64.8 14.2 M67.4 14.2 Q69.6 15 71.6 16\" fill=\"none\" stroke=\"#3a1208\" stroke-width=\"1.3\" stroke-linecap=\"round\"/><ellipse cx=\"64.4\" cy=\"26\" rx=\"2.4\" ry=\"1.9\" fill=\"#3a0a06\" stroke=\"#3a1208\" stroke-width=\"0.9\"/><path d=\"M62.9 24.6 L63.4 25.8 L63.9 24.6 M64.9 24.6 L65.4 25.8 L65.9 24.6\" fill=\"#fff\" stroke=\"#fff\" stroke-width=\"0.5\" stroke-linejoin=\"round\"/><path d=\"M74.6 31.8 Q79 32.6 80.6 28.4\" fill=\"none\" stroke=\"#3a1208\" stroke-width=\"5.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M74.6 31.8 Q79 32.6 80.6 28.4\" fill=\"none\" stroke=\"#d8402c\" stroke-width=\"3.6\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><circle cx=\"81\" cy=\"27.6\" r=\"2.1\" fill=\"#d8402c\" stroke=\"#3a1208\" stroke-width=\"1\"/><path d=\"M80 8.6 Q82.4 12 80 14 Q77.6 12 80 8.6 Z\" fill=\"#7cd3ff\" stroke=\"#1f5f86\" stroke-width=\"0.9\"/><path d=\"M84.6 13.4 Q86.4 16 84.6 17.4 Q82.8 16 84.6 13.4 Z\" fill=\"#7cd3ff\" stroke=\"#1f5f86\" stroke-width=\"0.8\"/><path d=\"M86 32 H92 M88 38 H95 M86 44 H91\" stroke=\"#ffe7b0\" stroke-width=\"1.4\" stroke-linecap=\"round\" opacity=\"0.5\"/></svg>")}`;
+	var HEIGHT = 40;
+	function archRankIconHtml() {
+		return `<img src="${ARCHRANK_ICON}" alt="" style="height: ${HEIGHT}px; width: ${HEIGHT * 1.5}px; margin: ${-27 / 2}px 0; flex: none;">`;
 	}
 	var STACK_LINES = 8;
 	var MESSAGE_CHARS = 600;
@@ -1475,11 +1563,11 @@
 			};
 			if (heroes.includes(heroId)) return {
 				kind: "error",
-				error: I18N("NX_ERR_HERO_DUP", { hero: unitLabel(heroId) })
+				error: I18N("NX_ERR_HERO_DUP", { hero: unitName(heroId) })
 			};
 			if (eventHeroes.length > 0 && !eventHeroes.includes(heroId)) return {
 				kind: "error",
-				error: I18N("NX_ERR_HERO", { hero: unitLabel(heroId) })
+				error: I18N("NX_ERR_HERO", { hero: unitName(heroId) })
 			};
 			const rank = Number(parts[1]);
 			if (!Number.isInteger(rank) || rank < 1 || rank > 7) return {
@@ -1494,13 +1582,13 @@
 			if (petId > 0) {
 				if (favorPets.includes(petId)) return {
 					kind: "error",
-					error: I18N("NX_ERR_PET_DUP", { pet: unitLabel(petId) })
+					error: I18N("NX_ERR_PET_DUP", { pet: unitName(petId) })
 				};
 				if (!(petLib[petId]?.favorHeroes ?? []).map(Number).includes(heroId)) return {
 					kind: "error",
 					error: I18N("NX_ERR_FAVOR", {
-						pet: unitLabel(petId),
-						hero: unitLabel(heroId)
+						pet: unitName(petId),
+						hero: unitName(heroId)
 					})
 				};
 				favorPets.push(petId);
@@ -1540,15 +1628,32 @@
 		return [...new Set(ids)];
 	}
 	function startActive(setup) {
-		return Number(setup.startBuy ?? 0) > 0;
+		return Number(setup.startBuy ?? 0) > 0 || setup.autoStart === true;
+	}
+	var NX_AUTO_START_STEP = 5;
+	function autoStartBuy(chapterNumber, starting, weak) {
+		return Math.max(0, (chapterNumber >= 5 ? NX_TEAM_SIZE : chapterNumber === 4 ? 3 : 0) - starting) + Math.floor(Math.max(0, weak) / NX_AUTO_START_STEP);
+	}
+	function teamSlots(setup) {
+		if (startActive(setup)) return NX_TEAM_SIZE;
+		const extra = (setup.carryExtraHeroes ?? []).length > 0 ? 1 : 0;
+		return Math.min(NX_TEAM_SIZE, (setup.carryHeroes ?? []).length + extra);
 	}
 	function handHeroes(fragments) {
 		return Object.entries(fragments).filter(([id, count]) => Number(id) > 0 && Number(id) < NX_PET_ID_THRESHOLD && Number(count) > 0).map(([id]) => Number(id));
 	}
-	function startTeam(carry, fragments) {
+	function startTeam(carry, fragments, size = NX_TEAM_SIZE) {
 		const hand = handHeroes(fragments).sort((a, b) => Number(fragments[b] ?? 0) - Number(fragments[a] ?? 0));
 		const first = carry.filter((id) => hand.includes(id));
-		return [...first, ...hand.filter((id) => !first.includes(id))].slice(0, NX_TEAM_SIZE);
+		return [...first, ...hand.filter((id) => !first.includes(id))].slice(0, size);
+	}
+	function battleTeam(setup, fragments) {
+		if (!teamSlots(setup)) return [];
+		const hand = handHeroes(fragments);
+		const extra = (setup.carryExtraHeroes ?? []).find((id) => hand.includes(id));
+		const carry = [...setup.carryHeroes ?? [], ...extra !== void 0 ? [extra] : []];
+		const bodies = new Set(keptBodies(setup, fragments));
+		return startTeam(carry, Object.fromEntries(Object.entries(fragments).filter(([id]) => fixedHero(setup, Number(id)) || bodies.has(Number(id)))), NX_TEAM_SIZE);
 	}
 	function fixedHero(setup, id) {
 		return Number(setup.targets?.[id] ?? 0) > 0 || (setup.carryHeroes ?? []).includes(id) || (setup.carryExtraHeroes ?? []).includes(id) || (setup.sacrificeHeroes ?? []).includes(id);
@@ -1594,11 +1699,13 @@
 		return worst;
 	}
 	function keptBodies(setup, fragments) {
-		if (!startActive(setup)) return [];
+		const slots = teamSlots(setup);
+		if (!slots) return [];
 		const hand = handHeroes(fragments);
 		const fixed = hand.filter((id) => fixedHero(setup, id));
 		let bodies = hand.filter((id) => !fixedHero(setup, id));
-		const free = Math.max(0, NX_TEAM_SIZE - fixed.length);
+		const carryOwned = (setup.carryHeroes ?? []).filter((id) => hand.includes(id)).length + ((setup.carryExtraHeroes ?? []).some((id) => hand.includes(id)) ? 1 : 0);
+		const free = Math.max(0, Math.min(slots - carryOwned, NX_TEAM_SIZE - fixed.length));
 		while (bodies.length > free) {
 			const worst = weakestBody(bodies, [...fixed, ...bodies], fragments);
 			bodies = bodies.filter((id) => id !== worst);
@@ -1632,11 +1739,13 @@
 		return candidates.length > 0 && !candidates.some((id) => setup.carryHeroes.includes(id)) && !sacrificeOwned(setup, fragments);
 	}
 	function pickSacrificeHero(setup, fragments) {
-		if (!(setup.sacrificeHeroes ?? []).length && startActive(setup)) {
-			const hand = handHeroes(fragments);
-			const bodies = keptBodies(setup, fragments);
-			return weakestBody(bodies.length ? bodies : hand, hand, fragments);
-		}
+		const listed = pickListedSacrificeHero(setup, fragments);
+		if (listed || !teamSlots(setup)) return listed;
+		const hand = handHeroes(fragments);
+		const bodies = keptBodies(setup, fragments);
+		return weakestBody(bodies.length ? bodies : hand, hand, fragments);
+	}
+	function pickListedSacrificeHero(setup, fragments) {
 		const tier = (id) => {
 			const roles = heroRoles(id);
 			for (const [at, role] of NX_SACRIFICE_ROLES.entries()) {
@@ -1671,7 +1780,7 @@
 	function checkArchdemonNewConditions(setup, coins, fragments) {
 		const state = collectedState(setup, fragments);
 		if (!state.done) {
-			const list = [...state.heroesLeft, ...state.petsLeft].map(unitLabel).join(", ");
+			const list = [...state.heroesLeft, ...state.petsLeft].map(unitName).join(", ");
 			return {
 				kind: "retry",
 				reason: I18N("NX_REASON_NOT_COLLECTED", { list }),
@@ -1744,7 +1853,7 @@
 			const heroId = Number(id);
 			const have = Number(count);
 			if (!(have > 0) || heroId >= NX_PET_ID_THRESHOLD) continue;
-			const need = Math.max(startNeed(setup, heroId), startActive(setup) ? 1 : 0);
+			const need = Math.max(startNeed(setup, heroId), teamSlots(setup) > 0 ? 1 : 0);
 			const keep = need > 0 ? Math.max(need, rankFloor(have)) : 0;
 			if (have > keep) sales.push([heroId, have - keep]);
 		}
@@ -1756,6 +1865,7 @@
 		return out;
 	}
 	function progressPlan(setup) {
+		const fighters = teamSlots(setup) ? NX_TEAM_SIZE : 0;
 		const seen = new Set();
 		const take = (ids, need, fresh = false) => {
 			const units = [];
@@ -1779,7 +1889,7 @@
 			{
 				kind: "carry",
 				units: take([...setup.carryHeroes ?? [], ...setup.carryExtraHeroes ?? []], (id) => setup.carryTargets?.[id], true),
-				...Number(setup.startBuy ?? 0) > 0 ? { start: true } : {}
+				...fighters ? { fighters } : {}
 			},
 			{
 				kind: "sacrifice",
@@ -1789,7 +1899,7 @@
 				kind: "pets",
 				units: take(setup.petsToCollect, () => 1)
 			}
-		].filter((group) => group.units.length > 0 || group.start === true);
+		].filter((group) => group.units.length > 0 || Boolean(group.fighters));
 	}
 	function extraPets(groups, owned) {
 		const planned = new Set(groups.flatMap((group) => group.units.map((unit) => unit.id)));
@@ -1799,7 +1909,7 @@
 		})).filter((unit) => unit.id >= NX_PET_ID_THRESHOLD && unit.count > 0 && !planned.has(unit.id));
 	}
 	function extraHeroes(groups, owned) {
-		if (!groups.some((group) => group.start === true)) return [];
+		if (!groups.some((group) => Boolean(group.fighters))) return [];
 		const planned = new Set(groups.flatMap((group) => group.units.map((unit) => unit.id)));
 		return Object.entries(owned).map(([id, count]) => ({
 			id: Number(id),
@@ -1812,24 +1922,32 @@
 		delete out[-1];
 		return out;
 	}
-	function sleep(ms) {
-		return new Promise((resolve) => setTimeout(resolve, ms));
+	function startingHeroes(chapterId) {
+		return Object.entries(chapterById(chapterId)?.initialUnitFragments ?? {}).filter(([, fragments]) => Number(fragments) > 0).map(([id]) => Number(id));
 	}
-	function nextTask() {
-		return new Promise((resolve) => {
-			const channel = new MessageChannel();
-			channel.port1.onmessage = () => {
-				channel.port1.close();
-				resolve();
-			};
-			channel.port2.postMessage(0);
-		});
+	function pointOneHeroes(chapterId) {
+		const chapter = chapterById(chapterId);
+		const shopId = stallShopId();
+		const shop = shopId === false ? void 0 : shopById(shopId);
+		if (!chapter?.initialUnitFragments && !shop?.slots) return null;
+		const heroes = new Set(startingHeroes(chapterId));
+		for (const template of Object.values(shop?.slots ?? {}).flat()) {
+			if (Number(template.level) !== 0) continue;
+			for (const id of Object.keys(template.reward?.invasionFragmentHero ?? {})) if (Number(id) > 0) heroes.add(Number(id));
+		}
+		return heroes;
 	}
-	function idle(ms) {
-		return new Promise((resolve) => {
-			if (typeof requestIdleCallback === "function") requestIdleCallback(() => resolve(), { timeout: ms });
-			else setTimeout(resolve, ms);
-		});
+	function carryUnavailable(chapterId, carryHeroes, carryExtraHeroes = []) {
+		const heroes = pointOneHeroes(chapterId);
+		if (!heroes) return [];
+		const main = carryHeroes.filter((id) => !heroes.has(id));
+		const extras = carryExtraHeroes.length > 0 && !carryExtraHeroes.some((id) => heroes.has(id)) ? carryExtraHeroes : [];
+		return [...main, ...extras];
+	}
+	function carryPointOneWarning(setup) {
+		const missing = carryUnavailable(setup.chapterId, setup.carryHeroes, setup.carryExtraHeroes ?? []);
+		if (missing.length === 0) return null;
+		return I18N(missing.length === 1 ? "NX_WARN_CARRY_POINT1" : "NX_WARN_CARRY_POINT1_MANY", { list: missing.map(unitName).join(", ") });
 	}
 	var ENTRY_TEXT = {
 		"обновления лавки": () => I18N("NX_BOOK_REFRESHES"),
@@ -1918,7 +2036,7 @@
 			return amount;
 		}
 		async load() {
-			this.value = await Caller.send("inventoryGet").then((e) => Number(e.coin[STALL_COIN] ?? 0));
+			this.value = await gameSend("inventoryGet").then((e) => Number(e.coin[STALL_COIN] ?? 0));
 			return this.value;
 		}
 		async onChapterEntry(chapterInfo, afterReset) {
@@ -1953,11 +2071,11 @@
 				kind: "retry",
 				reason: I18N("NX_REASON_STOPPED")
 			};
-			const roll = await Caller.send("invasion_rollEmblems");
+			const roll = await gameSend("invasion_rollEmblems");
 			const offered = offeredTalismans(roll);
 			if (offered.length > 0) {
 				await pause(NX_PACE.stallAll);
-				await Caller.send("shopGetAll");
+				await gameSend("shopGetAll");
 				await pause(NX_PACE.talismanPick);
 				if (this.session.stopped) return {
 					kind: "retry",
@@ -1977,7 +2095,7 @@
 			await pause(NX_PACE.stallOpen);
 			const slots = await this.get();
 			await pause(NX_PACE.stallAll);
-			await Caller.send("shopGetAll");
+			await gameSend("shopGetAll");
 			return {
 				kind: "open",
 				slots
@@ -1985,7 +2103,7 @@
 		}
 		async rerollEmblems() {
 			await pause(NX_PACE.talismanPick);
-			const roll = await Caller.send("invasion_rollEmblems");
+			const roll = await gameSend("invasion_rollEmblems");
 			return {
 				offered: offeredTalismans(roll),
 				rerollsLeft: rerollsLeftOf(roll)
@@ -1994,7 +2112,7 @@
 		async refresh() {
 			try {
 				await this.beforeAction();
-				const answer = await Caller.send({
+				const answer = await gameSend({
 					name: "shopRefresh",
 					args: { shopId: this.shopId }
 				});
@@ -2009,7 +2127,7 @@
 		}
 		async buy(slot) {
 			await this.beforeAction();
-			const reward = await Caller.send({
+			const reward = await gameSend({
 				name: "shopBuy",
 				args: {
 					shopId: this.shopId,
@@ -2025,7 +2143,7 @@
 		}
 		async pin(slot) {
 			await this.beforeAction();
-			await Caller.send({
+			await gameSend({
 				name: "shop_pinSlot",
 				args: {
 					shopId: this.shopId,
@@ -2039,7 +2157,7 @@
 		}
 		async unpin(slot, reason) {
 			await this.beforeAction();
-			await Caller.send({
+			await gameSend({
 				name: "shop_unpinSlot",
 				args: {
 					shopId: this.shopId,
@@ -2053,7 +2171,7 @@
 		}
 		async sell(fragments, unitId, amount) {
 			await this.beforeAction();
-			const answer = await Caller.send({
+			const answer = await gameSend({
 				name: "invasion_fragmentSell",
 				args: {
 					fragmentId: unitId,
@@ -2069,7 +2187,7 @@
 		async ascend(unitId, cost) {
 			try {
 				await this.beforeAction();
-				await Caller.send({
+				await gameSend({
 					name: "invasion_emblemElevationUnlock",
 					args: { unitId }
 				});
@@ -2083,7 +2201,7 @@
 			}
 		}
 		async get() {
-			const answer = await Caller.send({
+			const answer = await gameSend({
 				name: "shopGet",
 				args: { shopId: this.shopId }
 			});
@@ -2135,6 +2253,8 @@
 		ledger = new Ledger();
 		talismans = [];
 		ascended = [];
+		lastTeam = null;
+		lastTeamOwned = null;
 		session;
 		number;
 		point = null;
@@ -2172,7 +2292,9 @@
 		reportUnits() {
 			this.session.reporter.units?.({
 				owned: this.live ?? {},
-				pinned: this.eventStall?.pinned() ?? {}
+				pinned: this.eventStall?.pinned() ?? {},
+				...this.lastTeam ? { team: [...this.lastTeam] } : {},
+				...this.lastTeamOwned ? { teamOwned: { ...this.lastTeamOwned } } : {}
 			});
 		}
 		setFragments(fragments) {
@@ -2186,7 +2308,7 @@
 			return this.live;
 		}
 		async units() {
-			return ownedUnits(this.live ?? this.setFragments((await Caller.send("invasion_getInfo"))?.fragments));
+			return ownedUnits(this.live ?? this.setFragments((await gameSend("invasion_getInfo"))?.fragments));
 		}
 		async takeTalisman(setup, offered, rerollsLeft = 0) {
 			let pick = pickTalisman(setup, offered, this.talismans.length);
@@ -2209,7 +2331,7 @@
 				pick = pickTalisman(setup, next.offered, this.talismans.length);
 			}
 			if (!pick) return I18N("NX_REASON_NO_TALISMAN");
-			await Caller.send({
+			await gameSend({
 				name: "invasion_selectEmblem",
 				args: { emblemId: pick }
 			});
@@ -2597,6 +2719,8 @@
 		setIsCancalBattle(false);
 		try {
 			await call.send();
+		} catch (e) {
+			throw withCallName(e, ["invasion_bossEnd", "invasion_getInfo"]);
 		} finally {
 			setIsCancalBattle(true);
 		}
@@ -2626,7 +2750,7 @@
 				failure: new Error(blocked)
 			};
 			const fullBattle = needsFullBattle(chapterId, missionId);
-			const battle = await Caller.send({
+			const battle = await gameSend({
 				name: "invasion_bossStart",
 				args: {
 					id: missionId,
@@ -2696,7 +2820,7 @@
 			const blocked = pointBattleBlock(chapterId, missionId);
 			if (blocked) return { failure: new Error(blocked) };
 			const fullBattle = needsFullBattle(chapterId, missionId);
-			const battle = await Caller.send({
+			const battle = await gameSend({
 				name: "invasion_bossStart",
 				args: {
 					id: missionId,
@@ -2759,7 +2883,7 @@
 		waitingForPlayer = false;
 		lossStart = {};
 		pointMemory = {};
-		carryUnseen = {};
+		weakAttempts = 0;
 		reporter;
 		holds = new Set();
 		subscription = null;
@@ -2767,7 +2891,7 @@
 			this.reporter = reporter;
 		}
 		subscriptionActive() {
-			this.subscription ??= Caller.send("subscriptionGetInfo").then((answer) => {
+			this.subscription ??= gameSend("subscriptionGetInfo").then((answer) => {
 				const active = Number(answer?.subscription?.endTime ?? 0) * 1e3 > Date.now();
 				console.log(`Подписка ${active ? "идёт" : "не идёт"}: бой без пропуска ждём со скоростью ${active ? "подписки" : "без подписки"}`);
 				return active;
@@ -2776,9 +2900,6 @@
 				return false;
 			});
 			return this.subscription;
-		}
-		carryNeverOnSale() {
-			return Object.entries(this.carryUnseen).filter(([, count]) => count >= NX_CARRY_UNSEEN_LIMIT).map(([id]) => Number(id));
 		}
 		stop() {
 			this.stopped = true;
@@ -2920,11 +3041,15 @@
 	function lotUnits(slot) {
 		return [...Object.keys(slot.reward?.invasionFragmentHero ?? {}), ...Object.keys(slot.reward?.invasionFragmentPet ?? {})].join("+");
 	}
+	function carryLotAllowed(slot, setup, shopId = stallShopId()) {
+		return setup.carryAnyPrice === true || shopId !== false && isDiscountedHeroSlot(slot, shopId);
+	}
 	function usefulSlots(shopSlots, setup, fragments, carryOnly, waitPetDiscount = false) {
 		const result = [];
 		for (const slot of shopSlots) {
 			if (slot.bought) continue;
 			if (slot.reward?.invasionFragmentHeroRand) continue;
+			if (carryOnly !== false && !carryLotAllowed(slot, setup)) continue;
 			const value = slotValue(slot, setup, fragments, carryOnly, waitPetDiscount);
 			if (value.useful <= 0 || value.cost <= 0) continue;
 			result.push({
@@ -3330,23 +3455,19 @@
 			const cost = Number(slot.cost?.coin?.[1080] ?? 0);
 			if (!heroes.length || !cost || coins < cost) continue;
 			const useful = heroes.reduce((sum, [id, amount]) => sum + Math.min(amount, Math.max(0, Number(setup.targets[id] ?? 0) - Number(fragments[id] ?? 0))), 0);
-			if (useful <= 0) continue;
-			const discounted = isDiscountedHeroSlot(slot, shopId);
-			if (!discounted && !(slot.pinned && heroes.length >= 2)) continue;
+			if (useful <= 0 || !isDiscountedHeroSlot(slot, shopId)) continue;
 			const price = cost / useful;
-			if (!best || discounted && !best.discounted || discounted === best.discounted && (price < best.price || price === best.price && cost < best.cost)) best = {
+			if (!best || price < best.price || price === best.price && cost < best.cost) best = {
 				slot,
 				cost,
 				useful,
-				discounted,
 				price
 			};
 		}
 		return best ? {
 			slot: best.slot,
 			cost: best.cost,
-			useful: best.useful,
-			discounted: best.discounted
+			useful: best.useful
 		} : null;
 	}
 	async function buyStartAlong(attempt, stall, shopSlots, setup, fragments) {
@@ -3363,7 +3484,7 @@
 			applyReward(fragments, pick.slot.reward);
 			attempt.ledger.add("основной пак по ходу", -pick.cost);
 			bought++;
-			console.log(`${NX_LOG_CASH} -${pick.cost} по ходу ${pick.discounted ? "со скидкой" : "закреплённая пара"} ${lotUnits(pick.slot)}, нужных частей ${pick.useful}, остаток ${coins.value}`);
+			console.log(`${NX_LOG_CASH} -${pick.cost} по ходу со скидкой ${lotUnits(pick.slot)}, нужных частей ${pick.useful}, остаток ${coins.value}`);
 		}
 		return bought;
 	}
@@ -3372,8 +3493,14 @@
 		const need = Math.max(Number(setup.targets[heroId] ?? 0), carryTarget);
 		return Math.max(0, need - Number(fragments[heroId] ?? 0));
 	}
+	function mainNeed(setup, fragments, heroId) {
+		return Math.max(0, Number(setup.targets[heroId] ?? 0) - Number(fragments[heroId] ?? 0));
+	}
 	function planStallPins(shopSlots, setup, fragments) {
 		const remaining = {};
+		const mainLeft = {};
+		const allowed = new Map();
+		const open = (slot, id) => allowed.get(slot) ? remaining[id] ?? 0 : Math.min(remaining[id] ?? 0, mainLeft[id] ?? 0);
 		let sacrificeOpen = sacrificeNeeded(setup, fragments);
 		const forSacrifice = (id) => sacrificeOpen && setup.sacrificeHeroes.includes(id);
 		const candidates = [];
@@ -3382,17 +3509,22 @@
 			const heroes = slot.reward?.invasionFragmentHero;
 			if (!heroes) continue;
 			const ids = Object.keys(heroes).map(Number);
-			for (const id of ids) if (remaining[id] === void 0) remaining[id] = preFinalNeed(setup, fragments, id);
-			if (ids.some((id) => remaining[id] > 0 || forSacrifice(id))) candidates.push(slot);
+			for (const id of ids) {
+				if (remaining[id] !== void 0) continue;
+				remaining[id] = preFinalNeed(setup, fragments, id);
+				mainLeft[id] = mainNeed(setup, fragments, id);
+			}
+			allowed.set(slot, carryLotAllowed(slot, setup));
+			if (ids.some((id) => open(slot, id) > 0 || forSacrifice(id))) candidates.push(slot);
 		}
 		const heroPrice = fragmentSellPrice("hero");
 		const score = (slot) => {
 			const heroes = Object.entries(slot.reward.invasionFragmentHero).map(([id, amount]) => [Number(id), Number(amount)]);
-			let sacrificePart = heroes.some(([id]) => forSacrifice(id)) && !heroes.some(([id]) => forSacrifice(id) && remaining[id] > 0) ? 1 : 0;
+			let sacrificePart = heroes.some(([id]) => forSacrifice(id)) && !heroes.some(([id]) => forSacrifice(id) && open(slot, id) > 0) ? 1 : 0;
 			let useful = 0;
 			let resale = 0;
 			for (const [heroId, count] of heroes) {
-				let part = Math.min(count, remaining[heroId] ?? 0);
+				let part = Math.min(count, open(slot, heroId));
 				if (sacrificePart && forSacrifice(heroId)) {
 					part = 1;
 					sacrificePart = 0;
@@ -3426,6 +3558,7 @@
 			for (const [id, amount] of Object.entries(best.slot.reward.invasionFragmentHero)) {
 				const heroId = Number(id);
 				remaining[heroId] = Math.max(0, (remaining[heroId] ?? 0) - Number(amount));
+				mainLeft[heroId] = Math.max(0, (mainLeft[heroId] ?? 0) - Number(amount));
 				if (setup.sacrificeHeroes.includes(heroId)) sacrificeOpen = false;
 			}
 		}
@@ -3628,7 +3761,7 @@
 			attempt.ascended.push(heroId);
 			attempt.ledger.add("возвышение", -cost);
 			attempt.progress(I18N("NX_ASCENDED", {
-				name: unitLabel(heroId),
+				name: unitName(heroId),
 				cost
 			}), null, true);
 			done.push(heroId);
@@ -3716,7 +3849,7 @@
 		if (attempt.stopped) return stoppedOutcome();
 		let chapterInfo;
 		try {
-			chapterInfo = await Caller.send({
+			chapterInfo = await gameSend({
 				name: "invasion_setActiveChapter",
 				args: { chapterId: setup.chapterId }
 			});
@@ -3854,6 +3987,7 @@
 				coins: coins.value
 			}));
 			if (point !== 1) {
+				if (!carryPackReady(setup, fragments)) await buyCarryHeroes(attempt, stall, shopSlots, setup, fragments);
 				await buyCarryRanks(attempt, stall, shopSlots, setup, fragments);
 				await buyStartAlong(attempt, stall, shopSlots, setup, fragments);
 				await buyCheapLots(attempt, stall, shopSlots, setup, fragments);
@@ -3871,17 +4005,17 @@
 			}
 			await sellStartSurplus(attempt, stall, setup, fragments);
 			const missingMain = () => setup.carryHeroes.filter((id) => Number(fragments[id] ?? 0) <= 0);
-			const seen = new Set();
-			const look = (slots) => {
-				for (const slot of slots) for (const id of Object.keys(slot.reward?.invasionFragmentHero ?? {})) seen.add(Number(id));
-			};
-			look(shopSlots);
 			const needExtra = () => (setup.carryExtraHeroes ?? []).length > 0 && !carryExtraOwned(setup, fragments);
 			let refreshes = 0;
 			let budgetLeft = Number(setup.startRefreshes ?? 0);
 			const goal = startGoal(setup, fragments);
 			const startShort = () => goal - handHeroes(fragments).length;
 			console.log(`Точка 1: старт, монет ${coins.value}, ищем проходных ${setup.carryHeroes.join(", ")}` + (goal ? `, героев на руках ${handHeroes(fragments).length}, нужно ${goal}` : ""));
+			if (setup.autoStart) attempt.progress(I18N("NX_AUTO_START", {
+				goal,
+				weak: attempt.session.weakAttempts,
+				step: NX_AUTO_START_STEP
+			}), null, true);
 			while (refreshes <= NX_POINT1_MAX_REFRESHES) {
 				if (attempt.stopped) break;
 				const passStartCoins = coins.value;
@@ -3923,18 +4057,21 @@
 				attempt.ledger.add("обновления лавки", coins.value - beforeRefresh);
 				if (!refreshed) break;
 				shopSlots = refreshed;
-				look(shopSlots);
 			}
-			countUnseenCarry(attempt.session, setup, fragments, seen);
-			if (missingMain().length > 0) return {
+			if (handHeroes(fragments).length === 0) return {
 				kind: "retry",
-				reason: I18N("NX_REASON_NO_CARRY", { list: missingMain().map(unitLabel).join(", ") })
+				reason: I18N("NX_REASON_NO_HEROES"),
+				weak: true
 			};
-			if (needExtra()) return {
-				kind: "retry",
-				reason: I18N("NX_REASON_NO_CARRY_EXTRA", { list: (setup.carryExtraHeroes ?? []).map(unitLabel).join(", ") })
-			};
-			console.log(`Точка 1: проходные собраны, обновлений потрачено ${refreshes}`);
+			const short = [...missingMain(), ...needExtra() ? setup.carryExtraHeroes ?? [] : []];
+			if (short.length) {
+				const team = battleTeam(setup, fragments);
+				console.log(`Точка 1: проходных не хватает — ${short.join(", ")}; идём составом ${team.join(", ")}, обновлений потрачено ${refreshes}`);
+				attempt.progress(I18N("NX_CARRY_SHORT", {
+					list: short.map(unitName).join(", "),
+					have: team.length
+				}), null, true);
+			} else console.log(`Точка 1: проходные собраны, обновлений потрачено ${refreshes}`);
 			if (goal) {
 				const have = handHeroes(fragments).length;
 				console.log(`Точка 1: старт — героев на руках ${have} из ${goal}${have < goal ? ", идём теми, кто есть" : ""}`);
@@ -3959,9 +4096,6 @@
 				error: e
 			};
 		}
-	}
-	function countUnseenCarry(session, setup, fragments, seen) {
-		for (const id of setup.carryHeroes) session.carryUnseen[id] = Number(fragments[id] ?? 0) > 0 || seen.has(id) ? 0 : (session.carryUnseen[id] ?? 0) + 1;
 	}
 	async function ensureSacrificeHero(attempt, stall, setup, visibleSlots, fragments) {
 		const coins = attempt.wallet;
@@ -3992,9 +4126,14 @@
 				shopSlots = refreshed;
 			}
 			console.log(`Героя для слива ${setup.sacrificeHeroes.join(", ")} нет в лавке, обновлений потрачено ${refreshes} из ${limit}`);
+			const fallback = pickSacrificeHero(setup, fragments);
+			if (fallback) {
+				console.log(`Сливает самый слабый на руках: ${fallback}`);
+				return { kind: "done" };
+			}
 			return {
 				kind: "retry",
-				reason: I18N("NX_REASON_NO_SACRIFICE", { list: setup.sacrificeHeroes.map(unitLabel).join(", ") })
+				reason: I18N("NX_REASON_NO_SACRIFICE", { list: setup.sacrificeHeroes.map(unitName).join(", ") })
 			};
 		} catch (e) {
 			console.error(e);
@@ -4085,7 +4224,7 @@
 		let heroes = setup.carryHeroes.filter((id) => have.heroIds.includes(id));
 		const extra = (setup.carryExtraHeroes ?? []).find((id) => have.heroIds.includes(id));
 		if (extra !== void 0) heroes = [...heroes, extra];
-		if (startActive(setup)) heroes = startTeam(heroes, have.fragments);
+		if (teamSlots(setup)) heroes = battleTeam(setup, have.fragments);
 		if (heroes.length === 0) heroes = have.bestFive;
 		const havePets = have.pets;
 		let pet;
@@ -4109,17 +4248,17 @@
 			if (!slot.pinned) continue;
 			const ids = Object.keys(slot.reward?.invasionFragmentHero ?? {}).map(Number);
 			const cost = slot.cost?.coin?.[1080] ?? "?";
-			pinnedLines.push(`${ids.map(unitLabel).join(" + ")} — ${cost}`);
+			pinnedLines.push(`${ids.map(unitName).join(" + ")} — ${cost}`);
 		}
 		const fragments = (await attempt.units()).fragments;
 		const heroLines = setup.heroes.map((id) => I18N("NX_REPORT_OF", {
-			name: unitLabel(id),
+			name: unitName(id),
 			have: Number(fragments[id] ?? 0),
 			need: setup.targets[id]
 		}));
-		const petLines = setup.petsToCollect.map((id) => Number(fragments[id] ?? 0) > 0 ? I18N("NX_REPORT_PET_HAVE", { name: unitLabel(id) }) : I18N("NX_REPORT_PET_MISSING", { name: unitLabel(id) }));
+		const petLines = setup.petsToCollect.map((id) => Number(fragments[id] ?? 0) > 0 ? I18N("NX_REPORT_PET_HAVE", { name: unitName(id) }) : I18N("NX_REPORT_PET_MISSING", { name: unitName(id) }));
 		const carryLines = setup.carryHeroes.map((id) => I18N("NX_REPORT_OF", {
-			name: unitLabel(id),
+			name: unitName(id),
 			have: Number(fragments[id] ?? 0),
 			need: Number(setup.carryTargets?.[id] ?? 1)
 		}));
@@ -4150,6 +4289,7 @@
 		}) };
 	}
 	function currentSacrificePoint(setup, lastPoint, choices = []) {
+		if (setup.noSacrifice === true) return 0;
 		return nearestSacrificePoint(Math.min(lastPoint, Math.max(1, Number(setup.sacrificePoint ?? lastPoint) || lastPoint)), choices.filter((point) => point <= lastPoint));
 	}
 	async function runArchdemonNewChapterWealth(attempt, setup) {
@@ -4158,7 +4298,7 @@
 		if (attempt.stopped) return stoppedOutcome();
 		let chapterInfo;
 		try {
-			chapterInfo = await Caller.send({
+			chapterInfo = await gameSend({
 				name: "invasion_setActiveChapter",
 				args: { chapterId: setup.chapterId }
 			});
@@ -4185,7 +4325,8 @@
 		};
 		if (visit.kind === "retry") return {
 			kind: "retry",
-			reason: visit.reason
+			reason: visit.reason,
+			weak: visit.weak
 		};
 		for (let point = 1; point <= lastPoint; point++) {
 			attempt.point = point;
@@ -4196,60 +4337,59 @@
 				reason: I18N("NX_REASON_NO_MISSIONS")
 			};
 			const missionId = action.payload.id;
-			if (point === sacrificePoint) {
+			if (point === sacrificePoint) for (let number = 1; number <= NX_SACRIFICE_LOSSES; number++) {
+				if (attempt.stopped) return stoppedOutcome();
 				const sacrificeHero = pickSacrificeHero(setup, (await attempt.units()).fragments);
 				if (!sacrificeHero) return {
 					kind: "retry",
-					reason: I18N("NX_REASON_NO_SACRIFICE", { list: setup.sacrificeHeroes.map(unitLabel).join(", ") })
+					reason: I18N("NX_REASON_NO_SACRIFICE", { list: setup.sacrificeHeroes.map(unitName).join(", ") })
 				};
 				const sacrificeTeam = [sacrificeHero];
-				console.log(`Сливаем точку составом ${sacrificeTeam.join(", ")}`);
-				for (let number = 1; number <= NX_SACRIFICE_LOSSES; number++) {
-					if (attempt.stopped) return stoppedOutcome();
-					attempt.progress(I18N("NX_SACRIFICE", {
-						attempt: attempt.number,
-						number,
-						total: NX_SACRIFICE_LOSSES
-					}), null, true);
-					await pause(NX_PACE.beforeBattle);
-					const coinsBeforeLoss = visit.coins;
-					const teamKey = sacrificeTeam.join("+");
-					const loss = await loseBattleOnPurpose(attempt, missionId, setup.chapterId, sacrificeTeam, attempt.session.lossStart[teamKey]);
-					if (loss.lossTimer != null) attempt.session.lossStart[teamKey] = nextLossStart(loss.lossTimer);
-					if (!loss.info) return {
-						kind: "fatal",
-						error: "failure" in loss ? loss.failure : I18N("NX_FAIL_NO_STATE")
-					};
-					if (loss.invalid) return {
-						kind: "fatal",
-						message: I18N("NX_ERR_RESULT_INVALID")
-					};
-					const calcSaysWin = loss.calcSaysWin;
-					const afterLoss = loss.info;
-					lives = afterLoss.lives;
-					const pointState = Object.values(afterLoss.actions).find((e) => e.payload.id === missionId);
-					const pointTaken = pointState ? Number(pointState.payload.wins ?? 0) > 0 : false;
-					console.log(`Слив ${number} из ${NX_SACRIFICE_LOSSES}: расчёт ${calcSaysWin ? "победа" : "поражение"}, точка ${pointTaken ? "ВЗЯТА" : "не взята"}, жизней ${lives}`);
-					if (pointTaken) return {
-						kind: "retry",
-						reason: I18N("NX_REASON_SACRIFICE_WON")
-					};
-					if (lives === 0) return {
-						kind: "retry",
-						reason: I18N("NX_REASON_NO_LIVES")
-					};
-					await pause(NX_PACE.afterBattle);
-					visit = await wealthShopPhase(attempt, setup, point, sacrificePoint);
-					if (visit.kind === "fatal") return {
-						kind: "fatal",
-						error: visit.error
-					};
-					if (visit.kind === "retry") return {
-						kind: "retry",
-						reason: visit.reason
-					};
-					console.log(`${NX_LOG_CASH} слив ${number}: было ${coinsBeforeLoss}, на входе в лавку ${visit.coinsOnEntry}, прирост ${visit.coinsOnEntry - coinsBeforeLoss}`);
-				}
+				console.log(`Слив ${number}: сливаем точку составом ${sacrificeTeam.join(", ")}`);
+				attempt.progress(I18N("NX_SACRIFICE", {
+					attempt: attempt.number,
+					number,
+					total: NX_SACRIFICE_LOSSES
+				}), null, true);
+				await pause(NX_PACE.beforeBattle);
+				const coinsBeforeLoss = visit.coins;
+				const teamKey = sacrificeTeam.join("+");
+				const loss = await loseBattleOnPurpose(attempt, missionId, setup.chapterId, sacrificeTeam, attempt.session.lossStart[teamKey]);
+				if (loss.lossTimer != null) attempt.session.lossStart[teamKey] = nextLossStart(loss.lossTimer);
+				if (!loss.info) return {
+					kind: "fatal",
+					error: "failure" in loss ? loss.failure : I18N("NX_FAIL_NO_STATE")
+				};
+				if (loss.invalid) return {
+					kind: "fatal",
+					message: I18N("NX_ERR_RESULT_INVALID")
+				};
+				const calcSaysWin = loss.calcSaysWin;
+				const afterLoss = loss.info;
+				lives = afterLoss.lives;
+				const pointState = Object.values(afterLoss.actions).find((e) => e.payload.id === missionId);
+				const pointTaken = pointState ? Number(pointState.payload.wins ?? 0) > 0 : false;
+				console.log(`Слив ${number} из ${NX_SACRIFICE_LOSSES}: расчёт ${calcSaysWin ? "победа" : "поражение"}, точка ${pointTaken ? "ВЗЯТА" : "не взята"}, жизней ${lives}`);
+				if (pointTaken) return {
+					kind: "retry",
+					reason: I18N("NX_REASON_SACRIFICE_WON")
+				};
+				if (lives === 0) return {
+					kind: "retry",
+					reason: I18N("NX_REASON_NO_LIVES")
+				};
+				await pause(NX_PACE.afterBattle);
+				visit = await wealthShopPhase(attempt, setup, point, sacrificePoint);
+				if (visit.kind === "fatal") return {
+					kind: "fatal",
+					error: visit.error
+				};
+				if (visit.kind === "retry") return {
+					kind: "retry",
+					reason: visit.reason,
+					weak: visit.weak
+				};
+				console.log(`${NX_LOG_CASH} слив ${number}: было ${coinsBeforeLoss}, на входе в лавку ${visit.coinsOnEntry}, прирост ${visit.coinsOnEntry - coinsBeforeLoss}`);
 			}
 			attempt.progress(I18N("NX_MISSION", {
 				attempt: attempt.number,
@@ -4257,6 +4397,9 @@
 			}), null, true);
 			await pause(NX_PACE.beforeBattle);
 			const team = await buildCarryTeam(attempt, setup);
+			attempt.lastTeam = [...team.heroes];
+			attempt.lastTeamOwned = { ...(await attempt.units()).fragments };
+			attempt.reportUnits();
 			const fragmentsOwned = { ...(await attempt.units()).fragments };
 			const coinsBeforePoint = visit.coins;
 			const fight = await fightPoint(attempt, missionId, setup.chapterId, team.heroes, team.pet, team.favor, point);
@@ -4280,7 +4423,8 @@
 				console.log(`%c${NX_LOG_BATTLE} точка ${point} ПРОИГРАНА`, "color: red; font-weight: bold;", "\n  герои: " + (team.heroes.length ? team.heroes.map(unitLabel).join(", ") : "пусто"), "\n  питомец: " + (team.pet ? unitLabel(team.pet) : "нет"), "\n  покровительство: " + (Object.keys(team.favor).length ? Object.entries(team.favor).map(([heroId, petId]) => `${unitLabel(heroId)} -> ${unitLabel(petId)}`).join("; ") : "нет"), "\n  фрагменты состава: " + team.heroes.map((id) => `${unitLabel(id)} ${Number(fragmentsOwned[id] ?? 0)}`).join(", "));
 				return {
 					kind: "retry",
-					reason: I18N("NX_REASON_POINT_LOST", { point })
+					reason: I18N("NX_REASON_POINT_LOST", { point }),
+					weak: true
 				};
 			}
 			if (passed) attempt.progress(I18N("NX_POINT_TAKEN", { point }), null, true);
@@ -4298,7 +4442,8 @@
 				};
 				if (visit.kind === "retry") return {
 					kind: "retry",
-					reason: visit.reason
+					reason: visit.reason,
+					weak: visit.weak
 				};
 				console.log(`${NX_LOG_CASH} точка ${point}: было ${coinsBeforePoint}, на входе в лавку ${visit.coinsOnEntry}, прирост ${visit.coinsOnEntry - coinsBeforePoint}`);
 			}
@@ -4354,6 +4499,14 @@
 		if (attempt.stopped) return stoppedOutcome();
 		return checkArchdemonNewConditions(setup, attempt.wallet.value, (await attempt.units()).fragments);
 	}
+	function attemptSetup(setup, session) {
+		if (!setup.autoStart) return setup;
+		const startBuy = autoStartBuy(setup.chapterNumber, startingHeroes(setup.chapterId).length, session.weakAttempts);
+		return {
+			...setup,
+			startBuy
+		};
+	}
 	async function runArchdemonNewChapter(attempt, setup) {
 		if (setup.talismanId === NX_WEALTH_TALISMAN_ID) return await runArchdemonNewChapterWealth(attempt, setup);
 		return await runArchdemonNewChapterDefault(attempt, setup);
@@ -4373,6 +4526,7 @@
 		const reporter = session.reporter;
 		let attempt = 0;
 		let lastFailure = null;
+		let serverErrors = 0;
 		while (!session.stopped) {
 			attempt++;
 			if (chapterEndsAt(setup.chapterId) - Date.now() < NX_EVENT_END_MARGIN_MINUTES * 6e4) {
@@ -4384,12 +4538,15 @@
 				return;
 			}
 			reporter.attemptStart(attempt, lastFailure);
-			const outcome = await runArchdemonNewChapter(new Attempt(session, attempt), setup);
+			const outcome = await runArchdemonNewChapter(new Attempt(session, attempt), attemptSetup(setup, session));
+			if (outcome.kind === "retry" && outcome.weak) session.weakAttempts++;
 			if (outcome.kind === "halted") {
 				if (await session.notice(I18N("NX_HALTED_SYNC"))) syncGame();
 				return;
 			}
-			if (outcome.kind === "fatal") {
+			const serverError = outcome.kind === "fatal" && isServerInternal(outcome.error) && serverErrors < NX_SERVER_ERROR_ATTEMPTS;
+			serverErrors = serverError ? serverErrors + 1 : 0;
+			if (outcome.kind === "fatal" && !serverError) {
 				if (await session.notice(outcome.message ?? I18N("NX_FAILED", { version: GM_info.script.version }), outcome.error)) syncGame();
 				return;
 			}
@@ -4409,27 +4566,23 @@
 				return;
 			}
 			if (session.stopped) break;
-			const neverOnSale = session.carryNeverOnSale();
-			if (neverOnSale.length > 0) {
-				const list = neverOnSale.map(unitLabel).join(", ");
-				if (await session.notice(I18N("NX_CARRY_NEVER_ON_SALE", {
-					list,
-					attempts: NX_CARRY_UNSEEN_LIMIT
-				}))) syncGame();
-				return;
-			}
+			const reason = outcome.kind === "fatal" ? I18N("NX_REASON_SERVER_ERROR", {
+				tries: serverErrors,
+				max: NX_SERVER_ERROR_ATTEMPTS
+			}) : outcome.reason;
+			if (outcome.kind === "fatal") console.warn("Сбой сервера, заход заново", outcome.error);
 			reporter.fail(I18N("NX_RETRY", {
 				attempt,
-				reason: outcome.reason
+				reason
 			}));
 			lastFailure = {
 				attempt,
-				reason: outcome.reason
+				reason
 			};
-			await sleep(2500);
+			await sleep(serverErrors ? NX_SERVER_ERROR_PAUSE_SECONDS * 1e3 : 2500);
 			if (session.stopped) break;
 			try {
-				await Caller.send("invasion_resetChapter");
+				await gameSend("invasion_resetChapter");
 				const pause = NX_RUN_PAUSE_MIN_SECONDS + Math.random() * (NX_RUN_PAUSE_MAX_SECONDS - NX_RUN_PAUSE_MIN_SECONDS);
 				if (!await reporter.countdown(pause, () => session.stopped)) break;
 			} catch (e) {
@@ -4546,16 +4699,23 @@
 		if (!db) return null;
 		return new Promise((resolve) => {
 			try {
-				const range = IDBKeyRange.bound("hero_icons/", "hero_icons/￿");
-				const cursor = db.transaction("cache", "readonly").objectStore("cache").openCursor(range);
+				const cursor = db.transaction("cache", "readonly").objectStore("cache").openCursor();
 				cursor.onsuccess = () => {
-					const url = String(cursor.result?.value?.fullUrl ?? "");
-					db.close();
-					const at = url.indexOf("hero_icons/");
-					if (at < 0) {
+					const record = cursor.result;
+					if (!record) {
+						db.close();
 						resolve(null);
 						return;
 					}
+					const url = String(record.value?.fullUrl ?? "");
+					const key = String(record.key ?? "");
+					const folder = key.includes("/") ? key.slice(0, key.indexOf("/") + 1) : "";
+					const at = folder ? url.indexOf(`/${folder}`) + 1 : 0;
+					if (at <= 0) {
+						record.continue();
+						return;
+					}
+					db.close();
 					const query = url.includes("?") ? url.slice(url.indexOf("?")) : "";
 					resolve({
 						base: url.slice(0, at),
@@ -4678,10 +4838,25 @@
 		return out;
 	}
 	var heroAtlas = null;
+	var ATLAS_XML = "hero_icons_only/hero_icons_only.xml";
+	var ATLAS_IMAGE = "hero_icons_only/hero_icons_only.avif";
+	async function gameFileBytes(path, cached) {
+		if (cached?.data) return cached.data;
+		try {
+			const url = await downloadUrlFor(path);
+			if (!url) return null;
+			const answer = await fetch(url);
+			return answer.ok ? await answer.arrayBuffer() : null;
+		} catch (e) {
+			console.error(e);
+			return null;
+		}
+	}
 	async function loadHeroAtlas() {
-		const [xml, image] = await readCacheRecords(["hero_icons_only/hero_icons_only.xml", "hero_icons_only/hero_icons_only.avif"]);
-		if (!xml?.data || !image?.data) return null;
-		const text = new TextDecoder().decode(new Uint8Array(xml.data));
+		const [xmlRecord, imageRecord] = await readCacheRecords([ATLAS_XML, ATLAS_IMAGE]);
+		const [xml, image] = await Promise.all([gameFileBytes(ATLAS_XML, xmlRecord), gameFileBytes(ATLAS_IMAGE, imageRecord)]);
+		if (!xml || !image) return null;
+		const text = new TextDecoder().decode(new Uint8Array(xml));
 		const frames = new Map();
 		for (const m of text.matchAll(/<SubTexture name="([^"]+)" x="(\d+)" y="(\d+)" width="(\d+)" height="(\d+)"/g)) frames.set(m[1], {
 			x: Number(m[2]),
@@ -4690,7 +4865,7 @@
 			h: Number(m[5])
 		});
 		return {
-			bitmap: await createImageBitmap(new Blob([image.data], { type: "image/avif" })),
+			bitmap: await createImageBitmap(new Blob([image], { type: "image/avif" })),
 			frames
 		};
 	}
@@ -4700,6 +4875,7 @@
 			return null;
 		});
 		const atlas = await heroAtlas;
+		if (!atlas) heroAtlas = null;
 		const out = {};
 		for (const raw of ids) {
 			const id = Number(raw);
@@ -4715,9 +4891,9 @@
 					canvas.getContext("2d").drawImage(atlas.bitmap, frame.x, frame.y, frame.w, frame.h, 0, 0, size, size);
 					url = toBlobUrl(pngBytes(canvas));
 				}
-				iconUrls.set(key, url);
+				if (url) iconUrls.set(key, url);
 			}
-			out[id] = iconUrls.get(key);
+			out[id] = iconUrls.get(key) ?? "";
 		}
 		return out;
 	}
@@ -4784,20 +4960,25 @@
 			case "sell": return I18N("NX_EVENT_SELL", { coins });
 		}
 	}
+	function carryOwned(state) {
+		const out = { ...state.owned };
+		for (const [id, count] of Object.entries(state.teamOwned ?? {})) out[id] = Math.max(Number(out[id] ?? 0), Number(count));
+		return out;
+	}
 	function groupHtml(title, tiles) {
 		return `<div style="margin-bottom: 6px;"><div style="font-size: 11px; color: #e8c9a0; margin-bottom: 3px;">${title}</div><div style="display: grid; grid-template-columns: repeat(${PROGRESS_PER_ROW}, ${TILE}px); gap: ${GAP}px;">${tiles}</div></div>`;
 	}
 	function progressColumnHtml(groups, state, icons) {
 		const plan = groups.map((group) => {
 			const own = group.units.map((unit) => unit.id);
-			const fighters = group.start ? startTeam(own, state.owned).filter((id) => !own.includes(id)).map((id) => ({
+			const fighters = group.fighters ? (state.team?.length ? state.team : startTeam(own, state.owned, group.fighters)).filter((id) => !own.includes(id)).map((id) => ({
 				id,
 				need: 1
 			})) : [];
 			const units = [...group.units, ...fighters];
 			if (!units.length) return "";
 			return groupHtml(groupTitle(group.kind), units.map((unit) => progressTileHtml(unit.id, unit.need, group.kind === "carry" ? {
-				owned: state.owned,
+				owned: carryOwned(state),
 				pinned: {}
 			} : state, icons[unit.id] ?? "")).join(""));
 		}).join("");
@@ -4990,7 +5171,9 @@
 		units(state) {
 			this.state = {
 				owned: { ...state.owned },
-				pinned: { ...state.pinned }
+				pinned: { ...state.pinned },
+				...state.team ? { team: [...state.team] } : {},
+				...state.teamOwned ? { teamOwned: { ...state.teamOwned } } : {}
 			};
 			this.drawProgress();
 			if (this.groups.length === 0) return;
@@ -5988,7 +6171,9 @@
 			stopIfIncomplete: false,
 			keepExtraCoins: false,
 			manualKeepExtraCoins: true,
-			ascend: ""
+			ascend: "",
+			carryAnyPrice: false,
+			noSacrifice: false
 		};
 	}
 	function chapterSettingsKey(eventId, chapterId) {
@@ -6026,7 +6211,9 @@
 			stopIfIncomplete: isTrue(saved.stopIfIncomplete),
 			keepExtraCoins: isTrue(saved.keepExtraCoins),
 			manualKeepExtraCoins: saved.manualKeepExtraCoins === void 0 ? empty.manualKeepExtraCoins : isTrue(saved.manualKeepExtraCoins),
-			ascend: text(saved.ascend, empty.ascend)
+			ascend: text(saved.ascend, empty.ascend),
+			carryAnyPrice: isTrue(saved.carryAnyPrice),
+			noSacrifice: isTrue(saved.noSacrifice)
 		};
 	}
 	function saveChapterSettings(eventId, chapterId, settings) {
@@ -6050,37 +6237,6 @@
 	}
 	function saveEventChapter(eventId, chapterId) {
 		if (eventId && chapterId) setSaveVal(eventChapterKey(eventId), Number(chapterId));
-	}
-	function startingHeroes(chapterId) {
-		return Object.entries(chapterById(chapterId)?.initialUnitFragments ?? {}).filter(([, fragments]) => Number(fragments) > 0).map(([id]) => Number(id));
-	}
-	function pointOneHeroes(chapterId) {
-		const chapter = chapterById(chapterId);
-		const shopId = stallShopId();
-		const shop = shopId === false ? void 0 : shopById(shopId);
-		if (!chapter?.initialUnitFragments && !shop?.slots) return null;
-		const heroes = new Set(startingHeroes(chapterId));
-		for (const template of Object.values(shop?.slots ?? {}).flat()) {
-			if (Number(template.level) !== 0) continue;
-			for (const id of Object.keys(template.reward?.invasionFragmentHero ?? {})) if (Number(id) > 0) heroes.add(Number(id));
-		}
-		return heroes;
-	}
-	function carryUnavailable(chapterId, carryHeroes, carryExtraHeroes = []) {
-		const heroes = pointOneHeroes(chapterId);
-		if (!heroes) return [];
-		const main = carryHeroes.filter((id) => !heroes.has(id));
-		const extras = carryExtraHeroes.length > 0 && !carryExtraHeroes.some((id) => heroes.has(id)) ? carryExtraHeroes : [];
-		return [...main, ...extras];
-	}
-	function carryPointOneError(setup) {
-		const missing = carryUnavailable(setup.chapterId, setup.carryHeroes, setup.carryExtraHeroes ?? []);
-		if (missing.length === 0) return null;
-		const start = startingHeroes(setup.chapterId);
-		return I18N("NX_ERR_CARRY_POINT1", {
-			list: missing.map(unitLabel).join(", "),
-			start: start.length ? start.map(unitLabel).join(", ") : "—"
-		});
 	}
 	var SHADOW_DY = 2;
 	var SHADOW_ALPHA = .5;
@@ -7976,9 +8132,13 @@
 	}
 	function decodeStrategy(raw) {
 		if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-		const { buff, carry, sacrifice, point, chapters, cards, reserve, refreshes, ascend, start } = raw;
+		const { buff, carry, sacrifice, point, chapters, cards, reserve, refreshes, ascend, start, carryAnyPrice, noSacrifice } = raw;
 		const startCount = start === void 0 ? 0 : intIn(start, 0, NX_TEAM_SIZE);
 		if (startCount === null) return null;
+		const flag = (value) => value === void 0 ? false : typeof value === "boolean" ? value : null;
+		const anyPrice = flag(carryAnyPrice);
+		const noLoss = flag(noSacrifice);
+		if (anyPrice === null || noLoss === null) return null;
 		const isId = (v) => Number.isInteger(v) && v > 0;
 		if (!Array.isArray(buff) || buff.length !== 2) return null;
 		const [buffMin, buffMax] = buff;
@@ -7996,10 +8156,11 @@
 			carryHeroes.push(hero);
 			carryTargets[hero] = rank;
 		}
-		const sacrificeHeroes = Array.isArray(sacrifice) ? sacrifice : sacrifice === void 0 && startCount ? [] : [sacrifice];
-		if (!sacrificeHeroes.length && !startCount || sacrificeHeroes.length > NX_SACRIFICE_CANDIDATES || !sacrificeHeroes.every(isId)) return null;
+		const sacrificeHeroes = Array.isArray(sacrifice) ? sacrifice : sacrifice === void 0 && (startCount || noLoss) ? [] : [sacrifice];
+		if (!sacrificeHeroes.length && !startCount && !noLoss || sacrificeHeroes.length > NX_SACRIFICE_CANDIDATES || !sacrificeHeroes.every(isId)) return null;
 		if (new Set(sacrificeHeroes).size !== sacrificeHeroes.length) return null;
-		if (intIn(point, 1, NX_MAX_SACRIFICE_POINT) === null) return null;
+		const sacrificePoint = point === void 0 && noLoss ? NX_DEFAULT_SACRIFICE_POINT : intIn(point, 1, NX_MAX_SACRIFICE_POINT);
+		if (sacrificePoint === null) return null;
 		const chapterList = chapters === void 0 ? [] : chapters;
 		if (!Array.isArray(chapterList) || !chapterList.every((n) => intIn(n, 1, NX_MAX_CHAPTER) !== null)) return null;
 		if (new Set(chapterList).size !== chapterList.length) return null;
@@ -8017,13 +8178,15 @@
 			carryHeroes,
 			carryTargets,
 			sacrificeHeroes: [...sacrificeHeroes],
-			sacrificePoint: point,
+			sacrificePoint,
 			chapters: chapterList.map(Number),
 			cards: cardsRule,
 			reserve: reserveCount,
 			refreshes: refreshCount,
 			ascend: [...ascendList],
-			start: startCount
+			start: startCount,
+			carryAnyPrice: anyPrice,
+			noSacrifice: noLoss
 		};
 	}
 	function decodeStrategyList(raw) {
@@ -8056,10 +8219,7 @@
 	}
 	function chooseStrategy(preset, buff, eventStrategies, chapterId, chapterNumber = 0, eventId = currentEventId()) {
 		const list = strategyCandidates(preset, buff, eventStrategies, chapterNumber, eventId);
-		return list.find((c) => !carryPointOneError({
-			chapterId,
-			carryHeroes: c.strategy.carryHeroes
-		})) ?? list[0] ?? null;
+		return list.find((c) => carryUnavailable(chapterId, c.strategy.carryHeroes).length === 0) ?? list[0] ?? null;
 	}
 	function presetsForChapter(presets, chapter) {
 		return presets.filter((preset) => preset.chapter === 0 || preset.chapter === chapter);
@@ -8107,8 +8267,10 @@
 			carryTargets: { ...choice?.strategy.carryTargets },
 			carryExtraHeroes: [],
 			startRefreshes: choice?.strategy.reserve ?? 0,
-			sacrificeHeroes: [...choice?.strategy.sacrificeHeroes ?? []],
+			sacrificeHeroes: choice?.strategy.noSacrifice ? [] : [...choice?.strategy.sacrificeHeroes ?? []],
 			sacrificeRefreshes: choice?.strategy.refreshes ?? 0,
+			carryAnyPrice: choice?.strategy.carryAnyPrice === true,
+			noSacrifice: choice?.strategy.noSacrifice === true,
 			sacrificePoint: choice?.strategy.sacrificePoint ?? NX_DEFAULT_SACRIFICE_POINT,
 			ascendHeroes: [...choice?.strategy.ascend ?? []],
 			startBuy: choice?.strategy.start ?? 0,
@@ -8268,7 +8430,7 @@
 	}
 	function headerHtml(buff, chapter = 0) {
 		const green = (value) => `<span style="color: LimeGreen;">${value}</span>`;
-		const chapterText = chapter > 0 ? ` · ${I18N("NX_PRESETS_CHAPTER", { chapter: green(toRoman(chapter)) })}` : "";
+		const chapterText = chapter > 0 ? ` · ${I18N("NX_PRESETS_CHAPTER", { chapter: green(romanHtml(chapter)) })}` : "";
 		return `<div style="font-size: 22px; color: #ffcf84; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: green(Number(buff) || 0) })}${chapterText}</div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}<div data-part="sites">${presetSitesHtml(null)}</div></div><div style="margin-top: 8px;">${I18N("NX_PRESETS_AUTHORS")}</div>`;
 	}
 	function presetsWaitHtml(tr) {
@@ -8317,7 +8479,7 @@
 		const author = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${authorText}</a>` : authorText;
 		const video = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(I18N("NX_PRESETS_VIDEO"))}" style="flex: none;">${PLAY_ICON}</a>` : "";
 		const matched = preset.buff === Number(buff);
-		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.chapter > 0 ? toRoman(preset.chapter) : muted(I18N("NX_PRESETS_ANY_CHAPTER"))}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(preset, buff, strategies, chapter, eventId), I18N("NX_PRESETS_GO"))}</div>`;
+		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.chapter > 0 ? romanHtml(preset.chapter) : muted(I18N("NX_PRESETS_ANY_CHAPTER"))}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(preset, buff, strategies, chapter, eventId), I18N("NX_PRESETS_GO"))}</div>`;
 	}
 	var STRATEGY_SOURCE_TEXT = {
 		preset: () => I18N("NX_PRESETS_STRATEGY_PRESET"),
@@ -8340,13 +8502,13 @@
 		const names = (ids) => ids.length ? ids.map(unitName).join(", ") : "—";
 		return I18N("NX_PRESETS_GO_HINT", {
 			carry: names(strategy.carryHeroes),
-			sacrifice: strategy.sacrificeHeroes.length ? names(strategy.sacrificeHeroes) : I18N("NX_PRESETS_WEAKEST"),
-			point: strategy.sacrificePoint,
+			sacrifice: strategy.noSacrifice ? "—" : strategy.sacrificeHeroes.length ? names(strategy.sacrificeHeroes) : I18N("NX_PRESETS_WEAKEST"),
+			point: strategy.noSacrifice ? "—" : strategy.sacrificePoint,
 			cards: UNKNOWN_CARDS_TEXT[strategy.cards](),
 			reserve: strategy.reserve,
 			refreshes: strategy.refreshes,
 			source: STRATEGY_SOURCE_TEXT[source]()
-		}) + (strategy.start > 0 ? I18N("NX_PRESETS_GO_START", { count: strategy.start }) : "") + ascendHint(preset, strategy);
+		}) + (strategy.start > 0 ? I18N("NX_PRESETS_GO_START", { count: strategy.start }) : "") + (strategy.carryAnyPrice ? I18N("NX_PRESETS_GO_ANY_PRICE") : "") + (strategy.noSacrifice ? I18N("NX_PRESETS_GO_NO_SACRIFICE") : "") + ascendHint(preset, strategy);
 	}
 	function ascendHint(preset, strategy) {
 		const emblemId = ascensionEmblemId();
@@ -8354,13 +8516,16 @@
 		const list = strategy?.ascend.length ? strategy.ascend.map(unitName).join(", ") : I18N("NX_PRESETS_ASCEND_TEAM");
 		return I18N("NX_PRESETS_GO_ASCEND", { list });
 	}
+	function presetsBackHtml() {
+		return editButtonHtml("nxPresetsBack", "", I18N("NX_PRESETS_BACK")).replace("id=\"nxPresetsBack\"", "id=\"nxPresetsBack\" data-escape=\"back\"");
+	}
 	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, chapterNumber = 0, eventId = currentEventId(), client = new PresetsClient() }) {
 		root.querySelector("#nxPresetsView")?.remove();
 		const view = document.createElement("div");
 		view.id = "nxPresetsView";
 		view.className = "PopUp_text";
 		view.setAttribute("style", "text-align: left; max-width: 820px; font-size: 16px;");
-		view.innerHTML = `<div data-part="top" style="display: none;">${headerHtml(buff, chapterNumber)}${keepCoinsHtml(keepExtraCoins)}</div><div data-part="list" style="margin-top: 6px;">${I18N("NX_PRESETS_LOADING")}</div><div data-part="error" style="color: #ff6b6b; margin-top: 10px; min-height: 1px;"></div><div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">` + REFRESH_BUTTON.replace("role=\"button\"", `role="button" title="${escapeAttr(I18N("NX_PRESETS_REFRESH"))}"`) + "<span data-part=\"refresh-note\" style=\"font-size: 13px; opacity: 0.8;\"></span>" + editButtonHtml("nxPresetsBack", "", I18N("NX_PRESETS_BACK")) + "</div>";
+		view.innerHTML = `<div data-part="top" style="display: none;">${headerHtml(buff, chapterNumber)}${keepCoinsHtml(keepExtraCoins)}</div><div data-part="list" style="margin-top: 6px;">${I18N("NX_PRESETS_LOADING")}</div><div data-part="error" style="color: #ff6b6b; margin-top: 10px; min-height: 1px;"></div><div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">` + REFRESH_BUTTON.replace("role=\"button\"", `role="button" title="${escapeAttr(I18N("NX_PRESETS_REFRESH"))}"`) + "<span data-part=\"refresh-note\" style=\"font-size: 13px; opacity: 0.8;\"></span>" + presetsBackHtml() + "</div>";
 		form.style.display = "none";
 		setButtonsVisible(false);
 		root.append(view);
@@ -8426,9 +8591,9 @@
 			const presets = presetsForChapter(loaded.presets, chapterNumber);
 			if (!presets.length) {
 				showTable(true);
-				const chapters = [...new Set(loaded.presets.map((p) => p.chapter))].sort((a, b) => a - b).map(toRoman);
+				const chapters = [...new Set(loaded.presets.map((p) => p.chapter))].sort((a, b) => a - b).map(romanHtml);
 				list.innerHTML = `<div style="color: #ffb347;">${I18N("NX_PRESETS_NO_CHAPTER", {
-					chapter: toRoman(chapterNumber),
+					chapter: romanHtml(chapterNumber),
 					list: chapters.join(", ")
 				})}</div>`;
 				return;
@@ -8570,7 +8735,7 @@
 				if (event.key !== "Escape" || otherWindowOnTop(win.root)) return;
 				event.stopPropagation();
 				event.preventDefault();
-				if (event.type === "keyup") handlers.onCancel();
+				if (event.type === "keyup") pressEscape(win.root, handlers.onCancel);
 			};
 			const answer = (value) => {
 				if (done) return;
@@ -8612,6 +8777,11 @@
 				if (!done) handlers.onCancel();
 			});
 		});
+	}
+	function pressEscape(root, onCancel) {
+		const back = root.querySelector("[data-escape=\"back\"]");
+		if (back) back.click();
+		else onCancel();
 	}
 	function otherWindowOnTop(own) {
 		return [...document.body.children].some((el) => el !== own && !el.classList.contains("nxHidden") && el.querySelector(":scope > div > .nxStage") !== null);
@@ -8792,8 +8962,17 @@
 		html += "<div id=\"hwhNewWealthBlock\">";
 		html += section(I18N("NX_BLOCK_CARRY"), I18N("NX_BLOCK_CARRY_HINT"));
 		html += `<div id="nxCarryBlock">${await heroListHtml(parseRankedIdList(currentCarry) ?? [], "nxCarryEdit", I18N("NX_LIST_EDIT_HINT"))}</div>`;
+		html += `<div id="nxCarryAutoNote" style="margin-top: 4px; font-size: 13px; color: #ffcf84;${String(currentCarry).trim() ? " display: none;" : ""}" title="${escapeAttr(I18N("NX_BLOCK_CARRY_HINT"))}">${I18N("NX_CARRY_AUTO_NOTE")}</div>`;
+		const carryWarning = carryPointOneWarning({
+			chapterId: activeChapter,
+			carryHeroes: (parseRankedIdList(currentCarry) ?? []).map((e) => e.id)
+		});
+		html += `<div id="nxCarryWarn" style="margin-top: 4px; font-size: 13px; color: #ffb347;${carryWarning ? "" : " display: none;"}">${carryWarning ?? ""}</div>`;
+		html += `<div class="PopUp_ContCheckbox" style="margin-top: 6px;"><input type="checkbox" class="PopUp_checkbox" id="nxCarryAnyPrice"${state.carryAnyPrice ? " checked" : ""}><label for="nxCarryAnyPrice" title="${escapeAttr(I18N("NX_CARRY_ANY_PRICE_HINT"))}">${I18N("NX_CARRY_ANY_PRICE")}</label></div>`;
 		html += section(I18N("NX_BLOCK_START_REFRESH"), I18N("NX_BLOCK_START_REFRESH_HINT"));
 		html += `<input type="text" id="hwhNewStartRefreshInput" class="PopUp_input" style="width: 100%; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_START_REFRESH_HINT"))}" placeholder="0" value="${escapeAttr(state.startRefreshes)}">`;
+		html += `<div class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="nxNoSacrifice"${state.noSacrifice ? " checked" : ""}><label for="nxNoSacrifice" title="${escapeAttr(I18N("NX_NO_SACRIFICE_HINT"))}">${I18N("NX_NO_SACRIFICE")}</label></div>`;
+		html += "<div id=\"nxSacrificeRows\">";
 		html += section(I18N("NX_BLOCK_SACRIFICE"), I18N("NX_BLOCK_SACRIFICE_HINT"));
 		html += `<div id="nxSacrificeBlock">${await heroListHtml(parseRankedIdList(currentSacrifice) ?? [], "nxSacrificeEdit", I18N("NX_SACRIFICE_EDIT_HINT"))}</div>`;
 		html += "<div id=\"nxSacrificeRefreshRow\">";
@@ -8807,6 +8986,7 @@
 		};
 		html += section(I18N("NX_BLOCK_SACRIFICE_POINT"), I18N("NX_BLOCK_SACRIFICE_POINT_HINT"));
 		html += `<div id="nxSacrificePointBlock">${sacrificePointHtml(activeChapter, state.sacrificePoint)}</div>`;
+		html += "</div>";
 		html += section(I18N("NX_BLOCK_MIN_COINS", { coin: stallCoinName() }), I18N("NX_BLOCK_MIN_COINS_HINT"));
 		html += `<div style="display: flex; align-items: center; gap: 12px;"><input type="text" id="hwhNewMinCoinsInput" class="PopUp_input" style="flex: 1; min-width: 0; box-sizing: border-box;" title="${escapeAttr(I18N("NX_BLOCK_MIN_COINS_HINT"))}" placeholder="${escapeAttr(I18N("NX_MIN_COINS_PLACEHOLDER"))}" value="${escapeAttr(state.minCoins)}"><span id="nxMinCoinsBonus" style="flex: none; font-size: 14px; color: #ffcf84;">${minCoinsBonusText(state.minCoins)}</span></div>`;
 		html += `<div class="PopUp_ContCheckbox" style="margin-top: 12px;"><input type="checkbox" class="PopUp_checkbox" id="nxManualKeepCoins"${state.manualKeepExtraCoins ? " checked" : ""}><label for="nxManualKeepCoins" title="${escapeAttr(I18N("NX_MANUAL_KEEP_COINS_HINT"))}">${I18N("NX_PRESETS_KEEP_COINS")}</label></div>`;
@@ -8904,6 +9084,8 @@
 			const sacrificeRefreshesRaw = root.querySelector("#hwhNewSacrificeRefreshInput")?.value ?? "";
 			const carryExtraHeroes = [];
 			let startRefreshes = 0;
+			const carryAnyPrice = root.querySelector("#nxCarryAnyPrice")?.checked === true;
+			const noSacrifice = root.querySelector("#nxNoSacrifice")?.checked === true;
 			if (talismanId === NX_WEALTH_TALISMAN_ID) {
 				const parsedMinCoins = parseMinCoins(minCoinsRaw);
 				if (!parsedMinCoins) return {
@@ -8911,28 +9093,19 @@
 					error: I18N("NX_ERR_MIN_COINS")
 				};
 				minCoins = parsedMinCoins.value;
-				const carryList = parseRankedIdList(carryRaw);
+				const carryList = String(carryRaw).trim() ? parseRankedIdList(carryRaw) : [];
 				if (!carryList || carryList.length > NX_TEAM_SIZE) return {
 					kind: "error",
 					error: I18N("NX_ERR_CARRY")
 				};
 				carryHeroes = carryList.map((e) => e.id);
 				carryTargets = Object.fromEntries(carryList.map((e) => [e.id, e.rank]));
-				const carryError = carryPointOneError({
-					chapterId: Number(chapterValue),
-					carryHeroes,
-					carryExtraHeroes
-				});
-				if (carryError) return {
-					kind: "error",
-					error: carryError
-				};
-				sacrificeHeroes = parseIdList(sacrificeRaw);
+				sacrificeHeroes = noSacrifice || !String(sacrificeRaw).trim() ? [] : parseIdList(sacrificeRaw);
 				if (!sacrificeHeroes || sacrificeHeroes.length > NX_SACRIFICE_CANDIDATES) return {
 					kind: "error",
 					error: I18N("NX_ERR_SACRIFICE", { max: NX_SACRIFICE_CANDIDATES })
 				};
-				if (!sacrificeHeroes.some((id) => carryHeroes.includes(id)) && String(sacrificeRefreshesRaw).trim() !== "") {
+				if (!noSacrifice && !sacrificeHeroes.some((id) => carryHeroes.includes(id)) && String(sacrificeRefreshesRaw).trim() !== "") {
 					const parsedRefreshes = Number(String(sacrificeRefreshesRaw).trim());
 					if (!Number.isInteger(parsedRefreshes) || parsedRefreshes < 0 || parsedRefreshes > NX_SACRIFICE_MAX_REFRESHES) return {
 						kind: "error",
@@ -8974,6 +9147,9 @@
 					carryHeroes,
 					carryTargets,
 					carryExtraHeroes,
+					carryAnyPrice: talismanId === NX_WEALTH_TALISMAN_ID && carryAnyPrice,
+					autoStart: talismanId === NX_WEALTH_TALISMAN_ID && carryHeroes.length === 0,
+					noSacrifice: talismanId === NX_WEALTH_TALISMAN_ID && noSacrifice,
 					startRefreshes,
 					sacrificeHeroes,
 					sacrificeRefreshes,
@@ -9067,8 +9243,19 @@
 				"#hwhNewPauseInput",
 				"#hwhNewRandomAnyInput",
 				"#hwhNewStopIncompleteInput",
-				"#nxManualKeepCoins"
+				"#nxManualKeepCoins",
+				"#nxCarryAnyPrice"
 			]) root.querySelector(id)?.addEventListener("change", () => persist());
+			const syncSacrificeRows = () => {
+				const rows = root.querySelector("#nxSacrificeRows");
+				if (rows) rows.style.display = root.querySelector("#nxNoSacrifice")?.checked ? "none" : "";
+			};
+			syncSacrificeRows();
+			root.querySelector("#nxNoSacrifice")?.addEventListener("change", () => {
+				syncSacrificeRows();
+				showError("");
+				persist();
+			});
 			const onStart = () => {
 				const result = validate();
 				if (result.kind === "error") {
@@ -9091,7 +9278,9 @@
 					stopIfIncomplete: value.stopIfIncompleteRaw,
 					keepExtraCoins: loadChapterSettings(eventId, value.chapterId).keepExtraCoins,
 					manualKeepExtraCoins: value.keepExtraCoins !== false,
-					ascend: currentAscend
+					ascend: currentAscend,
+					carryAnyPrice: isChecked("#nxCarryAnyPrice"),
+					noSacrifice: isChecked("#nxNoSacrifice")
 				};
 				saveChapterSettings(eventId, value.chapterId, state);
 				saveEventChapter(eventId, value.chapterId);
@@ -9121,6 +9310,19 @@
 				}));
 			};
 			bindSquadEdit();
+			const syncCarryNote = () => {
+				const note = root.querySelector("#nxCarryAutoNote");
+				if (note) note.style.display = String(currentCarry).trim() ? "none" : "";
+				const warn = root.querySelector("#nxCarryWarn");
+				if (warn) {
+					const text = carryPointOneWarning({
+						chapterId: activeChapter,
+						carryHeroes: (parseRankedIdList(currentCarry) ?? []).map((e) => e.id)
+					});
+					warn.textContent = text ?? "";
+					warn.style.display = text ? "" : "none";
+				}
+			};
 			const syncSacrificeRefreshRow = () => {
 				const row = root.querySelector("#nxSacrificeRefreshRow");
 				if (!row) return;
@@ -9139,6 +9341,7 @@
 					if (block) block.innerHTML = await heroListHtml(toItems(getRaw()), buttonId, hint);
 					bindListEdit(buttonId, pickerId, blockId, title, getRaw, setRaw, max, hint, withRanks, toItems);
 					syncSacrificeRefreshRow();
+					syncCarryNote();
 					showError("");
 				}));
 			};
@@ -9178,7 +9381,9 @@
 				stopIfIncomplete: isChecked("#hwhNewStopIncompleteInput"),
 				keepExtraCoins: loadChapterSettings(eventId, activeChapter).keepExtraCoins,
 				manualKeepExtraCoins: isChecked("#nxManualKeepCoins"),
-				ascend: currentAscend
+				ascend: currentAscend,
+				carryAnyPrice: isChecked("#nxCarryAnyPrice"),
+				noSacrifice: isChecked("#nxNoSacrifice")
 			});
 			function persist() {
 				state = readState();
@@ -9201,6 +9406,10 @@
 				setChecked("#hwhNewRandomAnyInput", next.buyAnyRandomLots);
 				setChecked("#hwhNewStopIncompleteInput", next.stopIfIncomplete);
 				setChecked("#nxManualKeepCoins", next.manualKeepExtraCoins);
+				setChecked("#nxCarryAnyPrice", next.carryAnyPrice);
+				setChecked("#nxNoSacrifice", next.noSacrifice);
+				syncSacrificeRows();
+				syncCarryNote();
 				renderSacrificePoints();
 				syncWealthBlock();
 				syncAscendRow();
@@ -9273,10 +9482,9 @@
 					eventId
 				});
 				if (value.talismanId === NX_WEALTH_TALISMAN_ID && !value.preset?.strategy) return I18N("NX_PRESETS_NO_STRATEGY", {
-					chapter: toRoman(chapterNumber),
+					chapter: romanHtml(chapterNumber),
 					buff: buffAmount
 				});
-				if (value.talismanId === NX_WEALTH_TALISMAN_ID && carryPointOneError(value)) return I18N("NX_PRESETS_CARRY_POINT1", { list: value.carryHeroes.map(unitLabel).join(", ") });
 				if (value.preset?.strategy) console.log(`Сборки: стратегия ${value.preset.strategy}, усиление ${buffAmount}, проходные ${value.carryHeroes.join(", ")}, слив ${value.sacrificeHeroes.join(", ")} на точке ${value.sacrificePoint}`);
 				complete(value);
 				return null;
@@ -9405,7 +9613,7 @@
 			return;
 		}
 		const relicId = currentEvent()?.settings?.relicId;
-		const relic = (await Caller.send("workshop_getInfo")).relics.find((e) => e.id == relicId);
+		const relic = (await gameSend("workshop_getInfo")).relics.find((e) => e.id == relicId);
 		const relicLevel = Number(relic?.level ?? 0);
 		const buffAmount = relicLevel <= 1 ? 0 : relicLevel * 10;
 		const chapters = getArchdemonChapters().filter((e) => !isPaidChapter(e.id));
@@ -9453,7 +9661,7 @@
 	function addMenuEntry() {
 		othersPopupButtons.push({
 			get msg() {
-				return I18N("NX_MENU_ENTRY");
+				return archRankIconHtml() + I18N("NX_MENU_ENTRY");
 			},
 			get title() {
 				return I18N("NX_MENU_TITLE");
@@ -9471,7 +9679,7 @@
 		});
 	}
 	async function onClickArchdemonNewButton() {
-		setCurrentEventId((await Caller.send("invasion_getInfo"))?.id ?? 0);
+		setCurrentEventId((await gameSend("invasion_getInfo"))?.id ?? 0);
 		const now = Date.now();
 		const opened = allChapters().some((chapter) => chapter.invasionId === currentEventId() && chapterDate(chapter.startDate) <= now && !(chapterDate(chapter.endDate) <= now));
 		const running = Boolean(currentEventId()) && opened;

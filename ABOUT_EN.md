@@ -19,10 +19,12 @@ If a run does not work out, it resets the chapter and tries again.
   the main team at the very end:
   - needed heroes are pinned in the shop along the way and bought in the final shopping,
     so coins are not spent early and go into the emblem bonus;
-  - carry heroes with ranks, topped up along the chapter;
+  - carry heroes with ranks — only discounted or, with a checkbox, at any price; a hero on hand fights in place of
+    one not bought on the first point, and the run buys the needed one along the chapter; none set at all —
+    the run picks them itself, like a ready-made build with a start;
   - with "start" in the build strategy it buys heroes on the first point — discounted pairs and random fragments —
     so five heroes fight, and along the way buys team heroes at a discount and sells the weakest spare ones;
-  - two deliberate losses for coins on a chosen point — any regular one, never the main boss;
+  - two deliberate losses for coins on a chosen point — any regular one, never the main boss; a checkbox turns them off;
   - resale of profitable lots;
   - discounted pets are bought out and sold later, so the shop offers more heroes;
   - minimum Shop Coins with the emblem bonus shown: the shopping stops once it is out of reach;
@@ -42,7 +44,7 @@ If a run does not work out, it resets the chapter and tries again.
 ## Install
 
 HeroWarsHelper 2.459 or newer is required: with an older helper the run fails. Import `HWHArchdemonExt.user.js` into Tampermonkey. The script order does not matter: the add-on waits for the helper.
-The item appears in the helper menu: **Others → Adventure (Arch)**.
+The item appears in the helper menu: **Others → ArchRank** (with a redneck chasing the Archdemon with a stick).
 
 While a run is going, turn off other scripts that improve Invasion battles: they intercept the add-on's
 requests too and can turn an intentional loss into a win. And do not play manually in the same tab during a run.
