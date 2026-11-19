@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.41-beta
+// @version         1.42-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -230,9 +230,9 @@
 			NX_REASON_STOPPED: "Stopped by you",
 			NX_COOLDOWN: "Restart in {seconds} s",
 			NX_BLOCK_CARRY: "Carry heroes, they only walk you through",
-			NX_BLOCK_CARRY_HINT: "As many heroes fight as carry heroes are listed. Whoever is not bought on point 1 is bought along the way, a hero on hand takes his place meanwhile and is sold, the weakest first, when the needed one comes. Up to the chosen rank they are topped up as soon as possible. Sold after the last point before the Archdemon. Empty — like a ready-made build with a start: all heroes on hand fight, up to five; chapters I–III start with the starting heroes, chapter IV with three, chapter V and later with five, and every 5 runs short of strength add one more hero",
+			NX_BLOCK_CARRY_HINT: "Topped up to the chosen rank along the chapter. Not set — the script picks them itself",
 			NX_BLOCK_SACRIFICE: "Who throws the point",
-			NX_BLOCK_SACRIFICE_HINT: "Up to five heroes. One throws, the weakest owned: a Support, then a Tank, then anyone, the fewest fragments first. It loses the chosen point twice on purpose, then the carry team takes it. Empty or nobody from the list on hand — the weakest hero on hand throws",
+			NX_BLOCK_SACRIFICE_HINT: "One of them throws, the weakest on hand. Not set — the script picks one itself",
 			NX_BLOCK_SACRIFICE_REFRESH: "Stall refreshes on the throw point to find the throwing hero",
 			NX_BLOCK_SACRIFICE_REFRESH_HINT: "Needed when none of them is a carry hero: then one is bought on the throw point. Zero means no refreshes, if nobody is there the run restarts",
 			NX_ERR_SACRIFICE_REFRESH: "Refreshes for the throwing hero must be a whole number from 0 to {max}",
@@ -513,9 +513,9 @@
 			NX_REASON_STOPPED: "Остановлено вами",
 			NX_COOLDOWN: "Перезапуск через {seconds} с",
 			NX_BLOCK_CARRY: "Проходные герои, ими только идём",
-			NX_BLOCK_CARRY_HINT: "Сколько проходных указано, столько героев идёт в бой. Кого не взяли на первой точке, докупаем по ходу, а пока его место занимает герой с рук — самого слабого продаём, когда придёт нужный. До выбранного ранга докупаются при первой возможности. Продаются после последней точки перед Архидемоном. Пусто — как готовая сборка со стартом: в бой все на руках, до пяти; в главах I–III — стартовые, в IV — трое, в V и дальше — пятеро, а каждые 5 заходов, где не хватило сил, — ещё один герой",
+			NX_BLOCK_CARRY_HINT: "До выбранного ранга докупаются по ходу главы. Не указаны — скрипт подберёт их сам",
 			NX_BLOCK_SACRIFICE: "Кем сливаем точку",
-			NX_BLOCK_SACRIFICE_HINT: "До пяти героев. Сливает один, самый слабый из тех, что на руках: поддержка, потом танк, потом любой — у кого меньше фрагментов. Он дважды намеренно проигрывает выбранную точку, потом её берёт проходной состав. Пусто или никого из списка нет на руках — сливает самый слабый на руках",
+			NX_BLOCK_SACRIFICE_HINT: "Сливает один, самый слабый из них. Не указаны — скрипт выберет сам",
 			NX_BLOCK_SACRIFICE_REFRESH: "Обновлений лавки на точке слива, чтобы найти героя для слива",
 			NX_BLOCK_SACRIFICE_REFRESH_HINT: "Нужно, если никого из них нет среди проходных: тогда одного докупают на точке слива. Ноль — без обновлений, никого не нашлось — заход заново",
 			NX_ERR_SACRIFICE_REFRESH: "Обновлений для героя слива — целое число от 0 до {max}",
