@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.42-beta
+// @version         1.43-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -7000,6 +7000,9 @@
 		}) + win.label(text, x + fx, y + fy, fw, fh, 18, color, "", { place: "top" });
 	}
 	var TEAM_SIZE = 5;
+	function emptyTeamMessage(size, allowEmpty, texts) {
+		return size === 0 && !allowEmpty ? texts.needOne : "";
+	}
 	function gameSearchHint() {
 		const key = "UI_DIALOG_COMMAND_HUB_HEROES_FILTER";
 		try {
@@ -7109,7 +7112,7 @@
 		keptPickers.set(options.id, picker);
 		return picker.open(options);
 	}
-	async function buildUnitPicker({ id: windowId, heroes, pets: petList, limit: wanted, ranks, showRanks, petArt, texts: firstTexts, validate: firstValidate, unitArt = {}, unitStars = {} }, signature) {
+	async function buildUnitPicker({ id: windowId, heroes, pets: petList, limit: wanted, ranks, showRanks, petArt, texts: firstTexts, validate: firstValidate, allowEmpty: firstAllowEmpty, unitArt = {}, unitStars = {} }, signature) {
 		const limit = Math.max(1, Math.min(TEAM_SIZE, Math.floor(wanted) || 1));
 		const withPets = Array.isArray(petList);
 		const pets = petList ?? [];
@@ -7164,6 +7167,7 @@
 		let patronFor = 0;
 		let texts = firstTexts;
 		let validate = firstValidate;
+		let allowEmpty = firstAllowEmpty;
 		let searchText = "";
 		const pawHtml = () => {
 			const paw = anim(PAW_ANIM, 3, 3, { cls: "nxNoHit" });
@@ -7696,8 +7700,9 @@
 				return;
 			}
 			if (el = at("[data-save]")) {
-				if (team.size === 0) {
-					message = texts.needOne;
+				const empty = emptyTeamMessage(team.size, allowEmpty, texts);
+				if (empty) {
+					message = empty;
 					update();
 					return;
 				}
@@ -7767,7 +7772,7 @@
 			}
 		});
 		let rendered = false;
-		const open = ({ team: initial, mainPet = 0, texts: openTexts, validate: openValidate }) => {
+		const open = ({ team: initial, mainPet = 0, texts: openTexts, validate: openValidate, allowEmpty: openAllowEmpty }) => {
 			activeSession?.(null);
 			team.clear();
 			for (const entry of initial) team.set(entry.id, {
@@ -7780,6 +7785,7 @@
 			patronFor = 0;
 			texts = openTexts;
 			validate = openValidate;
+			allowEmpty = openAllowEmpty;
 			const hadSearch = Boolean(searchText);
 			searchText = "";
 			const input = stage.querySelector("[data-search]");
@@ -7877,7 +7883,8 @@
 			showRanks: withRanks,
 			petArt: EVENT_PET_ART,
 			team: [...team.values()],
-			texts: pickerTexts(title)
+			texts: pickerTexts(title),
+			allowEmpty: true
 		});
 		if (!result) return null;
 		return {
