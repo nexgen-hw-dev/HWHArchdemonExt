@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.43-beta
+// @version         1.44-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -317,13 +317,13 @@
 			NX_PRESETS_WAIT_SITES: "Websites",
 			NX_PRESETS_ERROR: "The request cannot be completed from your region. Please use additional tools",
 			NX_PRESETS_STALE: "The server did not answer, showing the saved copy",
-			NX_PRESETS_NO_STRATEGY: "No run strategy for chapter {chapter} at boost {buff}: it is not known who carries and who throws. A strategy comes with the build or for the whole event from the server; until then set the run up in the setup window",
+			NX_PRESETS_NO_STRATEGY: "No run strategy for chapter {chapter} at buff {buff}: it is not known who carries and who throws. A strategy comes with the build or for the whole event from the server; until then set the run up in the setup window",
 			NX_PRESETS_REFRESH: "Refresh the builds from the server, at most once a minute",
 			NX_PRESETS_REFRESH_WAIT: "You can refresh again in {seconds} s",
 			NX_REASON_POINT_KNOWN_LOSS: "Point {point}: this team has already lost it, and there is nobody to buy",
 			NX_DEFAULT_FINAL: "Selling the extra heroes and collecting the team",
 			NX_BLOCK_STOP_INCOMPLETE: "Stop before the Archdemon even if the team is not complete",
-			NX_BLOCK_STOP_INCOMPLETE_HINT: "If hero parts or pets are still missing after the final shopping, the run stops instead of restarting the chapter. The window lists what is missing",
+			NX_BLOCK_STOP_INCOMPLETE_HINT: "If hero fragments or pets are still missing after the final shopping, the run stops instead of restarting the chapter. The window lists what is missing",
 			NX_INCOMPLETE: `<span style="font-size: 25px;">The team is not complete, run <span style="color: LimeGreen;">{attempt}</span></span><br>
           Missing: <span style="color: #ff6b6b;">{list}</span><br>
           Every point before the Archdemon is taken. Go in and attack the Archdemon yourself`,
@@ -348,7 +348,7 @@
 			NX_BOOK_SPARE_COINS: "spending spare coins",
 			NX_BOOK_MAIN_PACK: "main pack",
 			NX_BOOK_SALES: "sales",
-			NX_BOOK_SALE_PARTS: "selling spare parts",
+			NX_BOOK_SALE_PARTS: "selling spare fragments",
 			NX_BOOK_SALE_PETS: "selling pets",
 			NX_BOOK_CARRY: "carry heroes",
 			NX_BOOK_CARRY_RANK: "carry heroes up to rank",
@@ -380,7 +380,7 @@
 			NX_CARRY_AUTO_NOTE: "No carry heroes set — the script picks them itself",
 			NX_WARN_CARRY_POINT1: "Carry hero {list} is not there from the start: neither a starting hero of the chapter nor in the first stall. The run buys the hero as soon as it shows up in the stall, until then heroes on hand fight",
 			NX_WARN_CARRY_POINT1_MANY: "Carry heroes {list} are not there from the start: neither starting heroes of the chapter nor in the first stall. The run buys them as soon as they show up in the stall, until then heroes on hand fight",
-			NX_CARRY_ANY_PRICE_HINT: "Unchecked: carry heroes and their parts only from discounted lots. Checked: at full price too",
+			NX_CARRY_ANY_PRICE_HINT: "Unchecked: carry heroes and their fragments only from discounted lots. Checked: at full price too",
 			NX_NO_SACRIFICE: "Do not throw a point on purpose",
 			NX_NO_SACRIFICE_HINT: "Checked: every point is fought to win, no throwing hero is needed",
 			NX_BLOCK_RANDOM_ANY_HINT: "Unchecked: only when cheaper than {price}, then resale pays them back. Checked: always, in case needed heroes are inside",
@@ -439,8 +439,8 @@
 			NX_PICK_SAVE: "Save",
 			NX_PICK_NEED: "At least one hero is needed",
 			NX_PICK_FULL: "Five heroes are already picked. Remove one first",
-			NX_RANK_PURPLE: "Purple, 80",
-			NX_RANK_YELLOW: "Yellow, 100",
+			NX_RANK_PURPLE: "Violet, 80",
+			NX_RANK_YELLOW: "Orange, 100",
 			NX_RANK_RED: "Red, 130",
 			NX_PATRON_TITLE: "Pick a patron pet",
 			NX_PATRON_ADD: "Pick a patron",
@@ -464,7 +464,7 @@
 			NX_FAIL_NO_STATE: "The server did not send the chapter state after the battle",
 			NX_TALISMAN_TAKEN: "Emblem on: {name}",
 			NX_ASCENDED: "Ascended: {name}, −{cost}",
-			NX_TALISMAN_REROLL: "Emblems rerolled ({number}), {left} rerolls left",
+			NX_TALISMAN_REROLL: "Emblem refresh ({number}), refreshes left: {left}",
 			NX_CHAPTER: "Chapter",
 			NX_CANCEL: "Cancel",
 			NX_ENTERING: "Entering the chapter",
@@ -1246,6 +1246,86 @@
 		if (!method) throw new Error(`Расчёт боя: у класса нет метода №${index}`);
 		return method;
 	}
+	var featureCache = new WeakMap();
+	function cached$1(cls, name, find) {
+		const entry = featureCache.get(cls) ?? {};
+		if (!(name in entry)) {
+			entry[name] = find();
+			featureCache.set(cls, entry);
+		}
+		return entry[name];
+	}
+	function prototypeSources(cls) {
+		const out = [];
+		for (let proto = cls.prototype; proto && proto !== Object.prototype; proto = Object.getPrototypeOf(proto)) for (const key of Object.keys(proto)) {
+			const value = proto[key];
+			if (typeof value === "function") out.push(String(value));
+		}
+		return out;
+	}
+	var NAME_PART = "([A-Za-z_$][\\w$]*)";
+	var Q = `["']`;
+	function endSignalField(Play) {
+		return cached$1(Play, "endSignal", () => {
+			const dispatched = new Set([...prototypeSources(Play).join("\n").matchAll(new RegExp(`this\\.${NAME_PART}\\.[\\w$]+\\(this\\)`, "g"))].map((m) => m[1]));
+			const disposeSources = [];
+			for (let proto = Play.prototype; proto && proto !== Object.prototype; proto = Object.getPrototypeOf(proto)) {
+				const own = Object.prototype.hasOwnProperty.call(proto, "dispose") ? proto.dispose : void 0;
+				if (typeof own === "function") disposeSources.push(String(own));
+			}
+			const field = [...disposeSources.join("\n").matchAll(new RegExp(`this\\.${NAME_PART}\\.[\\w$]+\\(\\)`, "g"))].map((m) => m[1]).find((name) => dispatched.has(name));
+			if (field) return field;
+			console.warn("Расчёт боя: сигнал конца боя по виду не нашёлся, беру 9-й ключ прототипа");
+			return protoMethod(Play, 9);
+		});
+	}
+	function battleLogsField(Result) {
+		return cached$1(Result, "logs", () => {
+			const sources = prototypeSources(Result);
+			let progress;
+			try {
+				progress = [...String(Result.prototype[propertyMethod(Result, "get_progress")] ?? "").matchAll(new RegExp(`return this\\.${NAME_PART}`, "g"))].pop()?.[1];
+			} catch {
+				progress = void 0;
+			}
+			const pushed = sources.map((text) => new RegExp(`^function\\s*\\(\\s*(\\w+)\\s*\\)\\s*\\{\\s*this\\.${NAME_PART}\\.push\\(\\1\\)\\s*;?\\s*\\}$`).exec(text)?.[2]).filter((name) => Boolean(name) && name !== progress);
+			if (pushed.length === 1) return pushed[0];
+			console.warn("Расчёт боя: журналы боёв в итоге по виду не нашлись, беру 3-й ключ прототипа");
+			return protoMethod(Result, 2);
+		});
+	}
+	function energyEventFields(hero, energy) {
+		return cached$1(energy, "energy", () => {
+			const re = new RegExp(`${Q}E\\s*${Q}\\s*\\+\\s*this\\.${NAME_PART}\\s*\\+\\s*${Q} ${Q}\\s*\\+\\s*this\\.${NAME_PART}\\s*\\+\\s*${Q} add ${Q}\\s*\\+\\s*this\\.${NAME_PART}`);
+			for (const text of prototypeSources(energy)) {
+				const m = re.exec(text);
+				if (m) return {
+					heroId: m[1],
+					energy: m[2],
+					delta: m[3]
+				};
+			}
+			console.warn("Расчёт боя: поля события энергии по виду не нашлись, беру их по порядку прототипа");
+			const heroId = Object.keys(hero.prototype)[0];
+			const [energyField, delta] = Object.keys(energy.prototype);
+			return heroId && energyField && delta ? {
+				heroId,
+				energy: energyField,
+				delta
+			} : null;
+		});
+	}
+	function stepCounterField(Timeline) {
+		return cached$1(Timeline, "steps", () => {
+			const re = new RegExp(`${Q}i${Q}\\s*\\+\\s*this\\.${NAME_PART}\\s*\\+\\s*${Q} ${Q}\\s*\\+\\s*this\\.time`);
+			for (const text of prototypeSources(Timeline)) {
+				const m = re.exec(text);
+				if (m) return m[1];
+			}
+			console.warn("Расчёт боя: счётчик шагов Timeline по виду не нашёлся, беру 2-й ключ прототипа");
+			return Object.keys(Timeline.prototype)[1];
+		});
+	}
 	function call(target, method, ...args) {
 		const fn = target?.[method];
 		if (typeof fn !== "function") throw new Error(`Расчёт боя: нет метода ${method}`);
@@ -1298,7 +1378,7 @@
 		hookState = "unavailable";
 		const Movement = gameClass$1(CLASS_PATHS.movement);
 		const Timeline = gameClass$1(CLASS_PATHS.timeline);
-		const field = Timeline ? Object.keys(Timeline.prototype)[1] : void 0;
+		const field = Timeline ? stepCounterField(Timeline) : void 0;
 		const original = Movement?.prototype.update;
 		if (!Movement || !field || typeof original !== "function" || original.length !== 1) {
 			console.warn("Расчёт боя: карту шагов снять не на чем — нет MovementManager.update или поля счётчика Timeline, шаг будет 0");
@@ -1359,13 +1439,10 @@
 		};
 		const hero = find("BattleLogEventHero");
 		const energy = find("BattleLogEventHeroEnergy");
-		const heroId = hero && Object.keys(hero.prototype)[0];
-		const [energyField, delta] = energy ? Object.keys(energy.prototype) : [];
-		energyInfo = energy && heroId && energyField && delta ? {
+		const fields = hero && energy ? energyEventFields(hero, energy) : null;
+		energyInfo = energy && fields ? {
 			proto: energy.prototype,
-			heroId,
-			energy: energyField,
-			delta
+			...fields
 		} : null;
 		return energyInfo;
 	}
@@ -1383,7 +1460,7 @@
 		const Encoder = gameClass$1(CLASS_PATHS.logEncoder);
 		const Reader = gameClass$1(CLASS_PATHS.logReader);
 		const Result = gameClass$1(CLASS_PATHS.result);
-		const first = Result ? (results?.[protoMethod(Result, 2)])?.[0] : void 0;
+		const first = Result ? (results?.[battleLogsField(Result)])?.[0] : void 0;
 		if (!Encoder || !Reader || first === void 0 || typeof Encoder.read !== "function") return {
 			battleTime: NaN,
 			firstUltTime: null,
@@ -1447,7 +1524,7 @@
 				settled = true;
 			};
 			try {
-				const signal = play[protoMethod(Play, 9)];
+				const signal = play[endSignalField(Play)];
 				if (typeof signal?.add !== "function") throw new Error("Расчёт боя: нет сигнала конца боя");
 				signal.add.call(signal, (instance) => {
 					try {
