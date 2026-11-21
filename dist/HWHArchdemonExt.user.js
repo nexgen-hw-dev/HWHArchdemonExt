@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.44-beta
+// @version         1.47-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -424,6 +424,7 @@
 			NX_LOSS_SEARCH: "Looking for a losing battle to throw the point, {count} of {max}",
 			NX_LOSS_SENT: "Losing battle sent",
 			NX_LOSS_NOT_FOUND: "No losing battle found, the plain auto battle goes",
+			NX_RESEED_STOP: "The server turned on battle reseeding for battle {id} (effects.ultReseed): after the first ult such a battle cannot be computed in advance, and the server would not accept a computed end. The run stopped. The battle has started already: finish it in the game by hand and tell the add-on author",
 			NX_POINT_BLOCKED: "Battle {id} is the Archdemon: the game data marks it as a rating battle. The run does not fight the Archdemon and stopped",
 			NX_FULL_BATTLE_WAIT: "The main boss cannot be skipped: the result goes in {seconds} s, as after watching the battle",
 			NX_FULL_BATTLE_SENT: "Main boss battle sent",
@@ -707,6 +708,7 @@
 			NX_LOSS_SEARCH: "Ищем проигрыш для слива {count} из {max}",
 			NX_LOSS_SENT: "Проигрыш отправлен",
 			NX_LOSS_NOT_FOUND: "Проигрыш не найден, уходит обычный автобой",
+			NX_RESEED_STOP: "Сервер включил пересев боя {id} (effects.ultReseed): после первого ульта такой бой заранее не посчитать, и посчитанный конец боя сервер не примет. Прогон остановлен. Бой уже начат — закончите его в игре вручную и сообщите автору дополнения",
 			NX_POINT_BLOCKED: "Бой {id} — Архидемон: по данным игры это бой рейтинга. С Архидемоном прогон не бьётся и остановлен",
 			NX_FULL_BATTLE_WAIT: "Главного босса не пропустить: результат уйдёт через {seconds} с, как после просмотра боя",
 			NX_FULL_BATTLE_SENT: "Бой с главным боссом отправлен",
@@ -894,14 +896,19 @@
 		}
 		const next = new Map();
 		const heads = [];
+		const branches = [];
 		for (const [id, boss] of bosses) {
 			const prev = String(boss?.prevId ?? "");
-			if (prev && bosses.has(prev) && !next.has(prev)) next.set(prev, id);
-			else heads.push(id);
+			if (prev && bosses.has(prev)) {
+				if (!next.has(prev)) next.set(prev, id);
+				else branches.push(id);
+			} else heads.push(id);
 		}
 		const chain = [];
 		for (let id = heads.length === 1 ? heads[0] : void 0; id !== void 0 && !chain.includes(id); id = next.get(id)) chain.push(id);
-		return (chain.length === bosses.size ? chain : [...bosses.keys()].sort((a, b) => Number(a) - Number(b))).map((id) => ({
+		const tailBranches = branches.length > 0 && chain.length + branches.length === bosses.size && branches.every((id) => !next.has(id) && chain.includes(String(bosses.get(id)?.prevId ?? "")));
+		const byNumber = (a, b) => Number(a) - Number(b);
+		return (chain.length === bosses.size ? chain : tailBranches ? [...chain, ...[...branches].sort(byNumber)] : [...bosses.keys()].sort(byNumber)).map((id) => ({
 			id: Number(id),
 			boss: bosses.get(id)
 		}));
@@ -1207,6 +1214,249 @@
 		if (!details) return text;
 		return `${text}<details style="margin-top: 10px;"><summary style="cursor: pointer;">${escapeAttr(I18N("NX_DETAILS"))}</summary><pre style="margin: 6px 0 0; padding: 6px 8px; max-height: 220px; overflow: auto; text-align: left; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; background: rgba(0, 0, 0, 0.3); border-radius: 4px; user-select: text; -webkit-user-select: text;">${escapeAttr(details)}</pre></details>`;
 	}
+	var NAME = "([A-Za-z_$][\\w$]*)";
+	var Q = `["']`;
+	var KEYWORDS = new Set("function return this var if else for while null true false new typeof instanceof break continue switch case default throw try catch delete in void do let const".split(" "));
+	function skipString(s, i) {
+		const quote = s[i];
+		for (i++; i < s.length; i++) if (s[i] === "\\") i++;
+		else if (s[i] === quote) return i + 1;
+		return i;
+	}
+	function shape(text) {
+		let out = "";
+		for (let i = 0; i < text.length;) {
+			const c = text[i];
+			if (c === "\"" || c === "'") {
+				const end = skipString(text, i);
+				out += text.slice(i, end);
+				i = end;
+			} else if (/[A-Za-z_$]/.test(c)) {
+				let j = i;
+				while (j < text.length && /[\w$]/.test(text[j])) j++;
+				const word = text.slice(i, j);
+				out += KEYWORDS.has(word) ? word : "I";
+				i = j;
+			} else {
+				out += c;
+				i++;
+			}
+		}
+		return out;
+	}
+	function placed(view, key) {
+		const index = view.entries.findIndex(([k]) => k === key);
+		return {
+			key,
+			index: index < 0 ? null : index
+		};
+	}
+	var isFunctionText = (text) => /^function\b/.test(text);
+	var RULES = {
+		staticInstanceOf: (view, { valueClass }) => valueClass ? view.staticInstanceOf(valueClass) : null,
+		bodyShape: (view, { pattern }) => {
+			if (!pattern) return null;
+			const found = view.entries.map(([key, text], index) => ({
+				key,
+				index,
+				text
+			})).filter(({ text }) => isFunctionText(text) && pattern.test(shape(text)));
+			return found.length === 1 ? {
+				key: found[0].key,
+				index: found[0].index
+			} : null;
+		},
+		getter: (view, { getter }) => {
+			const key = Object.entries(view.getters).find(([, name]) => name === getter)?.[0];
+			return key ? placed(view, key) : null;
+		},
+		literalKey: (view, { key }) => {
+			const index = view.entries.findIndex(([k]) => k === key);
+			return key && index >= 0 ? {
+				key,
+				index
+			} : null;
+		},
+		disposedAndDispatched: (view) => {
+			const dispatched = new Set([...view.chain.join("\n").matchAll(new RegExp(`this\\.${NAME}\\.[\\w$]+\\(this\\)`, "g"))].map((m) => m[1]));
+			const field = [...view.dispose.join("\n").matchAll(new RegExp(`this\\.${NAME}\\.[\\w$]+\\(\\)`, "g"))].map((m) => m[1]).find((f) => dispatched.has(f));
+			return field ? placed(view, field) : null;
+		},
+		pushedArray: (view, { excludeGetter }) => {
+			const excludedKey = Object.entries(view.getters).find(([, name]) => name === excludeGetter)?.[0];
+			const excluded = [...(view.entries.find(([k]) => k === excludedKey)?.[1] ?? "").matchAll(new RegExp(`return this\\.${NAME}`, "g"))].pop()?.[1];
+			const pushed = view.entries.map(([, text]) => new RegExp(`^function\\s*\\(\\s*(\\w+)\\s*\\)\\s*\\{\\s*this\\.${NAME}\\.push\\(\\1\\)\\s*;?\\s*\\}$`).exec(text)?.[2]).filter((name) => Boolean(name) && name !== excluded);
+			return pushed.length === 1 ? placed(view, pushed[0]) : null;
+		},
+		sourceMatch: (view, { regex, group = 1 }) => {
+			if (!regex) return null;
+			for (const text of view.chain) {
+				const m = regex.exec(text);
+				if (m?.[group]) return placed(view, m[group]);
+			}
+			return null;
+		}
+	};
+	var ENERGY_LINE = new RegExp(`${Q}E\\s*${Q}\\s*\\+\\s*this\\.${NAME}\\s*\\+\\s*${Q} ${Q}\\s*\\+\\s*this\\.${NAME}\\s*\\+\\s*${Q} add ${Q}\\s*\\+\\s*this\\.${NAME}`);
+	var SEMANTICS = [
+		{
+			id: "DataStorage.battleConfigs",
+			class: "game.data.storage.DataStorage",
+			rule: "staticInstanceOf",
+			args: { valueClass: "game.data.storage.battle.BattleConfigStorage" }
+		},
+		{
+			id: "DataStorage.rules",
+			class: "game.data.storage.DataStorage",
+			rule: "staticInstanceOf",
+			args: { valueClass: "RuleStorage" }
+		},
+		{
+			id: "BattleConfigStorage.byKey",
+			class: "game.data.storage.battle.BattleConfigStorage",
+			rule: "bodyShape",
+			args: { pattern: /^function\(I\)\{return this\.I\.I\[I\]\}$/ }
+		},
+		{
+			id: "BattleInstantPlay.endSignal",
+			class: "game.battle.controller.instant.BattleInstantPlay",
+			rule: "disposedAndDispatched"
+		},
+		{
+			id: "BattleInstantPlay.reseedSession",
+			class: "game.battle.controller.instant.BattleInstantPlay",
+			rule: "sourceMatch",
+			args: { regex: new RegExp(`this\\.${NAME}=[\\w$]+\\.create\\([^;]*${Q}ultReseed${Q}`) }
+		},
+		{
+			id: "BattleInstantPlay.directionFlag",
+			class: "game.battle.controller.instant.BattleInstantPlay",
+			rule: "sourceMatch",
+			args: { regex: new RegExp(`this\\.${NAME}=0>a\\.direction`) }
+		},
+		{
+			id: "MultiBattleResult.logs",
+			class: "game.battle.controller.MultiBattleResult",
+			rule: "pushedArray",
+			args: { excludeGetter: "get_progress" }
+		},
+		{
+			id: "MultiBattleResult.progress",
+			class: "game.battle.controller.MultiBattleResult",
+			rule: "getter",
+			args: { getter: "get_progress" }
+		},
+		{
+			id: "BattleLogEventHeroEnergy.hero",
+			class: "battle.log.BattleLogEventHeroEnergy",
+			rule: "sourceMatch",
+			args: {
+				regex: ENERGY_LINE,
+				group: 1
+			}
+		},
+		{
+			id: "BattleLogEventHeroEnergy.energy",
+			class: "battle.log.BattleLogEventHeroEnergy",
+			rule: "sourceMatch",
+			args: {
+				regex: ENERGY_LINE,
+				group: 2
+			}
+		},
+		{
+			id: "BattleLogEventHeroEnergy.delta",
+			class: "battle.log.BattleLogEventHeroEnergy",
+			rule: "sourceMatch",
+			args: {
+				regex: ENERGY_LINE,
+				group: 3
+			}
+		},
+		{
+			id: "Timeline.stepCounter",
+			class: "battle.timeline.Timeline",
+			rule: "sourceMatch",
+			args: { regex: new RegExp(`${Q}i${Q}\\s*\\+\\s*this\\.${NAME}\\s*\\+\\s*${Q} ${Q}\\s*\\+\\s*this\\.time`) }
+		},
+		{
+			id: "MovementManager.update",
+			class: "battle.logic.MovementManager",
+			rule: "literalKey",
+			args: { key: "update" }
+		}
+	];
+	function semanticById(id) {
+		const found = SEMANTICS.find((s) => s.id === id);
+		if (!found) throw new Error(`Карта смыслов: нет смысла ${id}`);
+		return found;
+	}
+	function resolveIn(view, id) {
+		const s = semanticById(id);
+		try {
+			return RULES[s.rule](view, s.args ?? {});
+		} catch {
+			return null;
+		}
+	}
+	function pageClasses() {
+		const g = globalThis;
+		return g.nxGame?.classes ?? (typeof g.selfGame === "object" ? g.selfGame : null) ?? null;
+	}
+	function classByPath(registry, ref) {
+		if (!registry) return null;
+		const exact = registry[ref];
+		if (typeof exact === "function") return exact;
+		const key = Object.keys(registry).find((k) => k.endsWith("." + ref));
+		const value = key ? registry[key] : null;
+		return typeof value === "function" ? value : null;
+	}
+	function liveView(cls, registry = pageClasses()) {
+		const proto = cls.prototype ?? {};
+		const entries = Object.keys(proto).map((key) => {
+			const value = proto[key];
+			return [key, typeof value === "function" ? String(value) : ""];
+		});
+		const chain = [];
+		const dispose = [];
+		for (let level = proto; level && level !== Object.prototype; level = Object.getPrototypeOf(level)) {
+			const own = level;
+			for (const key of Object.keys(own)) if (typeof own[key] === "function") chain.push(String(own[key]));
+			const ctor = Object.prototype.hasOwnProperty.call(own, "constructor") ? own.constructor : level === proto ? cls : null;
+			if (typeof ctor === "function" && ctor !== Object) chain.push(String(ctor));
+			if (Object.prototype.hasOwnProperty.call(own, "dispose") && typeof own.dispose === "function") dispose.push(String(own.dispose));
+		}
+		const properties = proto.__properties__;
+		return {
+			entries,
+			chain,
+			dispose,
+			getters: properties && typeof properties === "object" ? Object.fromEntries(Object.entries(properties).filter(([, v]) => typeof v === "string")) : {},
+			staticInstanceOf(valueClass) {
+				const Value = classByPath(registry, valueClass);
+				if (!Value) return null;
+				const fields = Object.keys(cls).filter((key) => typeof cls[key] === "object" && cls[key] !== null);
+				const index = fields.findIndex((key) => cls[key] instanceof Value);
+				return index < 0 ? null : {
+					key: fields[index],
+					index,
+					note: `${fields.length} полей-объектов`
+				};
+			}
+		};
+	}
+	var liveCache = new WeakMap();
+	function liveKey(id, cls, registry = pageClasses()) {
+		const target = cls ?? classByPath(registry, semanticById(id).class);
+		if (!target) return null;
+		let entry = liveCache.get(target);
+		if (!entry) {
+			entry = new Map();
+			liveCache.set(target, entry);
+		}
+		if (!entry.has(id)) entry.set(id, resolveIn(liveView(target, registry), id)?.key ?? null);
+		return entry.get(id) ?? null;
+	}
 	var CLASS_PATHS = {
 		storage: "game.data.storage.DataStorage",
 		configs: "game.data.storage.battle.BattleConfigStorage",
@@ -1255,25 +1505,9 @@
 		}
 		return entry[name];
 	}
-	function prototypeSources(cls) {
-		const out = [];
-		for (let proto = cls.prototype; proto && proto !== Object.prototype; proto = Object.getPrototypeOf(proto)) for (const key of Object.keys(proto)) {
-			const value = proto[key];
-			if (typeof value === "function") out.push(String(value));
-		}
-		return out;
-	}
-	var NAME_PART = "([A-Za-z_$][\\w$]*)";
-	var Q = `["']`;
 	function endSignalField(Play) {
 		return cached$1(Play, "endSignal", () => {
-			const dispatched = new Set([...prototypeSources(Play).join("\n").matchAll(new RegExp(`this\\.${NAME_PART}\\.[\\w$]+\\(this\\)`, "g"))].map((m) => m[1]));
-			const disposeSources = [];
-			for (let proto = Play.prototype; proto && proto !== Object.prototype; proto = Object.getPrototypeOf(proto)) {
-				const own = Object.prototype.hasOwnProperty.call(proto, "dispose") ? proto.dispose : void 0;
-				if (typeof own === "function") disposeSources.push(String(own));
-			}
-			const field = [...disposeSources.join("\n").matchAll(new RegExp(`this\\.${NAME_PART}\\.[\\w$]+\\(\\)`, "g"))].map((m) => m[1]).find((name) => dispatched.has(name));
+			const field = liveKey("BattleInstantPlay.endSignal", Play);
 			if (field) return field;
 			console.warn("Расчёт боя: сигнал конца боя по виду не нашёлся, беру 9-й ключ прототипа");
 			return protoMethod(Play, 9);
@@ -1281,47 +1515,36 @@
 	}
 	function battleLogsField(Result) {
 		return cached$1(Result, "logs", () => {
-			const sources = prototypeSources(Result);
-			let progress;
-			try {
-				progress = [...String(Result.prototype[propertyMethod(Result, "get_progress")] ?? "").matchAll(new RegExp(`return this\\.${NAME_PART}`, "g"))].pop()?.[1];
-			} catch {
-				progress = void 0;
-			}
-			const pushed = sources.map((text) => new RegExp(`^function\\s*\\(\\s*(\\w+)\\s*\\)\\s*\\{\\s*this\\.${NAME_PART}\\.push\\(\\1\\)\\s*;?\\s*\\}$`).exec(text)?.[2]).filter((name) => Boolean(name) && name !== progress);
-			if (pushed.length === 1) return pushed[0];
+			const field = liveKey("MultiBattleResult.logs", Result);
+			if (field) return field;
 			console.warn("Расчёт боя: журналы боёв в итоге по виду не нашлись, беру 3-й ключ прототипа");
 			return protoMethod(Result, 2);
 		});
 	}
 	function energyEventFields(hero, energy) {
 		return cached$1(energy, "energy", () => {
-			const re = new RegExp(`${Q}E\\s*${Q}\\s*\\+\\s*this\\.${NAME_PART}\\s*\\+\\s*${Q} ${Q}\\s*\\+\\s*this\\.${NAME_PART}\\s*\\+\\s*${Q} add ${Q}\\s*\\+\\s*this\\.${NAME_PART}`);
-			for (const text of prototypeSources(energy)) {
-				const m = re.exec(text);
-				if (m) return {
-					heroId: m[1],
-					energy: m[2],
-					delta: m[3]
-				};
-			}
-			console.warn("Расчёт боя: поля события энергии по виду не нашлись, беру их по порядку прототипа");
-			const heroId = Object.keys(hero.prototype)[0];
-			const [energyField, delta] = Object.keys(energy.prototype);
-			return heroId && energyField && delta ? {
+			const heroId = liveKey("BattleLogEventHeroEnergy.hero", energy);
+			const energyField = liveKey("BattleLogEventHeroEnergy.energy", energy);
+			const delta = liveKey("BattleLogEventHeroEnergy.delta", energy);
+			if (heroId && energyField && delta) return {
 				heroId,
 				energy: energyField,
 				delta
+			};
+			console.warn("Расчёт боя: поля события энергии по виду не нашлись, беру их по порядку прототипа");
+			const firstHero = Object.keys(hero.prototype)[0];
+			const [byOrderEnergy, byOrderDelta] = Object.keys(energy.prototype);
+			return firstHero && byOrderEnergy && byOrderDelta ? {
+				heroId: firstHero,
+				energy: byOrderEnergy,
+				delta: byOrderDelta
 			} : null;
 		});
 	}
 	function stepCounterField(Timeline) {
 		return cached$1(Timeline, "steps", () => {
-			const re = new RegExp(`${Q}i${Q}\\s*\\+\\s*this\\.${NAME_PART}\\s*\\+\\s*${Q} ${Q}\\s*\\+\\s*this\\.time`);
-			for (const text of prototypeSources(Timeline)) {
-				const m = re.exec(text);
-				if (m) return m[1];
-			}
+			const field = liveKey("Timeline.stepCounter", Timeline);
+			if (field) return field;
 			console.warn("Расчёт боя: счётчик шагов Timeline по виду не нашёлся, беру 2-й ключ прототипа");
 			return Object.keys(Timeline.prototype)[1];
 		});
@@ -2757,6 +2980,12 @@
 		console.error(`Бой ${missionId} главы ${chapterId} не начинаем: это бой рейтинга ${boss?.eventConfig?.type ?? ""}, Архидемон`);
 		return I18N("NX_POINT_BLOCKED", { id: missionId });
 	}
+	function reseedBlock(battle, missionId) {
+		const reseed = battle?.effects?.ultReseed;
+		if (reseed === void 0 || reseed === null) return null;
+		console.error(`Бой ${missionId}: сервер включил пересев (effects.ultReseed ${JSON.stringify(reseed)}), прогон остановлен`);
+		return I18N("NX_RESEED_STOP", { id: missionId });
+	}
 	function needsFullBattle(chapterId, missionId) {
 		const boss = phaseBoss(chapterId, missionId);
 		return boss != null && (boss.isMainBoss === true || Number(boss.skip) !== 1);
@@ -2837,6 +3066,11 @@
 					favor
 				}
 			});
+			const reseed = reseedBlock(battle, missionId);
+			if (reseed) return {
+				error: true,
+				failure: new Error(reseed)
+			};
 			const startedAt = Date.now();
 			const auto = await calcBattle(battle, { log: true });
 			let outcome = auto;
@@ -2906,6 +3140,8 @@
 					favor: {}
 				}
 			});
+			const reseed = reseedBlock(battle, missionId);
+			if (reseed) return { failure: new Error(reseed) };
 			const startedAt = Date.now();
 			console.log(`Слив: противник на старте ${JSON.stringify(defendersSnapshot(battle))}`);
 			const auto = await calcBattle(battle);
