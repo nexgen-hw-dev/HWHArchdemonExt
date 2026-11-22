@@ -308,6 +308,7 @@
 			NX_PRESETS_WEAKEST: "the weakest hero on hand",
 			NX_PRESETS_GO_ANY_PRICE: "; carry heroes at any price",
 			NX_PRESETS_GO_NO_SACRIFICE: "; no point is thrown on purpose",
+			NX_PRESETS_GO_BUY_BEFORE: "; before attacking point {point} buys heroes: {count}",
 			NX_PRESETS_ASCEND_TEAM: "the team of the build, those collected in full",
 			NX_PRESETS_BACK: "Back",
 			NX_PRESETS_LOADING: "Loading the builds…",
@@ -319,7 +320,7 @@
 			NX_PRESETS_WAIT_SITES: "Websites",
 			NX_PRESETS_ERROR: "The request cannot be completed from your region. Please use additional tools",
 			NX_PRESETS_STALE: "The server did not answer, showing the saved copy",
-			NX_PRESETS_NO_STRATEGY: "No run strategy for chapter {chapter} at buff {buff}: it is not known who carries and who throws. A strategy comes with the build or for the whole event from the server; until then set the run up in the setup window",
+			NX_PRESETS_NO_STRATEGY: "No run strategy for chapter {chapter}: it is not known who carries and who throws. A strategy comes with the build or for the whole event from the server; until then set the run up in the setup window",
 			NX_PRESETS_REFRESH: "Refresh the builds from the server, at most once a minute",
 			NX_PRESETS_REFRESH_WAIT: "You can refresh again in {seconds} s",
 			NX_REASON_POINT_KNOWN_LOSS: "Point {point}: this team has already lost it, and there is nobody to buy",
@@ -396,6 +397,8 @@
 			NX_LOG_TARGET_MIN: "→ {from}+",
 			NX_LOG_TARGET_HINT: "Coins target before the Archdemon: Emblem of Capital {percent}%",
 			NX_POINT_TAKEN: "Point {point} taken",
+			NX_BUY_BEFORE: "Before attacking point {point} bought: {list}",
+			NX_BUY_BEFORE_NONE: "Before attacking point {point}: nothing to buy",
 			NX_START_TEAM: "Start: {have} of {goal} heroes on hand",
 			NX_PROGRESS_TEAM: "Team",
 			NX_PROGRESS_CARRY: "Carry",
@@ -594,6 +597,7 @@
 			NX_PRESETS_WEAKEST: "самый слабый на руках",
 			NX_PRESETS_GO_ANY_PRICE: "; проходных — по любой цене",
 			NX_PRESETS_GO_NO_SACRIFICE: "; специально не сливаем",
+			NX_PRESETS_GO_BUY_BEFORE: "; перед атакой точки {point} докупит героев: {count}",
 			NX_PRESETS_ASCEND_TEAM: "состав сборки, кто собран полностью",
 			NX_PRESETS_BACK: "Назад",
 			NX_PRESETS_LOADING: "Загружаем сборки…",
@@ -605,7 +609,7 @@
 			NX_PRESETS_WAIT_SITES: "Сайты",
 			NX_PRESETS_ERROR: "Для вашего региона невозможно выполнить запрос. Воспользуйтесь дополнительными инструментами",
 			NX_PRESETS_STALE: "Сервер не ответил, показана сохранённая копия",
-			NX_PRESETS_NO_STRATEGY: "Для главы {chapter} при усилении {buff} стратегии прогона нет: неизвестно, кто проходные и кто сливает. Стратегию дают сборка или общая стратегия события с сервера; пока её нет, настройте прогон в окне настройки",
+			NX_PRESETS_NO_STRATEGY: "Для главы {chapter} стратегии прогона нет: неизвестно, кто проходные и кто сливает. Стратегию дают сборка или общая стратегия события с сервера; пока её нет, настройте прогон в окне настройки",
 			NX_PRESETS_REFRESH: "Обновить сборки с сервера, не чаще раза в минуту",
 			NX_PRESETS_REFRESH_WAIT: "Обновить можно через {seconds} с",
 			NX_REASON_POINT_KNOWN_LOSS: "Точка {point}: этот состав её уже не брал, а докупить некого",
@@ -682,6 +686,8 @@
 			NX_LOG_TARGET_MIN: "→ от {from}",
 			NX_LOG_TARGET_HINT: "Цель по монетам перед Архидемоном: Эмблема капитала {percent}%",
 			NX_POINT_TAKEN: "Точка {point} взята",
+			NX_BUY_BEFORE: "Перед атакой точки {point} докупили: {list}",
+			NX_BUY_BEFORE_NONE: "Перед атакой точки {point} докупить не на что",
 			NX_START_TEAM: "Старт: героев на руках {have} из {goal}",
 			NX_PROGRESS_TEAM: "Состав",
 			NX_PROGRESS_CARRY: "Проходные",
@@ -2372,6 +2378,9 @@
 		session;
 		actions = 0;
 		view = [];
+		slots() {
+			return this.view;
+		}
 		pinnedIds = new Set();
 		onChange;
 		constructor(shopId, wallet, session, onChange = () => {}) {
@@ -3988,6 +3997,48 @@
 		console.log(`${NX_LOG_CASH} -${best.cost} любой герой ${lotUnits(best.slot)}, чистая ${best.net}, остаток ${coins.value}`);
 		return true;
 	}
+	var BUY_BEFORE_ORDER = {
+		rank: 1,
+		carry: 2,
+		discount: 3
+	};
+	function pickBuyBeforeSlot(shopSlots, setup, fragments, coins, shopId) {
+		const hand = new Set(handHeroes(fragments));
+		let best = null;
+		for (const slot of shopSlots) {
+			if (slot.bought || slot.reward?.invasionFragmentHeroRand || slot.reward?.invasionFragmentPet) continue;
+			const heroes = Object.entries(slot.reward?.invasionFragmentHero ?? {}).map(([id, amount]) => [Number(id), Number(amount)]);
+			const cost = Number(slot.cost?.coin?.[1080] ?? 0);
+			if (!heroes.length || !cost || coins < cost) continue;
+			const carry = heroes.filter(([id]) => setup.carryHeroes.includes(id));
+			const have = (id) => Number(fragments[id] ?? 0);
+			const kind = carry.some(([id, amount]) => hand.has(id) && rankStep(have(id) + amount) > rankStep(have(id))) ? "rank" : carry.some(([id]) => !hand.has(id)) ? "carry" : isDiscountedHeroSlot(slot, shopId) ? "discount" : null;
+			if (!kind) continue;
+			if (!best || BUY_BEFORE_ORDER[kind] < BUY_BEFORE_ORDER[best.kind] || kind === best.kind && cost < best.cost) best = {
+				slot,
+				cost,
+				kind
+			};
+		}
+		return best;
+	}
+	async function buyBeforeAttack(attempt, stall, setup, fragments, count) {
+		const coins = attempt.wallet;
+		const bought = [];
+		for (let i = 0; i < count; i++) {
+			if (attempt.stopped) break;
+			const pick = pickBuyBeforeSlot(stall.slots(), setup, fragments, coins.value, stall.shopId);
+			if (!pick) break;
+			await stall.buy(pick.slot);
+			coins.value -= pick.cost;
+			pick.slot.bought = true;
+			applyReward(fragments, pick.slot.reward);
+			attempt.ledger.add("перед атакой", -pick.cost);
+			bought.push(Object.keys(pick.slot.reward?.invasionFragmentHero ?? {}).map((id) => unitName(Number(id))).join(" + "));
+			console.log(`${NX_LOG_CASH} -${pick.cost} перед атакой (${pick.kind}) ${lotUnits(pick.slot)}, остаток ${coins.value}`);
+		}
+		return bought;
+	}
 	function extraPetsResale(setup, fragments) {
 		let count = 0;
 		for (const [id, amount] of Object.entries(fragments)) {
@@ -4721,6 +4772,32 @@
 					weak: visit.weak
 				};
 				console.log(`${NX_LOG_CASH} слив ${number}: было ${coinsBeforeLoss}, на входе в лавку ${visit.coinsOnEntry}, прирост ${visit.coinsOnEntry - coinsBeforeLoss}`);
+			}
+			const buyCount = Number(setup.buyBeforeCount ?? 0);
+			if (buyCount > 0 && point === setup.buyBeforePoint) {
+				const stall = attempt.stall;
+				if (!stall) return {
+					kind: "fatal",
+					error: I18N("NX_FAIL_NO_STALL")
+				};
+				try {
+					const bought = await buyBeforeAttack(attempt, stall, setup, (await attempt.units()).fragments, buyCount);
+					attempt.progress(bought.length ? I18N("NX_BUY_BEFORE", {
+						point,
+						list: bought.join(", ")
+					}) : I18N("NX_BUY_BEFORE_NONE", { point }), null, true);
+				} catch (e) {
+					console.error(e);
+					return {
+						kind: "fatal",
+						error: e
+					};
+				}
+				visit = {
+					...visit,
+					coins: attempt.wallet.value
+				};
+				if (attempt.stopped) return stoppedOutcome();
 			}
 			attempt.progress(I18N("NX_MISSION", {
 				attempt: attempt.number,
@@ -8532,7 +8609,7 @@
 	}
 	function decodeStrategy(raw) {
 		if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
-		const { buff, carry, sacrifice, point, chapters, cards, reserve, refreshes, ascend, start, carryAnyPrice, noSacrifice } = raw;
+		const { buff = [0, NX_STRATEGY_MAX_BUFF], carry, sacrifice, point, chapters, cards, reserve, refreshes, ascend, start, carryAnyPrice, noSacrifice, buyBefore } = raw;
 		const startCount = start === void 0 ? 0 : intIn(start, 0, NX_TEAM_SIZE);
 		if (startCount === null) return null;
 		const flag = (value) => value === void 0 ? false : typeof value === "boolean" ? value : null;
@@ -8572,6 +8649,17 @@
 		const ascendList = ascend === void 0 ? [] : ascend;
 		if (!Array.isArray(ascendList) || ascendList.length > NX_TEAM_SIZE || !ascendList.every(isId)) return null;
 		if (new Set(ascendList).size !== ascendList.length) return null;
+		let buyBeforeRule = null;
+		if (buyBefore !== void 0) {
+			if (!Array.isArray(buyBefore) || buyBefore.length !== 2) return null;
+			const buyPoint = intIn(buyBefore[0], 1, NX_MAX_SACRIFICE_POINT);
+			const buyCount = intIn(buyBefore[1], 1, NX_TEAM_SIZE);
+			if (buyPoint === null || buyCount === null) return null;
+			buyBeforeRule = {
+				point: buyPoint,
+				count: buyCount
+			};
+		}
 		return {
 			buffMin,
 			buffMax,
@@ -8586,7 +8674,8 @@
 			ascend: [...ascendList],
 			start: startCount,
 			carryAnyPrice: anyPrice,
-			noSacrifice: noLoss
+			noSacrifice: noLoss,
+			buyBefore: buyBeforeRule
 		};
 	}
 	function decodeStrategyList(raw) {
@@ -8595,22 +8684,23 @@
 		if (list.length !== raw.length) console.log(`Стратегии: испорчены ${raw.length - list.length} из ${raw.length}`);
 		return list;
 	}
-	var covers = (strategy, buff, chapter) => buff >= strategy.buffMin && buff <= strategy.buffMax && (strategy.chapters.length === 0 || strategy.chapters.includes(chapter));
+	var coversChapter = (strategy, chapter) => strategy.chapters.length === 0 || strategy.chapters.includes(chapter);
+	var coversBuff = (strategy, buff) => buff >= strategy.buffMin && buff <= strategy.buffMax;
 	function builtinStrategies(eventId) {
 		return decodeStrategyList(NX_BUILTIN_STRATEGIES[eventId] ?? []);
 	}
 	function strategyCandidates(preset, buff, eventStrategies = [], chapter = 0, eventId = currentEventId()) {
 		const list = [];
-		if (preset.strategy && covers(preset.strategy, buff, chapter)) list.push({
+		if (preset.strategy && coversChapter(preset.strategy, chapter)) list.push({
 			strategy: preset.strategy,
 			source: "preset"
 		});
-		const event = eventStrategies.find((s) => covers(s, buff, chapter));
+		const event = eventStrategies.find((s) => coversChapter(s, chapter));
 		if (event) list.push({
 			strategy: event,
 			source: "event"
 		});
-		const builtin = builtinStrategies(eventId).find((s) => covers(s, buff, chapter));
+		const builtin = builtinStrategies(eventId).find((s) => coversBuff(s, buff) && coversChapter(s, chapter));
 		if (builtin) list.push({
 			strategy: builtin,
 			source: "builtin"
@@ -8674,6 +8764,8 @@
 			sacrificePoint: choice?.strategy.sacrificePoint ?? NX_DEFAULT_SACRIFICE_POINT,
 			ascendHeroes: [...choice?.strategy.ascend ?? []],
 			startBuy: choice?.strategy.start ?? 0,
+			buyBeforePoint: choice?.strategy.buyBefore?.point ?? 0,
+			buyBeforeCount: choice?.strategy.buyBefore?.count ?? 0,
 			pauseAfterBoss: false,
 			buyAnyRandomLots: cards === "any",
 			skipRandomLots: cards === "none",
@@ -8924,10 +9016,7 @@
 		const chapterText = chapter > 0 ? toRoman(chapter) : "?";
 		if (preset.talismanIds[0] !== NX_WEALTH_TALISMAN_ID) return I18N("NX_PRESETS_GO_HINT_PLAIN", { chapter: chapterText }) + ascendHint(preset, null);
 		const choice = strategyCandidates(preset, buff, strategies, chapter, eventId)[0];
-		if (!choice) return I18N("NX_PRESETS_NO_STRATEGY", {
-			chapter: toRoman(chapter),
-			buff: Number(buff) || 0
-		});
+		if (!choice) return I18N("NX_PRESETS_NO_STRATEGY", { chapter: toRoman(chapter) });
 		const { strategy, source } = choice;
 		const names = (ids) => ids.length ? ids.map(unitName).join(", ") : "—";
 		return I18N("NX_PRESETS_GO_HINT", {
@@ -8939,7 +9028,10 @@
 			reserve: strategy.reserve,
 			refreshes: strategy.refreshes,
 			source: STRATEGY_SOURCE_TEXT[source]()
-		}) + (strategy.start > 0 ? I18N("NX_PRESETS_GO_START", { count: strategy.start }) : "") + (strategy.carryAnyPrice ? I18N("NX_PRESETS_GO_ANY_PRICE") : "") + (strategy.noSacrifice ? I18N("NX_PRESETS_GO_NO_SACRIFICE") : "") + ascendHint(preset, strategy);
+		}) + (strategy.start > 0 ? I18N("NX_PRESETS_GO_START", { count: strategy.start }) : "") + (strategy.carryAnyPrice ? I18N("NX_PRESETS_GO_ANY_PRICE") : "") + (strategy.noSacrifice ? I18N("NX_PRESETS_GO_NO_SACRIFICE") : "") + (strategy.buyBefore ? I18N("NX_PRESETS_GO_BUY_BEFORE", {
+			point: strategy.buyBefore.point,
+			count: strategy.buyBefore.count
+		}) : "") + ascendHint(preset, strategy);
 	}
 	function ascendHint(preset, strategy) {
 		const emblemId = ascensionEmblemId();
@@ -9970,10 +10062,7 @@
 					eventStrategies: strategies,
 					eventId
 				});
-				if (value.talismanId === NX_WEALTH_TALISMAN_ID && !value.preset?.strategy) return I18N("NX_PRESETS_NO_STRATEGY", {
-					chapter: romanHtml(chapterNumber),
-					buff: buffAmount
-				});
+				if (value.talismanId === NX_WEALTH_TALISMAN_ID && !value.preset?.strategy) return I18N("NX_PRESETS_NO_STRATEGY", { chapter: romanHtml(chapterNumber) });
 				if (value.preset?.strategy) console.log(`Сборки: стратегия ${value.preset.strategy}, усиление ${buffAmount}, проходные ${value.carryHeroes.join(", ")}, слив ${value.sacrificeHeroes.join(", ")} на точке ${value.sacrificePoint}`);
 				complete(value);
 				return null;
