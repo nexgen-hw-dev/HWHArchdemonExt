@@ -7082,6 +7082,49 @@
 			});
 			paintGameTexts(items);
 			for (const place of places) place();
+			paintInputTexts((Array.isArray(container) ? container : [container]).flatMap((part) => [...part.querySelectorAll("canvas.nxInputText")]));
+		};
+		const paintInputTexts = (canvases) => {
+			const boxes = canvases.map((el) => {
+				const [x = 0, y = 0, w = 0, h = 0] = (el.dataset.box ?? "").split(",").map(Number);
+				el.style.left = `${x}px`;
+				el.style.top = `${y}px`;
+				el.style.width = `${w}px`;
+				el.style.height = `${h}px`;
+				return {
+					x,
+					y
+				};
+			});
+			const rects = canvases.map((el) => el.getBoundingClientRect());
+			canvases.forEach((el, index) => {
+				const box = boxes[index];
+				const rect = rects[index];
+				const x0 = Math.floor(rect.left);
+				const y0 = Math.floor(rect.top);
+				const width = Math.max(1, Math.ceil(rect.right) - x0);
+				const height = Math.max(1, Math.ceil(rect.bottom) - y0);
+				el.width = width;
+				el.height = height;
+				el.style.left = `${box.x + (x0 - rect.left) / scale}px`;
+				el.style.top = `${box.y + (y0 - rect.top) / scale}px`;
+				el.style.width = `${width / scale}px`;
+				el.style.height = `${height / scale}px`;
+				const ctx = el.getContext("2d");
+				const input = el.previousElementSibling;
+				const text = input instanceof HTMLInputElement ? input.value : "";
+				if (!ctx || !text) return;
+				const [padLeft = 0, padRight = 0] = (el.dataset.pad ?? "").split(",").map((v) => Number(v) * scale);
+				ctx.font = `400 ${Number(el.dataset.size) * scale}px ${el.dataset.font ?? "sans-serif"}`;
+				ctx.fillStyle = el.dataset.color ?? "#fff";
+				const metrics = ctx.measureText(text);
+				const left = rect.left - x0;
+				ctx.beginPath();
+				ctx.rect(left + padLeft, 0, rect.width - padLeft - padRight, height);
+				ctx.clip();
+				const baseline = rect.top - y0 + (rect.height + metrics.fontBoundingBoxAscent - metrics.fontBoundingBoxDescent) / 2;
+				ctx.fillText(text, left + padLeft - input.scrollLeft * scale, baseline);
+			});
 		};
 		const overlay = renderGui(library, OVERLAY_SYMBOL, { renderScale: 1 });
 		const overlayImage = new Image();
@@ -7577,10 +7620,21 @@
 			const shown = shownIds(grid).indexOf(id);
 			return shown >= 0 ? shown : grid.ids.indexOf(id);
 		};
+		const SEARCH = {
+			w: 210,
+			h: 28,
+			y: 69,
+			icon: 33,
+			pad: 9
+		};
+		const SEARCH_FONT = "'Roboto Condensed', 'Arial Narrow', sans-serif";
+		const searchLeft = OX + GRID.x + slotX(GRID.cols - 1) + CARD - SEARCH.w;
+		const hasSearch = (gridTab) => Boolean(texts.search) && gridTab === "heroes";
+		const titleWidth = (gridTab) => hasSearch(gridTab) ? searchLeft - (OX + GRID.x) - 10 : GRID.w;
 		const gridHtml = (grid) => {
 			const cells = grid.ids.map((id, index) => win.part(`data-cell="${id}"`, cellHtml(grid, id, index))).join("");
 			const rows = Math.ceil(grid.ids.length / GRID.cols);
-			return label(grid.title, OX + GRID.x, 68, GRID.w, 30, 20, TEXT_COLORS.subHeader) + `<div class="nxList" style="left: ${OX + GRID.x}px; top: ${GRID.y}px; width: ${GRID.w + 12}px; height: ${GRID.h}px;"><div style="position: relative; height: ${GRID.padY + rows * GRID.rowStep}px;">${cells}</div></div>` + piece("gradientTop", OX + GRID.x, GRID.y - 2, {
+			return label(grid.title, OX + GRID.x, 68, titleWidth(grid.tab), 30, 20, TEXT_COLORS.subHeader) + `<div class="nxList" style="left: ${OX + GRID.x}px; top: ${GRID.y}px; width: ${GRID.w + 12}px; height: ${GRID.h}px;"><div style="position: relative; height: ${GRID.padY + rows * GRID.rowStep}px;">${cells}</div></div>` + piece("gradientTop", OX + GRID.x, GRID.y - 2, {
 				render: { width: GRID.w },
 				cls: "nxNoHit",
 				attrs: "data-fade=\"top\"",
@@ -7741,16 +7795,9 @@
 			}) + items + "</div></div>";
 		};
 		const tabsHtml = () => tabHtml("heroes", texts.tabHeroes, 181) + (withPets ? tabHtml("pets", texts.tabPets, 229) : "");
-		const SEARCH = {
-			w: 210,
-			h: 28,
-			y: 69,
-			icon: 33,
-			pad: 9
-		};
 		const searchHtml = () => {
-			if (!texts.search || tab !== "heroes") return "";
-			const left = OX + GRID.x + slotX(GRID.cols - 1) + CARD - SEARCH.w;
+			if (!texts.search || !hasSearch(tab)) return "";
+			const left = searchLeft;
 			const hintW = SEARCH.w - SEARCH.pad - SEARCH.icon;
 			return piece("bg_search_9_9_9_9", left, SEARCH.y, {
 				render: {
@@ -7764,7 +7811,7 @@
 			}) + piece("search_icon", left + SEARCH.w - SEARCH.icon, SEARCH.y + 2, {
 				render: { file: SEARCH_GUI_FILE },
 				cls: "nxNoHit"
-			}) + win.part("data-search-hint=\"1\"", label(texts.search, left + SEARCH.pad, SEARCH.y, hintW, SEARCH.h, 16, "#807353", searchText ? "visibility: hidden;" : "", { place: "left" })) + `<input data-search type="text" class="nxSearchInput" value="${escapeAttr(searchText)}" aria-label="${escapeAttr(texts.search)}" autocomplete="off" spellcheck="false" style="position: absolute; left: ${left}px; top: ${SEARCH.y}px; width: ${SEARCH.w}px; height: ${SEARCH.h}px; box-sizing: border-box; padding: 0 ${SEARCH.icon + 22}px 0 ${SEARCH.pad}px; border: none; background: transparent; color: #fee4b3; caret-color: #fee4b3; font: 700 16px 'Roboto Condensed', 'Arial Narrow', sans-serif; outline: none; z-index: 2;"><div data-search-clear class="nxBox" style="left: ${left + SEARCH.w - SEARCH.icon - 22}px; top: ${SEARCH.y + 4}px; width: 20px; height: 20px; display: ${searchText ? "block" : "none"}; color: #fee4b3; font: 700 18px/20px 'Roboto Condensed', sans-serif; text-align: center; cursor: pointer; z-index: 3;">×</div>`;
+			}) + win.part("data-search-hint=\"1\"", label(texts.search, left + SEARCH.pad, SEARCH.y, hintW, SEARCH.h, 16, "#807353", searchText ? "visibility: hidden;" : "", { place: "left" })) + `<input data-search type="text" class="nxSearchInput" value="${escapeAttr(searchText)}" aria-label="${escapeAttr(texts.search)}" autocomplete="off" spellcheck="false" style="position: absolute; left: ${left}px; top: ${SEARCH.y}px; width: ${SEARCH.w}px; height: ${SEARCH.h}px; box-sizing: border-box; padding: 0 ${SEARCH.icon + 22}px 0 ${SEARCH.pad}px; border: none; background: transparent; color: transparent; caret-color: #fee4b3; font: 400 16px ${SEARCH_FONT}; outline: none; z-index: 2;"><canvas class="nxT nxInputText" data-box="${left},${SEARCH.y},${SEARCH.w},${SEARCH.h}" data-size="16" data-color="#fee4b3" data-font="${escapeAttr(SEARCH_FONT)}" data-pad="${SEARCH.pad},${SEARCH.icon + 22}" style="z-index: 1;"></canvas><div data-search-clear class="nxBox" style="left: ${left + SEARCH.w - SEARCH.icon - 22}px; top: ${SEARCH.y + 4}px; width: 20px; height: 20px; display: ${searchText ? "block" : "none"}; color: #fee4b3; font: 700 18px/20px 'Roboto Condensed', sans-serif; text-align: center; cursor: pointer; z-index: 3;">×</div>`;
 		};
 		const messageHtml = () => label(message, OX + GRID.x, 496, GRID.w, 26, 16, "#ffb347");
 		const teamKey = () => JSON.stringify([[...team], chosenMainPet]);
@@ -7908,7 +7955,12 @@
 			showTab();
 			if (changed.length) win.paintTexts(changed);
 		};
+		const paintSearchText = () => {
+			const part = stage.querySelector("[data-part=\"search\"]");
+			if (part) win.paintTexts(part);
+		};
 		const applySearch = () => {
+			paintSearchText();
 			const clear = stage.querySelector("[data-search-clear]");
 			if (clear) clear.style.display = searchText ? "block" : "none";
 			const hint = stage.querySelector("[data-search-hint] > *");
@@ -7943,6 +7995,7 @@
 				searchText = input.value;
 				applySearch();
 			});
+			input.addEventListener("scroll", paintSearchText);
 			for (const type of [
 				"keydown",
 				"keyup",
