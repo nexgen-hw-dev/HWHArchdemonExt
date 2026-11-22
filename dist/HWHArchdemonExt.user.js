@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.48-beta
+// @version         1.49-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -399,6 +399,8 @@
 			NX_POINT_TAKEN: "Point {point} taken",
 			NX_BUY_BEFORE: "Before attacking point {point} bought: {list}",
 			NX_BUY_BEFORE_NONE: "Before attacking point {point}: nothing to buy",
+			NX_BATTLE_END_EMPTY: "The game server sent an empty answer to the battle end, checking whether the battle counted",
+			NX_BATTLE_END_RECOVERED: "The battle counted, going on",
 			NX_START_TEAM: "Start: {have} of {goal} heroes on hand",
 			NX_PROGRESS_TEAM: "Team",
 			NX_PROGRESS_CARRY: "Carry",
@@ -688,6 +690,8 @@
 			NX_POINT_TAKEN: "Точка {point} взята",
 			NX_BUY_BEFORE: "Перед атакой точки {point} докупили: {list}",
 			NX_BUY_BEFORE_NONE: "Перед атакой точки {point} докупить не на что",
+			NX_BATTLE_END_EMPTY: "Сервер игры прислал пустой ответ на конец боя, проверяем, засчитан ли бой",
+			NX_BATTLE_END_RECOVERED: "Бой засчитан, идём дальше",
 			NX_START_TEAM: "Старт: героев на руках {have} из {goal}",
 			NX_PROGRESS_TEAM: "Состав",
 			NX_PROGRESS_CARRY: "Проходные",
@@ -1961,7 +1965,8 @@
 	function teamSlots(setup) {
 		if (startActive(setup)) return NX_TEAM_SIZE;
 		const extra = (setup.carryExtraHeroes ?? []).length > 0 ? 1 : 0;
-		return Math.min(NX_TEAM_SIZE, (setup.carryHeroes ?? []).length + extra);
+		const base = (setup.carryHeroes ?? []).length + extra;
+		return base ? Math.min(NX_TEAM_SIZE, base + Math.max(0, Number(setup.buySlots ?? 0))) : 0;
 	}
 	function handHeroes(fragments) {
 		return Object.entries(fragments).filter(([id, count]) => Number(id) > 0 && Number(id) < NX_PET_ID_THRESHOLD && Number(count) > 0).map(([id]) => Number(id));
@@ -3037,7 +3042,47 @@
 	function sentBattleTime(found, auto) {
 		return Number.isFinite(Number(found)) ? Number(found) : Number(auto);
 	}
-	async function sendBattleEnd(attempt, missionId, outcome) {
+	function pointRecord(info, missionId) {
+		const action = Object.values(info?.actions ?? {}).find((e) => Number(e?.payload?.id) === Number(missionId));
+		return {
+			wins: Number(action?.payload?.wins ?? 0),
+			loses: Number(action?.payload?.loses ?? 0)
+		};
+	}
+	async function recoverBattleEnd(attempt, missionId, recorded, failure) {
+		console.warn(`Сервер прислал пустой ответ на конец боя ${missionId}, проверяем состояние главы`, failure);
+		attempt.progress(I18N("NX_BATTLE_END_EMPTY"), null, true);
+		await sleep(NX_SERVER_ERROR_CALL_PAUSE_MS);
+		let info = null;
+		try {
+			info = await gameSend({
+				name: "invasion_getInfo",
+				args: {}
+			});
+		} catch (e) {
+			console.error("Состояние главы после пустого ответа на конец боя не прочли", e);
+			throw failure;
+		}
+		if (!info || !recorded(info)) {
+			console.warn(`Бой ${missionId} после пустого ответа не засчитан: ${JSON.stringify(pointRecord(info, missionId))}, жизней ${info?.lives}`);
+			throw failure;
+		}
+		if (info.fragments) attempt.setFragments(info.fragments);
+		const before = attempt.wallet.value;
+		try {
+			await attempt.wallet.load();
+		} catch (e) {
+			console.error("Баланс после пустого ответа на конец боя не прочли", e);
+			throw failure;
+		}
+		console.log(`${NX_LOG_CASH} бой ${missionId} засчитан, несмотря на пустой ответ: монет у игры ${attempt.wallet.value}, по нашему счёту было ${before}`);
+		attempt.progress(I18N("NX_BATTLE_END_RECOVERED"), null, true);
+		return {
+			info,
+			invalid: false
+		};
+	}
+	async function sendBattleEnd(attempt, missionId, outcome, recorded) {
 		const call = new Caller([{
 			name: "invasion_bossEnd",
 			args: {
@@ -3049,14 +3094,18 @@
 			name: "invasion_getInfo",
 			args: {}
 		}]);
+		let emptyAnswer = null;
 		setIsCancalBattle(false);
 		try {
 			await call.send();
 		} catch (e) {
-			throw withCallName(e, ["invasion_bossEnd", "invasion_getInfo"]);
+			const failure = withCallName(e, ["invasion_bossEnd", "invasion_getInfo"]);
+			if (!isEmptyResponse(e)) throw failure;
+			emptyAnswer = failure;
 		} finally {
 			setIsCancalBattle(true);
 		}
+		if (emptyAnswer) return await recoverBattleEnd(attempt, missionId, recorded, emptyAnswer);
 		const end = call.result("invasion_bossEnd");
 		const info = call.result("invasion_getInfo");
 		const reward = attempt.wallet.addReward(end?.reward);
@@ -3136,7 +3185,7 @@
 			let waited = "";
 			if (fullBattle) waited = `, без пропуска — ждали длину боя ${await waitFullBattle(attempt, startedAt, sentTime)} с`;
 			else await waitSkip(skipFrom);
-			const end = await sendBattleEnd(attempt, missionId, outcome);
+			const end = await sendBattleEnd(attempt, missionId, outcome, (info) => pointRecord(info, missionId).wins > 0);
 			if (improved) attempt.progress(I18N("NX_WIN_SENT"), "timer", true);
 			else if (fullBattle) attempt.progress(I18N("NX_FULL_BATTLE_SENT"), "timer", true);
 			const where = point ? `точка ${point}` : `бой ${missionId}`;
@@ -3153,7 +3202,7 @@
 			};
 		}
 	}
-	async function loseBattleOnPurpose(attempt, missionId, chapterId, heroes, lossStart = NX_LOSS_TIMER_RANGE.min) {
+	async function loseBattleOnPurpose(attempt, missionId, chapterId, heroes, lossStart = NX_LOSS_TIMER_RANGE.min, livesBefore = null) {
 		try {
 			const blocked = pointBattleBlock(chapterId, missionId);
 			if (blocked) return { failure: new Error(blocked) };
@@ -3204,7 +3253,7 @@
 			}
 			if (fullBattle) await waitFullBattle(attempt, startedAt, sentTime);
 			else await waitSkip(skipFrom);
-			const end = await sendBattleEnd(attempt, missionId, outcome);
+			const end = await sendBattleEnd(attempt, missionId, outcome, (info) => livesBefore !== null && Number(info.lives) < livesBefore || pointRecord(info, missionId).wins > 0);
 			if (lossTimer != null) attempt.progress(I18N("NX_LOSS_SENT"), "timer", true);
 			console.log("Слив, расчёт вернул", JSON.stringify(outcome.result));
 			return {
@@ -4736,7 +4785,7 @@
 				await pause(NX_PACE.beforeBattle);
 				const coinsBeforeLoss = visit.coins;
 				const teamKey = sacrificeTeam.join("+");
-				const loss = await loseBattleOnPurpose(attempt, missionId, setup.chapterId, sacrificeTeam, attempt.session.lossStart[teamKey]);
+				const loss = await loseBattleOnPurpose(attempt, missionId, setup.chapterId, sacrificeTeam, attempt.session.lossStart[teamKey], lives);
 				if (loss.lossTimer != null) attempt.session.lossStart[teamKey] = nextLossStart(loss.lossTimer);
 				if (!loss.info) return {
 					kind: "fatal",
@@ -4796,6 +4845,10 @@
 				visit = {
 					...visit,
 					coins: attempt.wallet.value
+				};
+				setup = {
+					...setup,
+					buySlots: buyCount
 				};
 				if (attempt.stopped) return stoppedOutcome();
 			}
