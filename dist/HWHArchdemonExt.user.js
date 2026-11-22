@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.49-beta
+// @version         1.50-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -398,7 +398,8 @@
 			NX_LOG_TARGET_HINT: "Coins target before the Archdemon: Emblem of Capital {percent}%",
 			NX_POINT_TAKEN: "Point {point} taken",
 			NX_BUY_BEFORE: "Before attacking point {point} bought: {list}",
-			NX_BUY_BEFORE_NONE: "Before attacking point {point}: nothing to buy",
+			NX_BUY_BEFORE_NO_LOT: "Before attacking point {point}: no fitting hero in the shop",
+			NX_BUY_BEFORE_NO_COINS: "Before attacking point {point}: not enough coins ({coins}) for a hero",
 			NX_BATTLE_END_EMPTY: "The game server sent an empty answer to the battle end, checking whether the battle counted",
 			NX_BATTLE_END_RECOVERED: "The battle counted, going on",
 			NX_START_TEAM: "Start: {have} of {goal} heroes on hand",
@@ -689,7 +690,8 @@
 			NX_LOG_TARGET_HINT: "Цель по монетам перед Архидемоном: Эмблема капитала {percent}%",
 			NX_POINT_TAKEN: "Точка {point} взята",
 			NX_BUY_BEFORE: "Перед атакой точки {point} докупили: {list}",
-			NX_BUY_BEFORE_NONE: "Перед атакой точки {point} докупить не на что",
+			NX_BUY_BEFORE_NO_LOT: "Перед атакой точки {point}: в лавке нет подходящего героя",
+			NX_BUY_BEFORE_NO_COINS: "Перед атакой точки {point}: на героя не хватает монет ({coins})",
 			NX_BATTLE_END_EMPTY: "Сервер игры прислал пустой ответ на конец боя, проверяем, засчитан ли бой",
 			NX_BATTLE_END_RECOVERED: "Бой засчитан, идём дальше",
 			NX_START_TEAM: "Старт: героев на руках {have} из {goal}",
@@ -2001,6 +2003,9 @@
 		}
 		return NX_SACRIFICE_ROLES.length * 2;
 	}
+	function heroStrength(id) {
+		return roleTier(id);
+	}
 	function weakestBody(bodies, hand, fragments) {
 		const mainRole = (id) => heroRoles(id)[0] ?? "";
 		const twin = (id) => {
@@ -2033,8 +2038,7 @@
 		const hand = handHeroes(fragments);
 		const fixed = hand.filter((id) => fixedHero(setup, id));
 		let bodies = hand.filter((id) => !fixedHero(setup, id));
-		const carryOwned = (setup.carryHeroes ?? []).filter((id) => hand.includes(id)).length + ((setup.carryExtraHeroes ?? []).some((id) => hand.includes(id)) ? 1 : 0);
-		const free = Math.max(0, Math.min(slots - carryOwned, NX_TEAM_SIZE - fixed.length));
+		const free = Math.max(0, Math.min(slots, NX_TEAM_SIZE) - fixed.length);
 		while (bodies.length > free) {
 			const worst = weakestBody(bodies, [...fixed, ...bodies], fragments);
 			bodies = bodies.filter((id) => id !== worst);
@@ -4049,27 +4053,38 @@
 	var BUY_BEFORE_ORDER = {
 		rank: 1,
 		carry: 2,
-		discount: 3
+		discount: 3,
+		pinned: 4,
+		any: 5,
+		random: 6
 	};
 	function pickBuyBeforeSlot(shopSlots, setup, fragments, coins, shopId) {
 		const hand = new Set(handHeroes(fragments));
+		const have = (id) => Number(fragments[id] ?? 0);
+		const better = (a, b) => (BUY_BEFORE_ORDER[a.kind] - BUY_BEFORE_ORDER[b.kind] || b.strength - a.strength || a.cost - b.cost) < 0;
 		let best = null;
 		for (const slot of shopSlots) {
-			if (slot.bought || slot.reward?.invasionFragmentHeroRand || slot.reward?.invasionFragmentPet) continue;
-			const heroes = Object.entries(slot.reward?.invasionFragmentHero ?? {}).map(([id, amount]) => [Number(id), Number(amount)]);
+			if (slot.bought || slot.reward?.invasionFragmentPet) continue;
 			const cost = Number(slot.cost?.coin?.[1080] ?? 0);
-			if (!heroes.length || !cost || coins < cost) continue;
-			const carry = heroes.filter(([id]) => setup.carryHeroes.includes(id));
-			const have = (id) => Number(fragments[id] ?? 0);
-			const kind = carry.some(([id, amount]) => hand.has(id) && rankStep(have(id) + amount) > rankStep(have(id))) ? "rank" : carry.some(([id]) => !hand.has(id)) ? "carry" : isDiscountedHeroSlot(slot, shopId) ? "discount" : null;
+			if (!cost || coins < cost) continue;
+			const random = Boolean(slot.reward?.invasionFragmentHeroRand);
+			const heroes = Object.entries(slot.reward?.invasionFragmentHero ?? {}).map(([id, amount]) => [Number(id), Number(amount)]);
+			if (!random && !heroes.length) continue;
+			const fresh = heroes.filter(([id]) => !hand.has(id)).map(([id]) => id);
+			const kind = random ? "random" : heroes.some(([id, amount]) => setup.carryHeroes.includes(id) && hand.has(id) && rankStep(have(id) + amount) > rankStep(have(id))) ? "rank" : !fresh.length ? null : fresh.some((id) => setup.carryHeroes.includes(id)) ? "carry" : isDiscountedHeroSlot(slot, shopId) ? "discount" : slot.pinned ? "pinned" : "any";
 			if (!kind) continue;
-			if (!best || BUY_BEFORE_ORDER[kind] < BUY_BEFORE_ORDER[best.kind] || kind === best.kind && cost < best.cost) best = {
+			const pick = {
 				slot,
 				cost,
-				kind
+				kind,
+				strength: Math.max(-1, ...fresh.map(heroStrength))
 			};
+			if (!best || better(pick, best)) best = pick;
 		}
 		return best;
+	}
+	function buyBeforeShortage(shopSlots, setup, fragments, shopId) {
+		return pickBuyBeforeSlot(shopSlots, setup, fragments, Infinity, shopId) ? "coins" : "lot";
 	}
 	async function buyBeforeAttack(attempt, stall, setup, fragments, count) {
 		const coins = attempt.wallet;
@@ -4078,12 +4093,13 @@
 			if (attempt.stopped) break;
 			const pick = pickBuyBeforeSlot(stall.slots(), setup, fragments, coins.value, stall.shopId);
 			if (!pick) break;
-			await stall.buy(pick.slot);
+			const result = await stall.buy(pick.slot);
 			coins.value -= pick.cost;
 			pick.slot.bought = true;
-			applyReward(fragments, pick.slot.reward);
+			const reward = pick.kind === "random" ? result : pick.slot.reward;
+			applyReward(fragments, reward);
 			attempt.ledger.add("перед атакой", -pick.cost);
-			bought.push(Object.keys(pick.slot.reward?.invasionFragmentHero ?? {}).map((id) => unitName(Number(id))).join(" + "));
+			bought.push(Object.keys(reward?.invasionFragmentHero ?? {}).map((id) => unitName(Number(id))).join(" + "));
 			console.log(`${NX_LOG_CASH} -${pick.cost} перед атакой (${pick.kind}) ${lotUnits(pick.slot)}, остаток ${coins.value}`);
 		}
 		return bought;
@@ -4829,12 +4845,23 @@
 					kind: "fatal",
 					error: I18N("NX_FAIL_NO_STALL")
 				};
+				setup = {
+					...setup,
+					buySlots: buyCount
+				};
 				try {
-					const bought = await buyBeforeAttack(attempt, stall, setup, (await attempt.units()).fragments, buyCount);
-					attempt.progress(bought.length ? I18N("NX_BUY_BEFORE", {
+					const fragments = (await attempt.units()).fragments;
+					const bought = await buyBeforeAttack(attempt, stall, setup, fragments, buyCount);
+					const short = bought.length ? null : buyBeforeShortage(stall.slots(), setup, fragments, stall.shopId);
+					const line = !short ? I18N("NX_BUY_BEFORE", {
 						point,
 						list: bought.join(", ")
-					}) : I18N("NX_BUY_BEFORE_NONE", { point }), null, true);
+					}) : I18N(short === "coins" ? "NX_BUY_BEFORE_NO_COINS" : "NX_BUY_BEFORE_NO_LOT", {
+						point,
+						coins: attempt.wallet.value
+					});
+					attempt.progress(line, null, true);
+					await sellUnneededFragments(attempt, stall, setup, fragments, true);
 				} catch (e) {
 					console.error(e);
 					return {
@@ -4845,10 +4872,6 @@
 				visit = {
 					...visit,
 					coins: attempt.wallet.value
-				};
-				setup = {
-					...setup,
-					buySlots: buyCount
 				};
 				if (attempt.stopped) return stoppedOutcome();
 			}
