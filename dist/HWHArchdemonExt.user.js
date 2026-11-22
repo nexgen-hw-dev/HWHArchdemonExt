@@ -277,7 +277,6 @@
 			NX_PRESETS_SOURCES: "The builds come from open videos of players. Thanks to the sites that collected them:",
 			NX_PRESETS_SITE_HWDAILY: "guides and teams for Hero Wars events. Author Fragator, reachable on the official Hero Wars Discord",
 			NX_PRESETS_SITE_HWMAP: "game database and event teams. Author Kircheis",
-			NX_PRESETS_AUTHORS: "Every build has an author. If a build helped you, drop by their video and leave a 👍",
 			NX_PRESETS_HEAD_DAMAGE: "Damage",
 			NX_PRESETS_HEAD_BUFF: "Buff",
 			NX_PRESETS_HEAD_CHAPTER: "Chapter",
@@ -564,7 +563,6 @@
 			NX_PRESETS_SOURCES: "Сборки взяты из открытых видео игроков. Спасибо сайтам, которые их собрали:",
 			NX_PRESETS_SITE_HWDAILY: "гайды и составы по событиям Hero Wars. Автор Fragator, связь — в официальном Discord Hero Wars",
 			NX_PRESETS_SITE_HWMAP: "база игры и команды по событиям. Автор Kircheis",
-			NX_PRESETS_AUTHORS: "У каждой сборки есть автор. Если сборка помогла, загляните к нему на видео и поставьте 👍",
 			NX_PRESETS_HEAD_DAMAGE: "Урон",
 			NX_PRESETS_HEAD_BUFF: "Усиление",
 			NX_PRESETS_HEAD_CHAPTER: "Глава",
@@ -8835,7 +8833,7 @@
 		return chapter > 0 ? ` · ${I18N("NX_PRESETS_CHAPTER", { chapter: green(romanHtml(chapter)) })}` : "";
 	}
 	function headerHtml(buff, chapter = 0) {
-		return `<div style="font-size: 22px; color: #ffcf84; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: green(Number(buff) || 0) })}<span data-part="chapter">${chapterTitleHtml(chapter)}</span></div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}<div data-part="sites">${presetSitesHtml(null)}</div></div><div style="margin-top: 8px;">${I18N("NX_PRESETS_AUTHORS")}</div>`;
+		return `<div style="font-size: 22px; color: #ffcf84; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: green(Number(buff) || 0) })}<span data-part="chapter">${chapterTitleHtml(chapter)}</span></div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}<div data-part="sites">${presetSitesHtml(null)}</div></div>`;
 	}
 	function presetsWaitHtml(tr) {
 		const lang = tr("NX_LANG") === "ru" ? "ru" : "en";
@@ -9136,7 +9134,7 @@
 	var SETUP_WINDOW_ID = "nxSetupWindow";
 	var SETUP_Z = 10040;
 	var STAGE_W = 800;
-	var WIDE_STAGE_W = 1080;
+	var WIDE_STAGE_W = 1e3;
 	var STAGE_H = 816;
 	var MIN_STAGE_H = 560;
 	var MAX_SCALE = 1;
