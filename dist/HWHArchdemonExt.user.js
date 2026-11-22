@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.47-beta
+// @version         1.48-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -257,6 +257,7 @@
 			NX_REASON_NO_HEROES: "No heroes on hand after the point 1 shopping: nobody to attack with",
 			NX_AUTO_START: "No carry heroes set: up to {goal} heroes fight. Runs short of strength so far: {weak}, every {step} adds one more hero",
 			NX_REASON_SERVER_ERROR: "The game server answered with an internal error (E_Internal), the chapter starts over after a pause ({tries} of {max} in a row)",
+			NX_REASON_SERVER_EMPTY: "The game server sent an empty answer (the connection may have dropped), the chapter starts over after a pause ({tries} of {max} in a row)",
 			NX_CARRY_SHORT: "Carry heroes missing: {list}. {have} heroes fight, the missing ones are bought along the way",
 			NX_REASON_POINT_LOST: "Point {point} was not taken",
 			NX_REASON_POINT_LOST_REMEMBERED: "Point {point} was not taken, this team is remembered",
@@ -296,7 +297,10 @@
 			NX_PRESETS_CARDS_CHEAP: "only cheaper than their sale",
 			NX_PRESETS_CARDS_ANY: "all of them",
 			NX_PRESETS_CHAPTER: "chapter {chapter}",
-			NX_PRESETS_NO_CHAPTER: "No builds for chapter {chapter} yet. There are builds for chapters: {list}. Pick another chapter in the setup window",
+			NX_PRESETS_NO_CHAPTER: "No builds for chapter {chapter} yet. There are builds for chapters: {list}. Pick one above",
+			NX_PRESETS_PICK_CHAPTER: "Select chapter:",
+			NX_PRESETS_ALL_CHAPTERS: "All",
+			NX_PRESETS_GO_OTHER_CHAPTER: "This build is for chapter {chapter}. To run it, select chapter {chapter} in the setup window",
 			NX_PRESETS_STRATEGY_PRESET: "the build's own strategy",
 			NX_PRESETS_STRATEGY_EVENT: "the event strategy",
 			NX_PRESETS_STRATEGY_BUILTIN: "the built-in strategy",
@@ -541,6 +545,7 @@
 			NX_REASON_NO_HEROES: "После закупки точки 1 на руках ни одного героя: атаковать некем",
 			NX_AUTO_START: "Проходные не указаны: в бой идут до {goal} героев. Заходов, где не хватило сил: {weak}, каждые {step} — ещё один герой",
 			NX_REASON_SERVER_ERROR: "Сервер игры ответил внутренней ошибкой (E_Internal), после паузы заходим заново ({tries} из {max} подряд)",
+			NX_REASON_SERVER_EMPTY: "Сервер игры прислал пустой ответ (могла оборваться связь), после паузы заходим заново ({tries} из {max} подряд)",
 			NX_CARRY_SHORT: "Не хватает проходных: {list}. В бою героев: {have}, недостающих докупим по ходу",
 			NX_REASON_POINT_LOST: "Точка {point} не взята",
 			NX_REASON_POINT_LOST_REMEMBERED: "Точка {point} не взята, состав запомнили",
@@ -580,7 +585,10 @@
 			NX_PRESETS_CARDS_CHEAP: "только дешевле своей продажи",
 			NX_PRESETS_CARDS_ANY: "все",
 			NX_PRESETS_CHAPTER: "глава {chapter}",
-			NX_PRESETS_NO_CHAPTER: "Для главы {chapter} сборок пока нет. Есть для глав: {list}. Другую главу можно выбрать в окне настройки",
+			NX_PRESETS_NO_CHAPTER: "Для главы {chapter} сборок пока нет. Есть для глав: {list}. Выберите выше",
+			NX_PRESETS_PICK_CHAPTER: "Выберите главу:",
+			NX_PRESETS_ALL_CHAPTERS: "Все",
+			NX_PRESETS_GO_OTHER_CHAPTER: "Сборка главы {chapter}. Чтобы пройти по ней, выберите главу {chapter} в окне настройки",
 			NX_PRESETS_STRATEGY_PRESET: "стратегия сборки",
 			NX_PRESETS_STRATEGY_EVENT: "общая стратегия события",
 			NX_PRESETS_STRATEGY_BUILTIN: "встроенная стратегия",
@@ -1143,6 +1151,15 @@
 		const message = error?.message;
 		return /\bE_Internal\b/.test(typeof message === "string" ? message : String(error ?? ""));
 	}
+	function isEmptyResponse(error) {
+		const message = error?.message;
+		return /reading 'error'|\bresponse is null\b|evaluating 'response\.error'|missing "results" field/.test(typeof message === "string" ? message : "");
+	}
+	function serverFailure(error) {
+		if (isServerInternal(error)) return "internal";
+		if (isEmptyResponse(error)) return "empty";
+		return null;
+	}
 	function callName(call) {
 		if (typeof call === "string") return call;
 		if (Array.isArray(call)) return call.map(callName).join(" + ");
@@ -1163,8 +1180,9 @@
 		for (let tries = 0;; tries++) try {
 			return await Caller.send(call);
 		} catch (e) {
-			if (isServerInternal(e) && REPEATABLE.has(name) && tries < NX_SERVER_ERROR_CALL_RETRIES) {
-				console.warn(`Сервер ответил E_Internal на ${name}, повтор ${tries + 1} из ${NX_SERVER_ERROR_CALL_RETRIES}`);
+			const failure = serverFailure(e);
+			if (failure && REPEATABLE.has(name) && tries < NX_SERVER_ERROR_CALL_RETRIES) {
+				console.warn(`Сервер ${failure === "internal" ? "ответил E_Internal" : "прислал пустой ответ"} на ${name}, повтор ${tries + 1} из ${NX_SERVER_ERROR_CALL_RETRIES}`);
 				await sleep(NX_SERVER_ERROR_CALL_PAUSE_MS);
 				continue;
 			}
@@ -1209,10 +1227,14 @@
 	function escapeAttr(value) {
 		return String(value ?? "").replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 	}
+	function versionLine() {
+		const script = typeof GM_info !== "undefined" ? GM_info.script : void 0;
+		return `${script?.name || "HWHArchdemonExt"} ${script?.version || "?"} · HeroWarsHelper ${helperVersion}`;
+	}
 	function failureHtml(text, error) {
 		const details = describeError(error);
 		if (!details) return text;
-		return `${text}<details style="margin-top: 10px;"><summary style="cursor: pointer;">${escapeAttr(I18N("NX_DETAILS"))}</summary><pre style="margin: 6px 0 0; padding: 6px 8px; max-height: 220px; overflow: auto; text-align: left; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; background: rgba(0, 0, 0, 0.3); border-radius: 4px; user-select: text; -webkit-user-select: text;">${escapeAttr(details)}</pre></details>`;
+		return `${text}<details style="margin-top: 10px;"><summary style="cursor: pointer;">${escapeAttr(I18N("NX_DETAILS"))}</summary><pre style="margin: 6px 0 0; padding: 6px 8px; max-height: 220px; overflow: auto; text-align: left; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.35; background: rgba(0, 0, 0, 0.3); border-radius: 4px; user-select: text; -webkit-user-select: text;">${escapeAttr(`${versionLine()}\n${details}`)}</pre></details>`;
 	}
 	var NAME = "([A-Za-z_$][\\w$]*)";
 	var Q = `["']`;
@@ -4857,7 +4879,8 @@
 				if (await session.notice(I18N("NX_HALTED_SYNC"))) syncGame();
 				return;
 			}
-			const serverError = outcome.kind === "fatal" && isServerInternal(outcome.error) && serverErrors < NX_SERVER_ERROR_ATTEMPTS;
+			const failure = outcome.kind === "fatal" ? serverFailure(outcome.error) : null;
+			const serverError = failure !== null && serverErrors < NX_SERVER_ERROR_ATTEMPTS;
 			serverErrors = serverError ? serverErrors + 1 : 0;
 			if (outcome.kind === "fatal" && !serverError) {
 				if (await session.notice(outcome.message ?? I18N("NX_FAILED", { version: GM_info.script.version }), outcome.error)) syncGame();
@@ -4879,7 +4902,7 @@
 				return;
 			}
 			if (session.stopped) break;
-			const reason = outcome.kind === "fatal" ? I18N("NX_REASON_SERVER_ERROR", {
+			const reason = outcome.kind === "fatal" ? I18N(failure === "empty" ? "NX_REASON_SERVER_EMPTY" : "NX_REASON_SERVER_ERROR", {
 				tries: serverErrors,
 				max: NX_SERVER_ERROR_ATTEMPTS
 			}) : outcome.reason;
@@ -8748,10 +8771,12 @@
 			return key ? linkItem(site.url, site.name, I18N(key)) : `<div style="margin-left: 10px;">• ${link(site.url, site.name)}</div>`;
 		}).join("");
 	}
+	var green = (value) => `<span style="color: LimeGreen;">${value}</span>`;
+	function chapterTitleHtml(chapter) {
+		return chapter > 0 ? ` · ${I18N("NX_PRESETS_CHAPTER", { chapter: green(romanHtml(chapter)) })}` : "";
+	}
 	function headerHtml(buff, chapter = 0) {
-		const green = (value) => `<span style="color: LimeGreen;">${value}</span>`;
-		const chapterText = chapter > 0 ? ` · ${I18N("NX_PRESETS_CHAPTER", { chapter: green(romanHtml(chapter)) })}` : "";
-		return `<div style="font-size: 22px; color: #ffcf84; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: green(Number(buff) || 0) })}${chapterText}</div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}<div data-part="sites">${presetSitesHtml(null)}</div></div><div style="margin-top: 8px;">${I18N("NX_PRESETS_AUTHORS")}</div>`;
+		return `<div style="font-size: 22px; color: #ffcf84; margin: 2px 0 8px;">${I18N("NX_PRESETS_BUFF", { buff: green(Number(buff) || 0) })}<span data-part="chapter">${chapterTitleHtml(chapter)}</span></div><div style="margin-top: 6px; line-height: 1.5;">${I18N("NX_PRESETS_SOURCES")}<div data-part="sites">${presetSitesHtml(null)}</div></div><div style="margin-top: 8px;">${I18N("NX_PRESETS_AUTHORS")}</div>`;
 	}
 	function presetsWaitHtml(tr) {
 		const lang = tr("NX_LANG") === "ru" ? "ru" : "en";
@@ -8761,6 +8786,26 @@
 	}
 	function keepCoinsHtml(checked) {
 		return `<div class="PopUp_ContCheckbox" style="margin-top: 14px;"><input type="checkbox" class="PopUp_checkbox" id="nxKeepExtraCoins"${checked ? " checked" : ""}><label for="nxKeepExtraCoins" title="${escapeAttr(I18N("NX_PRESETS_KEEP_COINS_HINT"))}">${I18N("NX_PRESETS_KEEP_COINS")}</label></div>`;
+	}
+	function chapterFilterOptions(count, presets) {
+		const chapters = new Set(Array.from({ length: Math.max(0, count) }, (_, i) => i + 1));
+		presets.forEach((p) => {
+			if (p.chapter > 0) chapters.add(p.chapter);
+		});
+		return [...chapters].sort((a, b) => a - b);
+	}
+	function presetsForFilter(presets, chapter) {
+		return chapter > 0 ? presetsForChapter(presets, chapter) : [...presets];
+	}
+	function presetFitsChapter(preset, setupChapter) {
+		return setupChapter <= 0 || preset.chapter <= 0 || preset.chapter === setupChapter;
+	}
+	function chapterFilterHtml(options, selected) {
+		const item = (value, label) => {
+			const id = `nxPresetsChapter_${value}`;
+			return `<div class="PopUp_ContCheckbox" style="margin: 0;"><input type="checkbox" class="PopUp_checkbox radio_nxPresetsChapter" data-group="presetsChapter" data-value="${value}" id="${id}"${value === selected ? " checked" : ""}><label for="${id}">${label}</label></div>`;
+		};
+		return `<div style="display: flex; align-items: center; flex-wrap: wrap; column-gap: 14px; row-gap: 4px; margin-top: 10px; white-space: nowrap;"><span style="color: #c9b89c;">${I18N("NX_PRESETS_PICK_CHAPTER")}</span>` + item(0, I18N("NX_PRESETS_ALL_CHAPTERS")) + options.map((chapter) => item(chapter, romanHtml(chapter))).join("") + "</div>";
 	}
 	function columnsHtml() {
 		const cell = (key, align = "center") => `<div style="padding: 0 5px 4px; align-self: end; text-align: ${align}; white-space: nowrap; font-size: 13px; color: #c9b89c;">${I18N(key)}</div>`;
@@ -8799,7 +8844,16 @@
 		const author = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" style="color: #ffcf84;">${authorText}</a>` : authorText;
 		const video = preset.videoUrl ? `<a href="${escapeAttr(preset.videoUrl)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(I18N("NX_PRESETS_VIDEO"))}" style="flex: none;">${PLAY_ICON}</a>` : "";
 		const matched = preset.buff === Number(buff);
-		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.chapter > 0 ? romanHtml(preset.chapter) : muted(I18N("NX_PRESETS_ANY_CHAPTER"))}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${editButtonHtml(`nxPresetGo${index}`, goHint(preset, buff, strategies, chapter, eventId), I18N("NX_PRESETS_GO"))}</div>`;
+		return `<div style="${CELL} justify-content: flex-end; font-size: 18px; font-weight: bold; white-space: nowrap;">${I18N("NX_PRESETS_BILLION", { value: preset.damage })}</div><div style="${CELL} justify-content: center; font-size: 13px;${matched ? " color: LimeGreen; font-weight: bold;" : ""}">${preset.buff}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.chapter > 0 ? romanHtml(preset.chapter) : muted(I18N("NX_PRESETS_ANY_CHAPTER"))}</div><div style="${CELL} justify-content: center; font-size: 13px;">${preset.coins || "—"}</div><div style="${CELL} justify-content: center;">${talismans}</div><div style="${CELL} justify-content: center;">${pet}</div><div style="${CELL} gap: 3px;">${heroes}</div><div style="${CELL} gap: 6px; min-width: 0;"><span style="min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;" title="${escapeAttr(preset.author)}">${author}</span>${video}</div><div style="${CELL}">${goButtonHtml(preset, index, buff, strategies, chapter, eventId)}</div>`;
+	}
+	var OTHER_CHAPTER_STYLE = "margin-left: auto; flex: none; filter: grayscale(1); opacity: 0.6;";
+	function goButtonHtml(preset, index, buff, strategies, chapter, eventId) {
+		const id = `nxPresetGo${index}`;
+		if (presetFitsChapter(preset, chapter)) return editButtonHtml(id, goHint(preset, buff, strategies, chapter, eventId), I18N("NX_PRESETS_GO"));
+		return editButtonHtml(id, otherChapterText(preset), I18N("NX_PRESETS_GO")).replace(" style=\"margin-left: auto; flex: none;\"", "").replace(`id="${id}"`, `id="${id}" data-other-chapter="${preset.chapter}" style="${OTHER_CHAPTER_STYLE}"`);
+	}
+	function otherChapterText(preset) {
+		return I18N("NX_PRESETS_GO_OTHER_CHAPTER", { chapter: toRoman(preset.chapter) });
 	}
 	var STRATEGY_SOURCE_TEXT = {
 		preset: () => I18N("NX_PRESETS_STRATEGY_PRESET"),
@@ -8839,13 +8893,13 @@
 	function presetsBackHtml() {
 		return editButtonHtml("nxPresetsBack", "", I18N("NX_PRESETS_BACK")).replace("id=\"nxPresetsBack\"", "id=\"nxPresetsBack\" data-escape=\"back\"");
 	}
-	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, chapterNumber = 0, eventId = currentEventId(), client = new PresetsClient() }) {
+	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, chapterNumber = 0, chapterCount = 0, eventId = currentEventId(), client = new PresetsClient() }) {
 		root.querySelector("#nxPresetsView")?.remove();
 		const view = document.createElement("div");
 		view.id = "nxPresetsView";
 		view.className = "PopUp_text";
 		view.setAttribute("style", "text-align: left; max-width: 820px; font-size: 16px;");
-		view.innerHTML = `<div data-part="top" style="display: none;">${headerHtml(buff, chapterNumber)}${keepCoinsHtml(keepExtraCoins)}</div><div data-part="list" style="margin-top: 6px;">${I18N("NX_PRESETS_LOADING")}</div><div data-part="error" style="color: #ff6b6b; margin-top: 10px; min-height: 1px;"></div><div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">` + REFRESH_BUTTON.replace("role=\"button\"", `role="button" title="${escapeAttr(I18N("NX_PRESETS_REFRESH"))}"`) + "<span data-part=\"refresh-note\" style=\"font-size: 13px; opacity: 0.8;\"></span>" + presetsBackHtml() + "</div>";
+		view.innerHTML = `<div data-part="top" style="display: none;">${headerHtml(buff, chapterNumber)}<div data-part="chapters"></div>${keepCoinsHtml(keepExtraCoins)}</div><div data-part="list" style="margin-top: 6px;">${I18N("NX_PRESETS_LOADING")}</div><div data-part="error" style="color: #ff6b6b; margin-top: 10px; min-height: 1px;"></div><div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">` + REFRESH_BUTTON.replace("role=\"button\"", `role="button" title="${escapeAttr(I18N("NX_PRESETS_REFRESH"))}"`) + "<span data-part=\"refresh-note\" style=\"font-size: 13px; opacity: 0.8;\"></span>" + presetsBackHtml() + "</div>";
 		form.style.display = "none";
 		setButtonsVisible(false);
 		root.append(view);
@@ -8862,6 +8916,25 @@
 		const note = view.querySelector("[data-part=\"refresh-note\"]");
 		const top = view.querySelector("[data-part=\"top\"]");
 		const refresh = view.querySelector("#nxPresetsRefresh");
+		const chaptersPart = view.querySelector("[data-part=\"chapters\"]");
+		const chapterTitle = view.querySelector("[data-part=\"chapter\"]");
+		let shown = chapterNumber > 0 ? chapterNumber : 0;
+		let drawn = null;
+		chaptersPart?.addEventListener("change", (event) => {
+			const input = event.target;
+			if (input.dataset.group !== "presetsChapter") return;
+			if (!input.checked) {
+				input.checked = true;
+				return;
+			}
+			chaptersPart.querySelectorAll("input[data-group=\"presetsChapter\"]").forEach((other) => {
+				if (other !== input) other.checked = false;
+			});
+			shown = Number(input.dataset.value) || 0;
+			if (chapterTitle) chapterTitle.innerHTML = chapterTitleHtml(shown);
+			if (error) error.innerHTML = "";
+			drawTable();
+		});
 		const showTable = (visible) => {
 			if (top) top.style.display = visible ? "" : "none";
 			if (refresh) refresh.style.display = visible ? "flex" : "none";
@@ -8908,37 +8981,49 @@
 				list.innerHTML = presetsWaitHtml(I18N);
 				return;
 			}
-			const presets = presetsForChapter(loaded.presets, chapterNumber);
-			if (!presets.length) {
-				showTable(true);
-				const chapters = [...new Set(loaded.presets.map((p) => p.chapter))].sort((a, b) => a - b).map(romanHtml);
-				list.innerHTML = `<div style="color: #ffb347;">${I18N("NX_PRESETS_NO_CHAPTER", {
-					chapter: romanHtml(chapterNumber),
-					list: chapters.join(", ")
-				})}</div>`;
-				return;
-			}
-			const heroIds = [...new Set(presets.flatMap((p) => p.parsed.heroes))];
-			const petIds = [...new Set(presets.flatMap((p) => [p.mainPet, ...p.parsed.favorPets]).filter(Boolean))];
+			const heroIds = [...new Set(loaded.presets.flatMap((p) => p.parsed.heroes))];
+			const petIds = [...new Set(loaded.presets.flatMap((p) => [p.mainPet, ...p.parsed.favorPets]).filter(Boolean))];
 			const [library, heroIcons, petIcons] = await Promise.all([
 				loadGameGui(GUI_FILES),
 				loadHeroIcons(heroIds),
 				loadUnitIcons(petIds)
 			]);
 			if (!view.isConnected) return;
-			const ctx = {
-				library,
-				heroIcons,
-				petIcons,
-				buff,
-				strategies: loaded.strategies,
-				chapter: chapterNumber,
-				eventId
+			drawn = {
+				loaded,
+				ctx: {
+					library,
+					heroIcons,
+					petIcons,
+					buff,
+					strategies: loaded.strategies,
+					chapter: chapterNumber,
+					eventId
+				}
 			};
+			if (chaptersPart) chaptersPart.innerHTML = chapterFilterHtml(chapterFilterOptions(chapterCount, loaded.presets), shown);
 			showTable(true);
+			drawTable();
+		}
+		function drawTable() {
+			if (!list || !drawn) return;
+			const { loaded, ctx } = drawn;
+			const presets = presetsForFilter(loaded.presets, shown);
+			if (!presets.length) {
+				const chapters = [...new Set(loaded.presets.map((p) => p.chapter))].sort((a, b) => a - b).map(romanHtml);
+				list.innerHTML = `<div style="color: #ffb347;">${I18N("NX_PRESETS_NO_CHAPTER", {
+					chapter: romanHtml(shown),
+					list: chapters.join(", ")
+				})}</div>`;
+				return;
+			}
 			list.innerHTML = (loaded.source === "stale" ? `<div style="font-size: 13px; color: #ffb347;">${I18N("NX_PRESETS_STALE")}</div>` : "") + presetsTableHtml(presets, ctx);
 			presets.forEach((preset, index) => {
 				view.querySelector(`#nxPresetGo${index}`)?.addEventListener("click", () => {
+					if (!presetFitsChapter(preset, chapterNumber)) {
+						if (error) error.innerHTML = otherChapterText(preset);
+						return;
+					}
 					const problem = onGo(preset, keep ? keep.checked : keepExtraCoins, loaded.strategies);
 					if (problem && error) error.innerHTML = problem;
 				});
@@ -9820,6 +9905,7 @@
 					onGo: goWithPreset,
 					keepExtraCoins: loadChapterSettings(eventId, activeChapter).keepExtraCoins,
 					chapterNumber: chapterNumbers[activeChapter] ?? 0,
+					chapterCount: abyssOrder.length,
 					eventId,
 					onKeepExtraCoins: (keepExtraCoins) => {
 						state = updateChapterSettings(eventId, activeChapter, { keepExtraCoins });

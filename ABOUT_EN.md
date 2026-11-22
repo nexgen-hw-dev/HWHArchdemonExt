@@ -32,7 +32,7 @@ If a run does not work out, it resets the chapter and tries again.
 - **The needed emblem was not offered** — the chapter's free rerolls go first, then the chapter restarts.
 - **Emblem of Ascension** — once it is taken, the run ascends the heroes of the team or the ones picked in the window,
   collected in full, before the Archdemon: +20% to all stats for 30 Shop Coins each, never below the minimum for the Emblem of Capital.
-- **Ready-made builds** — per event and chapter: the window lists the builds of the running event and the chosen chapter — teams of other players from open videos, collected on [HWDaily](https://hwdaily.win/) (by Fragator)
+- **Ready-made builds** — per event and chapter: the window lists the builds of the running event, with a chapter picker above the list that starts on the chosen chapter — teams of other players from open videos, collected on [HWDaily](https://hwdaily.win/) (by Fragator)
   and [HWMAP](https://hwmap.online/) (by Kircheis). One button runs the chapter with the chosen build. The builds are
   loaded from our server on Netlify or its mirrors on jsDelivr and GitHub, no player data is sent. Thanks to the video authors and to both sites.
 - **Settings of their own for each chapter**, within the event only: what you fill in is kept, a new event starts empty.
