@@ -6937,7 +6937,9 @@
 @keyframes nxStrip { from { background-position-x: 0%; } to { background-position-x: 100%; } }
 `;
 	var openWindows = new Map();
-	function openGameWindow({ id, zIndex, stageW, stageH, maxScale, library }) {
+	function openGameWindow({ id, zIndex, stageW: initialW, stageH: initialH, maxScale, library }) {
+		let stageW = initialW;
+		let stageH = initialH;
 		openWindows.get(id)?.();
 		const root = document.createElement("div");
 		root.id = id;
@@ -7334,6 +7336,12 @@
 			close,
 			hide,
 			show,
+			resize: (width, height) => {
+				stageW = width;
+				stageH = height;
+				baseStyle.textContent = baseCss(id, zIndex, width, height);
+				fit();
+			},
 			onHide: (hook) => {
 				hideHooks.push(hook);
 			},
@@ -8944,18 +8952,20 @@
 	function presetsBackHtml() {
 		return editButtonHtml("nxPresetsBack", "", I18N("NX_PRESETS_BACK")).replace("id=\"nxPresetsBack\"", "id=\"nxPresetsBack\" data-escape=\"back\"");
 	}
-	async function openPresetsView({ root, form, buff, setButtonsVisible, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, chapterNumber = 0, chapterCount = 0, chapterLocked = () => null, eventId = currentEventId(), client = new PresetsClient() }) {
+	async function openPresetsView({ root, form, buff, setButtonsVisible, setWide = () => {}, onGo, keepExtraCoins = false, onKeepExtraCoins = () => {}, chapterNumber = 0, chapterCount = 0, chapterLocked = () => null, eventId = currentEventId(), client = new PresetsClient() }) {
 		root.querySelector("#nxPresetsView")?.remove();
 		const view = document.createElement("div");
 		view.id = "nxPresetsView";
 		view.className = "PopUp_text";
-		view.setAttribute("style", "text-align: left; max-width: 820px; font-size: 16px;");
+		view.setAttribute("style", "text-align: left; font-size: 16px;");
 		view.innerHTML = `<div data-part="top" style="display: none;">${headerHtml(buff, chapterNumber)}<div data-part="chapters"></div>${keepCoinsHtml(keepExtraCoins)}</div><div data-part="list" style="margin-top: 6px;">${I18N("NX_PRESETS_LOADING")}</div><div data-part="error" style="color: #ff6b6b; margin-top: 10px; min-height: 1px;"></div><div style="display: flex; align-items: center; gap: 10px; margin-top: 12px;">` + REFRESH_BUTTON.replace("role=\"button\"", `role="button" title="${escapeAttr(I18N("NX_PRESETS_REFRESH"))}"`) + "<span data-part=\"refresh-note\" style=\"font-size: 13px; opacity: 0.8;\"></span>" + presetsBackHtml() + "</div>";
 		form.style.display = "none";
 		setButtonsVisible(false);
+		setWide(true);
 		root.append(view);
 		const close = () => {
 			view.remove();
+			setWide(false);
 			form.style.display = "";
 			setButtonsVisible(true);
 		};
@@ -9126,18 +9136,19 @@
 	var SETUP_WINDOW_ID = "nxSetupWindow";
 	var SETUP_Z = 10040;
 	var STAGE_W = 800;
+	var WIDE_STAGE_W = 1080;
 	var STAGE_H = 816;
 	var MIN_STAGE_H = 560;
 	var MAX_SCALE = 1;
 	var SCREEN_MARGIN = 32;
 	var FRAME_X = 7;
 	var FRAME_Y = 41;
-	var FRAME_W = 786;
+	var frameWidth = (stageW) => stageW - 14;
 	var HEADER_W = 360;
 	var TOP_ROW = 75;
 	var CONTENT_TOP = 121;
 	var CONTENT_X = 33;
-	var CONTENT_W = 734;
+	var contentWidth = (stageW) => stageW - 66;
 	var C = {
 		title: "#ffcf84",
 		hint: "#fce5b7"
@@ -9156,34 +9167,38 @@
 			library: options.library
 		});
 		const { piece, label } = win;
-		const headerX = 400 - HEADER_W / 2;
-		win.render(piece("PopupBG_12_12_12_12", 20, 55, {
-			render: {
-				width: 760,
-				height: frameH - 22
-			},
-			size: [760, frameH - 22],
-			fallback: "background: #190e08; border-radius: 10px;"
-		}) + piece("mainframeSep_64_64_2_2", FRAME_X, FRAME_Y, {
-			render: {
-				width: FRAME_W,
-				height: frameH
-			},
-			size: [FRAME_W, frameH],
-			fallback: "border: 3px solid #ce9767; border-radius: 12px;",
-			cls: "nxNoHit"
-		}) + piece("header_178_178_2", headerX, 14, {
-			render: { width: HEADER_W },
-			size: [HEADER_W, 56],
-			fallback: "background: linear-gradient(180deg, #8a5a2a, #4a2a10); border-radius: 10px;",
-			cls: "nxNoHit"
-		}) + label(options.title, 280, 14, 240, 56, 24, C.title) + label(options.hint, 157, TOP_ROW, 486, 24, 16, C.hint) + piece("closeButton_32", 750, 26, {
-			size: [46, 46],
-			fallback: "background: #8a1c12; border: 2px solid #ce9767; border-radius: 50%; color: #fff; font: 700 20px/42px sans-serif; text-align: center;",
-			inner: "✕",
-			attrs: "data-cancel=\"1\"",
-			cls: "nxBox"
-		}) + `<div data-slot="version" style="position: absolute; left: 37px; top: 78px; font-family: sans-serif; font-weight: 600; font-stretch: condensed; letter-spacing: 1px; color: #FDE5B6;"></div><div data-slot="auto" style="position: absolute; right: 67px; top: 71px;"></div><div class="nxList" data-slot="content" style="left: ${CONTENT_X}px; top: ${CONTENT_TOP}px; width: ${CONTENT_W}px; height: ${contentH}px; user-select: text; padding-top: 6px; mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);"></div>` + win.part("data-part=\"start\"", mediumButton(win, "green", 250, buttonsY, options.startText, "data-start=\"1\"")) + win.part("data-part=\"cancel\"", mediumButton(win, "boring", 410, buttonsY, options.cancelText, "data-cancel=\"1\"")));
+		const frameHtml = (stageW) => {
+			const frameW = frameWidth(stageW);
+			const headerX = FRAME_X + frameW / 2 - HEADER_W / 2;
+			return piece("PopupBG_12_12_12_12", 20, 55, {
+				render: {
+					width: frameW - 26,
+					height: frameH - 22
+				},
+				size: [frameW - 26, frameH - 22],
+				fallback: "background: #190e08; border-radius: 10px;"
+			}) + piece("mainframeSep_64_64_2_2", FRAME_X, FRAME_Y, {
+				render: {
+					width: frameW,
+					height: frameH
+				},
+				size: [frameW, frameH],
+				fallback: "border: 3px solid #ce9767; border-radius: 12px;",
+				cls: "nxNoHit"
+			}) + piece("header_178_178_2", headerX, 14, {
+				render: { width: HEADER_W },
+				size: [HEADER_W, 56],
+				fallback: "background: linear-gradient(180deg, #8a5a2a, #4a2a10); border-radius: 10px;",
+				cls: "nxNoHit"
+			}) + label(options.title, headerX + 60, 14, 240, 56, 24, C.title) + label(options.hint, 157, TOP_ROW, frameW - 300, 24, 16, C.hint) + piece("closeButton_32", FRAME_X + frameW - 43, 26, {
+				size: [46, 46],
+				fallback: "background: #8a1c12; border: 2px solid #ce9767; border-radius: 50%; color: #fff; font: 700 20px/42px sans-serif; text-align: center;",
+				inner: "✕",
+				attrs: "data-cancel=\"1\"",
+				cls: "nxBox"
+			});
+		};
+		win.render(win.part("data-part=\"frame\"", frameHtml(STAGE_W)) + `<div data-slot="version" style="position: absolute; left: 37px; top: 78px; font-family: sans-serif; font-weight: 600; font-stretch: condensed; letter-spacing: 1px; color: #FDE5B6;"></div><div data-slot="auto" style="position: absolute; right: 67px; top: 71px;"></div><div class="nxList" data-slot="content" style="left: ${CONTENT_X}px; top: ${CONTENT_TOP}px; width: ${contentWidth(STAGE_W)}px; height: ${contentH}px; user-select: text; padding-top: 6px; mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);"></div>` + win.part("data-part=\"start\"", mediumButton(win, "green", 250, buttonsY, options.startText, "data-start=\"1\"")) + win.part("data-part=\"cancel\"", mediumButton(win, "boring", 410, buttonsY, options.cancelText, "data-cancel=\"1\"")));
 		win.paintTexts();
 		const slot = (name) => win.stage.querySelector(`[data-slot="${name}"]`);
 		const part = (name) => win.stage.querySelector(`[data-part="${name}"]`);
@@ -9222,6 +9237,14 @@
 						const el = part(name);
 						if (el) el.style.display = visible ? "contents" : "none";
 					}
+				},
+				setWide: (wide) => {
+					const stageW = wide ? WIDE_STAGE_W : STAGE_W;
+					if (win.stage.offsetWidth === stageW) return;
+					const frame = part("frame");
+					if (frame) win.render(frameHtml(stageW), frame);
+					slot("content").style.width = `${contentWidth(stageW)}px`;
+					win.resize(stageW, stageH);
 				}
 			}, answer);
 			window.addEventListener("keydown", onKey, true);
@@ -9965,6 +9988,7 @@
 					form,
 					buff: buffAmount,
 					setButtonsVisible,
+					setWide: (wide) => host.setWide?.(wide),
 					onGo: goWithPreset,
 					keepExtraCoins: loadChapterSettings(eventId, activeChapter).keepExtraCoins,
 					chapterNumber: chapterNumbers[activeChapter] ?? 0,
