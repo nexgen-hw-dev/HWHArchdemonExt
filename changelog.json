@@ -1,0 +1,1670 @@
+[
+ {
+  "version": "1.51-beta",
+  "date": "2026-11-25",
+  "ru": [
+   "Новый блок «На свой риск» внизу окна настройки: две галки, общие для всех глав, для ручной настройки и для готовых сборок. Включить их можно только через окно подтверждения, снять — сразу.",
+   "«Продавать все лишние части героев в каждой лавке»: у героя остаётся ровно столько частей, сколько нужно по сборке, остальное продаётся сразу — со старта главы и после каждой покупки, даже если ранг героя падает. В самой игре так продать нельзя. Героев, которых прогон возвысит, галка не трогает.",
+   "«Убрать все задержки, имитирующие действие реального игрока»: прогон идёт без пауз в лавке, перед боем и после, без паузы пропуска боя и без пауз между заходами. Ожидание главного босса и паузы после сбоев сервера остаются.",
+   "Перебор героев для проигрыша: если герой для проигрыша выиграл точку, следующий заход проигрывает следующим по слабости героем. Выиграли все — проигрыш переходит на следующую точку, до последней точки проигрыша в главе. Если и там не проиграл никто, прогон сбрасывает главу и останавливается с окном «стратегия не работает» вместо многочасового кружения. Так же и при указанном герое для проигрыша.",
+   "Исправлены мелкие ошибки интерфейса и неточности в описаниях."
+  ],
+  "en": [
+   "New \"At your own risk\" block at the bottom of the setup window: two checkboxes shared by all chapters, by manual setup and by ready-made builds. They can be turned on only through a confirmation window; turning them off is instant.",
+   "\"Sell all extra hero parts in every shop\": a hero keeps exactly as many parts as the build needs, the rest is sold at once — at the chapter start and after every purchase, even if the hero's rank drops. The game itself can't sell that way. Heroes the script will ascend are left alone.",
+   "\"Remove all delays that imitate a real player\": the script runs with no pauses in the stall, before and after battles, no battle-skip pause and no pauses between runs. The main boss wait and the pauses after server errors stay.",
+   "Throw rotation: if the throwing hero wins the point, the next run throws with the next weakest hero. Once all of them have won, throwing moves to the next point, up to the chapter's last throw point. If nobody loses there either, the script resets the chapter and stops with a \"strategy does not work\" window instead of spinning for hours. The same applies when a throwing hero is set.",
+   "Fixed minor interface bugs and inaccuracies in descriptions."
+  ]
+ },
+ {
+  "version": "1.50-beta",
+  "date": "2026-11-22",
+  "ru": [
+   "Докупка перед атакой больше не ограничена скидками. Порядок: часть проходного, если поднимет его ранг; проходной, которого нет на руках; новый герой со скидкой; закреплённый лот по любой цене; сильнейший новый герой по полной цене; случайная карта — последней.",
+   "Лот берётся только ради героя, которого нет на руках: часть уже имеющегося героя лишнего бойца в бой не добавит.",
+   "Слоты в бою сначала получают проходные, герои сборки и герой для проигрыша. Лишние герои сверх слотов не воюют и продаются в ближайшей лавке, самый слабый первым. Героев сборки прогон не продаёт: купил четвёртым героя сборки — идёт вчетвером.",
+   "Журнал вместо «докупить не на что» пишет точнее: «в лавке нет подходящего героя» или «на героя не хватает монет»."
+  ],
+  "en": [
+   "Buying before an attack is no longer limited to discounts. Order: a carry hero's part if it raises the rank; a carry hero not on hand; a new hero at a discount; a pinned lot at any price; the strongest new hero at full price; a random card last.",
+   "A lot is bought only for a hero who is not on hand: a part of a hero you already have adds no extra fighter.",
+   "Battle slots go first to carry heroes, build heroes and the throwing hero. Extra heroes beyond the slots don't fight and are sold at the next stall, weakest first. Build heroes are never sold: if the fourth hero bought is from the build, the script fights with four.",
+   "The run log says more precisely what went wrong instead of \"nothing to buy\": \"no suitable hero in the stall\" or \"not enough coins for a hero\"."
+  ]
+ },
+ {
+  "version": "1.49-beta",
+  "date": "2026-11-22",
+  "ru": [
+   "Герой, докупленный перед атакой, теперь действительно идёт в бой: с точки докупки и до конца главы мест в бою больше на число докупленных. В 1.48 купленный мог остаться в запасе, и точку били вдвоём.",
+   "Пустой ответ сервера на конец боя больше не останавливает прогон: через несколько секунд он проверяет состояние главы и, если точка засчитана, идёт дальше, иначе начинает заход заново. Конец боя второй раз не отправляется."
+  ],
+  "en": [
+   "A hero bought before an attack now really goes into battle: from the buying point to the end of the chapter there are as many extra battle slots as heroes bought. In 1.48 the bought hero could stay in reserve, and the point was fought by two heroes.",
+   "An empty server answer to a battle end no longer stops the script: a few seconds later it checks the chapter state and goes on if the point was counted, otherwise it starts the run again. The battle end is never sent twice."
+  ]
+ },
+ {
+  "version": "1.48-beta",
+  "date": "2026-11-22",
+  "ru": [
+   "Окно готовых сборок: над списком выбор главы — «Все» или I…VI, при открытии отмечена глава из окна настройки. На время сборок окно шире, таблица и «Поехали» больше не обрезаются. Строка про автора сборки в шапке убрана.",
+   "«Поехали» запускает прогон в той главе, под которую сделана сборка. Не хватает Амулета на эту главу — кнопка серая, подсказка говорит, какой уровень нужен.",
+   "Стратегия прогона теперь зависит только от главы, а не от усиления: сборки главы I при любом усилении больше не говорят «стратегии прогона нет».",
+   "Стратегия сборки может просить докупку перед атакой на нужной точке: часть проходного, если поднимет ранг; проходной не на руках; любой герой со скидкой.",
+   "Окно выбора героев: заголовок больше не наезжает на поле поиска, набранный текст выглядит как в игре.",
+   "В окне сбоя первой строкой «Подробнее» — версии дополнения и помощника. Пустой ответ сервера при начале боя — заход заново вместо остановки прогона."
+  ],
+  "en": [
+   "Ready-made builds window: a chapter choice above the list — \"All\" or I…VI, with the setup window's chapter marked on opening. The window is wider while builds are shown, so the table and \"Let's go\" are no longer cut off. The line about the build author in the header is gone.",
+   "\"Let's go\" starts the script in the chapter the build was made for. If your Amulet is too low for that chapter, the button is grey and its hint says which level is needed.",
+   "The run strategy now depends only on the chapter, not on the buff: chapter I builds no longer say \"no run strategy\" at any buff.",
+   "A build's strategy can ask to buy heroes before an attack at a given point: a carry hero's part if it raises the rank; a carry hero not on hand; any hero at a discount.",
+   "Hero selection window: the title no longer overlaps the search field, and the typed text looks like in the game.",
+   "The failure window's \"Details\" now start with the add-on and helper versions. An empty server answer at a battle start restarts the run instead of stopping the script."
+  ]
+ },
+ {
+  "version": "1.47-beta",
+  "date": "2026-11-21",
+  "ru": [
+   "Внутренняя переработка: расчёт боя ищет нужные поля в клиенте игры по одной общей карте и стал устойчивее к новым сборкам клиента. Для игрока ничего не меняется."
+  ],
+  "en": [
+   "Internal rework: the battle calculation finds the game client fields through one shared map and copes better with new client builds. Nothing changes for players."
+  ]
+ },
+ {
+  "version": "1.46-beta",
+  "date": "2026-11-20",
+  "ru": [
+   "Поддержка Приключения 23–30 ноября после его переделки игрой: 6 глав, две эмблемы — перед боями 2 и 8, новая лавка события, со старта в каждой главе К'арх и Водрин по 3 части, множители урона по Архидемону ×1…×1,9.",
+   "Глава VI, где после главного босса два Архидемона, в окне показывается правильно: 8 точек и все точки проигрыша.",
+   "Бирну к точке 1 в этом событии взять нельзя — её нет в новой лавке; Марту можно."
+  ],
+  "en": [
+   "Support for the November 23–30 Adventure after the game reworked it: 6 chapters, two emblems — before battles 2 and 8, a new event stall, K'arkh and Wodryn with 3 parts each at the start of every chapter, Archdemon damage multipliers ×1…×1.9.",
+   "Chapter VI, which has two Archdemons after the main boss, now shows correctly in the window: 8 points and all throw points.",
+   "Birna can't be taken to point 1 in this event — she is not in the new stall; Martha can."
+  ]
+ },
+ {
+  "version": "1.45-beta",
+  "date": "2026-11-20",
+  "ru": [
+   "Если сервер включит пересев боя (новое зерно на ультах), заранее посчитанный бой он не примет. На таком бою прогон останавливается с понятной причиной и не отправляет конец боя — бой нужно закончить в игре вручную. Пока сервер так не делает, для игрока ничего не меняется."
+  ],
+  "en": [
+   "If the server turns on battle reseeding (a new seed on ultimates), it will not accept a battle computed in advance. On such a battle the script stops with a clear reason and does not send the battle end — finish that battle in the game by hand. Until the server does this, nothing changes for players."
+  ]
+ },
+ {
+  "version": "1.44-beta",
+  "date": "2026-11-20",
+  "ru": [
+   "Расчёт боя снова работает на сборке клиента игры от 20 ноября: игра сдвинула внутреннее поле, и расчёт падал с ошибкой «нет сигнала конца боя». Теперь нужные поля ищутся по их смыслу, а не по номеру.",
+   "Английские тексты приведены к английской игре: ранги Violet, Orange, Red; части героев — fragments, как в лавке; buff вместо boost; смена эмблем — Emblem refresh."
+  ],
+  "en": [
+   "The battle calculation works again on the November 20 game client build: the game moved an internal field and the calculation failed with \"no battle end signal\". The needed fields are now found by what they do, not by their position.",
+   "English texts now match the English game: ranks Violet, Orange, Red; hero parts are fragments, as in the stall; buff instead of boost; emblem change is Emblem refresh."
+  ]
+ },
+ {
+  "version": "1.43-beta",
+  "date": "2026-11-19",
+  "ru": [
+   "Окна выбора проходных, героев для проигрыша и «Кого возвысить» снова сохраняют пустой список: проходных скрипт подберёт сам, проигрывает самый слабый на руках, возвышается основной состав. Окно целевого состава по-прежнему просит хотя бы одного героя."
+  ],
+  "en": [
+   "The carry heroes, throwing heroes and \"Whom to ascend\" windows can save an empty list again: the script picks carry heroes itself, the weakest hero on hand throws, and the main team is ascended. The target team window still needs at least one hero."
+  ]
+ },
+ {
+  "version": "1.42-beta",
+  "date": "2026-11-19",
+  "ru": [
+   "Короткие подсказки в окне настройки. У проходных: «До выбранного ранга докупаются по ходу главы. Не указаны — скрипт подберёт их сам». У героев для проигрыша: «Проигрывает один, самый слабый из них. Не указаны — скрипт выберет сам»."
+  ],
+  "en": [
+   "Short hints in the setup window. Carry heroes: \"Topped up to the chosen rank along the chapter. Not set — the script picks them itself\". Throwing: \"One of them throws, the weakest on hand. Not set — the script picks one itself\"."
+  ]
+ },
+ {
+  "version": "1.41-beta",
+  "date": "2026-11-19",
+  "ru": [
+   "Проходных можно не указывать: скрипт берёт героев с рук и каждые 5 заходов, где не хватило сил, добавляет в бой ещё одного, до пяти.",
+   "Кнопка в меню помощника теперь «ArchRank» с картинкой; имена героев в журнале без номеров; Escape в окне сборок — «Назад»."
+  ],
+  "en": [
+   "Carry heroes are now optional: the script uses heroes at hand and adds one more to battle every 5 runs where the team was too weak, up to five.",
+   "The helper menu button is now \"ArchRank\" with a picture; hero names in the run log have no numbers; Escape in ready-made builds goes Back."
+  ]
+ },
+ {
+  "version": "1.40-beta",
+  "date": "2026-11-19",
+  "ru": [
+   "Внутренняя ошибка сервера игры (E_Internal) больше не останавливает прогон: запрос повторяется или заход начинается заново.",
+   "Переводчик Chrome больше не портит номера глав; исправлены пустые портреты в окне выбора героев."
+  ],
+  "en": [
+   "The game server's internal error (E_Internal) no longer stops the script: the request is retried or the run restarts.",
+   "Chrome's translator no longer mangles chapter numbers; fixed empty portraits in the hero selection window."
+  ]
+ },
+ {
+  "version": "1.39-beta",
+  "date": "2026-11-19",
+  "ru": [
+   "Не все проходные обязательны: в бой идут те, кого удалось взять, недостающих скрипт докупает по ходу главы.",
+   "Новые галки: «Покупать проходных за любую цену» (без неё — только со скидкой) и «Не проигрывать точку»."
+  ],
+  "en": [
+   "Not all carry heroes are required: the script attacks with those it got and buys the missing ones later in the chapter.",
+   "New options: \"Buy carry heroes at any price\" (otherwise only at a discount) and \"Do not throw on purpose\"."
+  ]
+ },
+ {
+  "version": "1.38-beta",
+  "date": "2026-11-18",
+  "ru": [
+   "Готовые сборки могут задавать «старт»: на точке 1 скрипт докупает героев со скидкой, чтобы в бой шли до пяти.",
+   "По ходу главы докупаются герои основной пачки со скидкой, самый слабый лишний герой продаётся."
+  ],
+  "en": [
+   "Ready-made builds can set a \"start\": at point 1 the script buys discounted heroes so that up to five go into battle.",
+   "During the chapter, discounted main-team heroes are bought and the weakest extra hero is sold."
+  ]
+ },
+ {
+  "version": "1.37-beta",
+  "date": "2026-11-18",
+  "ru": [
+   "Русские тексты сверены с игрой: «случайные фрагменты», «Оранжевый, 100», «Обновление эмблем», «фрагменты героев», «лоты»."
+  ],
+  "en": [
+   "Russian texts now use the game's own terms (random fragments, rank names, emblem refresh, lots)."
+  ]
+ },
+ {
+  "version": "1.36-beta",
+  "date": "2026-11-18",
+  "ru": [
+   "Галка «Оставлять лишние монеты» появилась и в ручной настройке, своя у каждой главы, по умолчанию включена.",
+   "Если её снять, лишние монеты после сбора пака тратятся на обновления лавки до заданного минимума."
+  ],
+  "en": [
+   "The \"Keep extra coins\" option is now in manual setup too, separate for each chapter and on by default.",
+   "With it off, extra coins after the team is complete are spent on stall refreshes down to the set minimum."
+  ]
+ },
+ {
+  "version": "1.35-beta",
+  "date": "2026-11-18",
+  "ru": [
+   "В шапке журнала видна цель по монетам (например, «→ 860–863»), если монеты заданы в настройке или в сборке."
+  ],
+  "en": [
+   "The run log header shows the coin target (e.g. \"→ 860–863\") when coins are set in the setup or in the build."
+  ]
+ },
+ {
+  "version": "1.34-beta",
+  "date": "2026-11-18",
+  "ru": [
+   "Иконки эмблем в окне готовых сборок и в окне настройки больше не наезжают друг на друга."
+  ],
+  "en": [
+   "Emblem icons in the ready-made builds and setup windows no longer overlap."
+  ]
+ },
+ {
+  "version": "1.33-beta",
+  "date": "2026-11-18",
+  "ru": [
+   "Журнал: проходные всегда в своей группе колонки прогресса и не тускнеют от закрепов.",
+   "Окно сборок: столбец «Глава» (I–VI или «любая»), усиление 0 показывается как «0»."
+  ],
+  "en": [
+   "Run log: carry heroes always stay in their own group in the progress column and no longer dim because of pins.",
+   "Ready-made builds window: a \"Chapter\" column (I–VI or \"any\"); buff 0 is shown as \"0\"."
+  ]
+ },
+ {
+  "version": "1.32-beta",
+  "date": "2026-11-18",
+  "ru": [
+   "В начале главы под капитал ненужные фрагменты стартовых героев продаются сразу, до первой покупки на точке 1."
+  ],
+  "en": [
+   "At the start of a chapter played for capital, unneeded fragments of starting heroes are sold before the first purchase at point 1."
+  ]
+ },
+ {
+  "version": "1.31-beta",
+  "date": "2026-11-18",
+  "ru": [
+   "Окно настройки шире, каждая глава в одну строку с множителем урона по Архидемону.",
+   "Главы, закрытые по Амулету, неактивны и показывают уровень Амулета красным (например, «Амулет 1/5»)."
+  ],
+  "en": [
+   "The setup window is wider; each chapter fits on one line with its Archdemon damage multiplier.",
+   "Chapters locked by Amulet are greyed out and show the Amulet level in red (e.g. \"Amulet 1/5\")."
+  ]
+ },
+ {
+  "version": "1.30-beta",
+  "date": "2026-11-16",
+  "ru": [
+   "Подбор победы на точке: выключен режим, не давший ни одной победы; все расчёты идут на способ, который выигрывает."
+  ],
+  "en": [
+   "Win search at a point: the mode that gave no wins is turned off; all attempts now go to the method that does win."
+  ]
+ },
+ {
+  "version": "1.29-beta",
+  "date": "2026-11-16",
+  "ru": [
+   "Подбор победы на точке сначала пробует способ «Улучшить» помощника: короткие бои Приключения больше не проигрываются заход за заходом."
+  ],
+  "en": [
+   "Win search at a point first tries the helper's \"Improve\" method: short Adventure battles are no longer lost run after run."
+  ]
+ },
+ {
+  "version": "1.28-beta",
+  "date": "2026-11-14",
+  "ru": [
+   "Если нужной эмблемы нет, скрипт использует бесплатные перебросы эмблем главы, а не сбрасывает главу."
+  ],
+  "en": [
+   "If the needed emblem is not offered, the script uses the chapter's free emblem rerolls instead of resetting the chapter."
+  ]
+ },
+ {
+  "version": "1.27-beta",
+  "date": "2026-11-14",
+  "ru": [
+   "Эмблема возвышения: скрипт возвышает полностью собранных героев перед Архидемоном (30 монет, +20% ко всем характеристикам).",
+   "В окне настройки — блок «Кого возвысить», в стратегии готовой сборки — список героев для возвышения."
+  ],
+  "en": [
+   "Emblem of Ascension: the script ascends fully collected heroes before the Archdemon (30 coins, +20% to all stats).",
+   "The setup window has a \"Who to ascend\" block; ready-made build strategies can list heroes to ascend."
+  ]
+ },
+ {
+  "version": "1.26-beta",
+  "date": "2026-11-11",
+  "ru": [
+   "Готовые сборки привязаны к событию: окно показывает сборки идущего события и сборки без события.",
+   "Сборка под капитал без стратегии для главы и усиления больше не запускается — «Поехали» объясняет почему."
+  ],
+  "en": [
+   "Ready-made builds are tied to an event: the window shows builds for the current event and builds with no event.",
+   "A capital build with no strategy for the chapter and buff no longer starts; \"Let's go\" explains why."
+  ]
+ },
+ {
+  "version": "1.25-beta",
+  "date": "2026-11-06",
+  "ru": [
+   "Готовые сборки по главам: окно показывает сборки выбранной главы и сборки без главы.",
+   "Стратегия сборки может задавать случайные фрагменты на точке 1, запас обновлений лавки и обновления ради героя для проигрыша."
+  ],
+  "en": [
+   "Ready-made builds by chapter: the window shows builds for the selected chapter and builds with no chapter.",
+   "A build strategy can set random fragments at point 1, a stall refresh reserve and refreshes to find the throwing hero."
+  ]
+ },
+ {
+  "version": "1.24-beta",
+  "date": "2026-11-06",
+  "ru": [
+   "Настройки окна сохраняются отдельно для каждой главы и только в рамках события; новое событие начинается с пустых.",
+   "Окно открывается на главе, выбранной в этом событии раньше; любое изменение сохраняется сразу."
+  ],
+  "en": [
+   "Setup window settings are saved per chapter and per event; a new event starts with empty settings.",
+   "The window opens on the chapter chosen earlier in this event; every change is saved immediately."
+  ]
+ },
+ {
+  "version": "1.23-beta",
+  "date": "2026-11-06",
+  "ru": [
+   "Поддержка Приключений, где Архидемон снова в конце каждой главы: 8 точек, 8-я — главный босс, затем Архидемон.",
+   "В окне у глав — множитель урона по Архидемону; проигрывать можно на любой обычной точке главы."
+  ],
+  "en": [
+   "Support for Adventures with the Archdemon at the end of every chapter again: 8 points, the 8th is the main boss, then the Archdemon.",
+   "The window shows each chapter's Archdemon damage multiplier; you can throw at any regular point of the chapter."
+  ]
+ },
+ {
+  "version": "1.22-beta",
+  "date": "2026-11-03",
+  "ru": [
+   "Полоса прокрутки в окне настройки и окне выбора героев и поле поиска героев — как в игре."
+  ],
+  "en": [
+   "The scrollbar in the setup and hero selection windows and the hero search field now look like the game's."
+  ]
+ },
+ {
+  "version": "1.21-beta",
+  "date": "2026-11-03",
+  "ru": [
+   "Скрытый режим разработки для просмотра окна настройки без идущего события; для игрока без изменений."
+  ],
+  "en": [
+   "Hidden developer mode to view the setup window without a running event; nothing changes for players."
+  ]
+ },
+ {
+  "version": "1.20-beta",
+  "date": "2026-11-03",
+  "ru": [
+   "Окно настройки ArchRank — в рамке игры, с кнопками «Начать» и «Отмена» и номером версии в шапке.",
+   "Окна помощника больше не закрывают окно настройки; крестик и Escape работают как «Отмена»."
+  ],
+  "en": [
+   "The ArchRank setup window now uses the game's frame, with Start and Cancel buttons and the version number in the header.",
+   "Helper windows no longer close the setup window; the close button and Escape act as Cancel."
+  ]
+ },
+ {
+  "version": "1.19-beta",
+  "date": "2026-11-03",
+  "ru": [
+   "Окно перед Архидемоном в английской игре теперь полностью по-английски.",
+   "Подбор сборки эмуляцией боёв (ArchRank auto) вынесен в отдельный скрипт; пока не выпущен."
+  ],
+  "en": [
+   "The window before the Archdemon is now fully in English in the English game.",
+   "Build search by battle simulation (ArchRank auto) moved to a separate script; not released yet."
+  ]
+ },
+ {
+  "version": "1.18-beta",
+  "date": "2026-11-02",
+  "ru": [
+   "Готовые сборки несут стратегию прогона: проходные, кем и на какой точке проигрывать — для своего диапазона усиления.",
+   "Бой рассчитывается самим скриптом на движке игры; подбор победы на точке переписан."
+  ],
+  "en": [
+   "Ready-made builds carry a run strategy: carry heroes, who throws and at which point, for their buff range.",
+   "Battles are calculated by the script itself on the game engine; the win search at a point was rewritten."
+  ]
+ },
+ {
+  "version": "1.17-beta",
+  "date": "2026-11-01",
+  "ru": [
+   "Без заданного минимума монет финальная закупка продаёт все лишние части героев; монеты в шапке журнала меняются сразу после покупки.",
+   "У закрепа в журнале — цена и причина снятия; новая версия проверяется раз в час, готовые сборки обновляются каждые 15 минут."
+  ],
+  "en": [
+   "Without a set coin minimum, the final purchase sells all surplus hero parts; coins in the run log header update right after each purchase.",
+   "Pin lines show the price and why a pin was removed; update check once an hour, ready-made builds refresh every 15 minutes."
+  ]
+ },
+ {
+  "version": "1.16-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Новая версия замечается за 5 минут, а «Обновить» появляется, когда обновление уже можно установить с Greasy Fork."
+  ],
+  "en": [
+   "A new version is noticed within 5 minutes, and Update appears only once the update can be installed from Greasy Fork."
+  ]
+ },
+ {
+  "version": "1.15-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Если в конце финальной закупки монет чуть меньше минимума, лишние части героев продаются по одной, пока не хватит; иначе не продаётся ничего."
+  ],
+  "en": [
+   "If coins are just below the minimum at the end of the final purchase, surplus hero parts are sold one by one to reach it; otherwise none are sold."
+  ]
+ },
+ {
+  "version": "1.14-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Бой на точке отправляется так же, как с «Исправить» помощника; «Стоп» сразу прерывает подбор победы и поиск проигрыша.",
+   "Прогон не начинает бой с главным боссом или без пропуска и встаёт с окном сбоя."
+  ],
+  "en": [
+   "Point battles are sent the same way as with the helper's Fix; Stop now interrupts the win search and the loss search at once.",
+   "The script will not start a main boss battle or a battle without skip; it stops with an error window instead."
+  ]
+ },
+ {
+  "version": "1.13-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Подбор победы на точке ищет по всей длине боя, а не только до 25-й секунды: меньше проигранных точек и лишних заходов."
+  ],
+  "en": [
+   "The win search on a point now covers the whole battle, not just the first 25 seconds: fewer lost points and repeated runs."
+  ]
+ },
+ {
+  "version": "1.12-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Улучшенная победа на точке и найденный проигрыш отправляются через 1–2 с; раньше победа ждала длину боя, 40–60 с."
+  ],
+  "en": [
+   "An improved win on a point and a found throw loss are sent after 1–2 s; before, the win waited 40–60 s for the battle length."
+  ]
+ },
+ {
+  "version": "1.11-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Таблица готовых сборок без пустот: колонки по ширине содержимого, ники авторов помещаются, длинный переносится, а не обрезается."
+  ],
+  "en": [
+   "The ready-made builds table has no empty gaps: columns fit their content, author names fit, long ones wrap instead of being cut."
+  ]
+ },
+ {
+  "version": "1.10-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Ссылки в окне готовых сборок ведут на страницы текущего события.",
+   "Сборка без Эмблемы капитала первой идёт без проходных и без проигрыша точки."
+  ],
+  "en": [
+   "Links in the ready-made builds window lead to the current event's pages.",
+   "A build whose first emblem is not Emblem of Capital runs without carry heroes and without a throw."
+  ]
+ },
+ {
+  "version": "1.09-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "О новой версии дополнение узнаёт за полчаса, а окно настройки показывает «Обновить», не закрываясь.",
+   "Колонка прогресса в журнале больше не прокручивается вбок, булавка закрепа — внутри иконки."
+  ],
+  "en": [
+   "A new version is noticed within half an hour, and the setup window shows Update without being reopened.",
+   "The progress column in the run log no longer scrolls sideways; the pin icon stays inside the tile."
+  ]
+ },
+ {
+  "version": "1.08-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Окно «Остановлено» и другие итоговые окна помощника больше не прячутся под журналом.",
+   "В колонке прогресса — группа лишних питомцев на продажу; журнал уже, монеты в шапке крупнее и зелёные."
+  ],
+  "en": [
+   "The Stopped window and other result windows of the helper no longer hide under the run log.",
+   "The progress column shows a group of extra pets to sell; the run log is narrower, header coins are larger and green."
+  ]
+ },
+ {
+  "version": "1.07-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "В окне выбора героев — поиск по части имени на языке игры.",
+   "Кнопка «Обновить» теперь выглядит как зелёная кнопка помощника."
+  ],
+  "en": [
+   "The hero picker has a search field: type part of a name in the game's language.",
+   "The Update button now looks like the helper's green button."
+  ]
+ },
+ {
+  "version": "1.06-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Окно настройки по умолчанию без проходных и героя для проигрыша, точка проигрыша — 5; сохранённый выбор не меняется.",
+   "Готовые сборки подбирают проходных и героя для проигрыша по усилению игрока; подсказка на «Поехали» их называет."
+  ],
+  "en": [
+   "The setup window defaults to no carry heroes and no throwing hero, throw point 5; saved choices are kept.",
+   "Ready-made builds pick carry heroes and the throwing hero by your buff; the Let's go tooltip names them."
+  ]
+ },
+ {
+  "version": "1.05-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Подменю убрано: пункт «Приключение (Arch)» в «Разном» сразу открывает окно настройки.",
+   "Номер версии и кнопка «Обновить» — в левом верхнем углу окна настройки; после прогона ничего само не открывается."
+  ],
+  "en": [
+   "No submenu: the Adventure (Arch) item in the helper's Others menu opens the setup window directly.",
+   "The version number and the Update button are in the top left of the setup window; nothing opens by itself after a run."
+  ]
+ },
+ {
+  "version": "1.04-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "При загрузке игры дополнение проверяет новую версию; если она вышла — меню показывает её номер и кнопку «Обновить»."
+  ],
+  "en": [
+   "On game load the add-on checks for a new version; if there is one, the menu shows its number and an Update button."
+  ]
+ },
+ {
+  "version": "1.03-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Колонка прогресса в журнале — по пять иконок в ряд, состав из пяти героев помещается одним рядом."
+  ],
+  "en": [
+   "The progress column in the run log shows five icons per row, so a five-hero team fits in one row."
+  ]
+ },
+ {
+  "version": "1.02-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Журнал пишет действия в лавке — закреп, снятие закрепа, покупку и продажу — с иконками героев и питомцев; у покупки и продажи — цена."
+  ],
+  "en": [
+   "The run log shows stall actions (pin, unpin, buy, sell) with hero and pet icons; buys and sells show the price."
+  ]
+ },
+ {
+  "version": "1.01-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "В журнале слева — колонка прогресса: иконки героев и питомцев сборки, под каждой «есть/нужно», закреплённые — с булавкой.",
+   "Исправлен журнал: свёрнутая строка не переносится, после разворачивания видны последние строки, бой на точке виден свёрнутым."
+  ],
+  "en": [
+   "The run log has a progress column on the left: build heroes and pets with have/need under each icon; pinned ones show a pin.",
+   "Run log fixes: the collapsed line no longer wraps, expanding shows the latest lines, point battles are visible when collapsed."
+  ]
+ },
+ {
+  "version": "1.00-beta",
+  "date": "2026-10-31",
+  "ru": [
+   "Журнал можно таскать за шапку и сворачивать до двух строк; место и свёрнутость запоминаются.",
+   "Новая строка «Точка N взята» после подтверждённой победы; номера версий теперь с 1.00 и пометкой beta."
+  ],
+  "en": [
+   "The run log can be dragged by its header and collapsed to two lines; its position and state are remembered.",
+   "New run log line \"Point N taken\" after a confirmed win; versions are now numbered from 1.00 with a beta tag."
+  ]
+ },
+ {
+  "version": "0.99-alpha",
+  "date": "2026-10-27",
+  "ru": [
+   "Окна сбоя показывают версию дополнения и свёрнутое «Подробнее» с текстом ошибки, который можно скопировать.",
+   "Журнал пишет, найдена ли улучшенная победа и когда она уйдёт; после каждого боя на точке — строка в консоли."
+  ],
+  "en": [
+   "Error windows show the add-on version and a collapsible Details section with the error text you can copy.",
+   "The run log says whether an improved win was found and when it will be sent; each point battle adds a console line."
+  ]
+ },
+ {
+  "version": "0.98-alpha",
+  "date": "2026-10-26",
+  "ru": [
+   "С Эмблемой капитала окно настройки не даёт выбрать проходных, которых не взять к точке 1, и говорит, кого дают на старте.",
+   "Если проходного 60 заходов подряд нет ни на руках, ни в лавке на точке 1, прогон встаёт, а не сбрасывает главу без конца."
+  ],
+  "en": [
+   "With Emblem of Capital, the setup window rejects carry heroes that cannot be obtained by point 1 and lists the starting heroes.",
+   "If a carry hero is neither owned nor in the stall at point 1 for 60 runs in a row, the script stops instead of resetting the chapter."
+  ]
+ },
+ {
+  "version": "0.97-alpha",
+  "date": "2026-10-26",
+  "ru": [
+   "Дополнение снова работает: в игре талисманы стали эмблемами, окно настройки больше не срывается.",
+   "Эмблемы, которые в игре не выпадают, в окне настройки не показываются; в текстах — «эмблема» и «Эмблема капитала»."
+  ],
+  "en": [
+   "The add-on works again: the game renamed talismans to emblems, and the setup window no longer fails to open.",
+   "Emblems the game never offers are hidden in the setup window; texts now say emblem and Emblem of Capital."
+  ]
+ },
+ {
+  "version": "0.96-alpha",
+  "date": "2026-10-19",
+  "ru": [
+   "В Приключении без Бездны пункт меню сообщает, что дополнение работает только с Бездной, и ничего не грузит заранее."
+  ],
+  "en": [
+   "In an Adventure without the Abyss, the menu item says the add-on only works with the Abyss and preloads nothing."
+  ]
+ },
+ {
+  "version": "0.95-alpha",
+  "date": "2026-10-19",
+  "ru": [
+   "Пока готовых сборок нет, окно показывает, когда они появятся, и ссылки на группы Telegram, каналы YouTube и сайты.",
+   "Пустой список сборок не хранится: новые сборки видны сразу при следующем открытии окна."
+  ],
+  "en": [
+   "While there are no ready-made builds, the window says when they will appear and links Telegram groups, YouTube channels and sites.",
+   "An empty builds list is not cached: new builds show up the next time the window is opened."
+  ]
+ },
+ {
+  "version": "0.94-alpha",
+  "date": "2026-10-06",
+  "ru": [
+   "Внутренние изменения, для игрока без изменений."
+  ],
+  "en": [
+   "Internal changes, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.93-alpha",
+  "date": "2026-10-06",
+  "ru": [
+   "Для игроков без изменений. У окна выбора героев отдельным файлом — лицензия MIT и примеры в описании."
+  ],
+  "en": [
+   "Nothing changes for players. The standalone hero picker file gets an MIT license and usage examples."
+  ]
+ },
+ {
+  "version": "0.92-alpha",
+  "date": "2026-10-06",
+  "ru": [
+   "Для игроков без изменений. Окно выбора отдельным файлом умеет открываться с героями и питомцами события и рангами 80/100/130."
+  ],
+  "en": [
+   "Nothing changes for players. The standalone picker file can open with the event's heroes, pets and ranks 80/100/130."
+  ]
+ },
+ {
+  "version": "0.91-alpha",
+  "date": "2026-10-06",
+  "ru": [
+   "Для игроков без изменений. Окно выбора героев и питомцев собрано и отдельным файлом, чтобы его мог взять помощник."
+  ],
+  "en": [
+   "Nothing changes for players. The hero and pet picker is also built as a standalone file the helper can use."
+  ]
+ },
+ {
+  "version": "0.90-alpha",
+  "date": "2026-10-06",
+  "ru": [
+   "Для игроков без изменений. Проверена работа с новой сборкой игры и помощником 2.463."
+  ],
+  "en": [
+   "Nothing changes for players. Checked against the new game build and helper 2.463."
+  ]
+ },
+ {
+  "version": "0.89-alpha",
+  "date": "2026-10-04",
+  "ru": [
+   "Внутренние описания запросов к серверу дополнены, для игрока без изменений."
+  ],
+  "en": [
+   "Internal descriptions of server requests extended, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.88-alpha",
+  "date": "2026-10-04",
+  "ru": [
+   "Внутреннее описание запросов игры к серверу, для игрока без изменений."
+  ],
+  "en": [
+   "Internal description of the game's server requests, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.87-alpha",
+  "date": "2026-10-04",
+  "ru": [
+   "Внутреннее описание данных игры, для игрока без изменений."
+  ],
+  "en": [
+   "Internal description of the game data, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.86-alpha",
+  "date": "2026-10-04",
+  "ru": [
+   "Окно настройки готовится заранее в фоне: первое открытие — около 0,2 с вместо 0,5–1,1 с, игра не замирает."
+  ],
+  "en": [
+   "The setup window is prepared in the background: the first open takes about 0.2 s instead of 0.5–1.1 s, the game does not stall."
+  ]
+ },
+ {
+  "version": "0.85-alpha",
+  "date": "2026-10-04",
+  "ru": [
+   "Первое за сессию открытие окна больше не подвешивает игру на 0,4 с."
+  ],
+  "en": [
+   "The first window opened in a session no longer freezes the game for 0.4 s."
+  ]
+ },
+ {
+  "version": "0.84-alpha",
+  "date": "2026-10-04",
+  "ru": [
+   "Окно настройки больше не меняет ширину при выборе талисмана."
+  ],
+  "en": [
+   "The setup window no longer changes width when you pick a talisman."
+  ]
+ },
+ {
+  "version": "0.83-alpha",
+  "date": "2026-10-03",
+  "ru": [
+   "Повторное «Изменить» открывает окно выбора сразу: около 18 мс вместо 140."
+  ],
+  "en": [
+   "Pressing Edit again opens the picker at once: about 18 ms instead of 140."
+  ]
+ },
+ {
+  "version": "0.82-alpha",
+  "date": "2026-10-03",
+  "ru": [
+   "Окна открываются быстрее: надписи рисуются разом, окно выбора — около 0,14 с вместо 0,2 с."
+  ],
+  "en": [
+   "Windows open faster: texts are drawn in one pass, the picker opens in about 0.14 s instead of 0.2 s."
+  ]
+ },
+ {
+  "version": "0.81-alpha",
+  "date": "2026-10-03",
+  "ru": [
+   "Прокрутка списка героев в окне выбора плавная, вкладки переключаются сразу.",
+   "Список героев помнит прокрутку после перехода на вкладку питомцев."
+  ],
+  "en": [
+   "Scrolling the hero list in the picker is smooth, tabs switch instantly.",
+   "The hero list keeps its scroll position after visiting the pets tab."
+  ]
+ },
+ {
+  "version": "0.80-alpha",
+  "date": "2026-10-03",
+  "ru": [
+   "Во время события окна загружают нужное заранее: первое открытие окна выбора — около 0,75 с вместо 2,2–2,6 с."
+  ],
+  "en": [
+   "During an event, windows preload what they need: the first picker open takes about 0.75 s instead of 2.2–2.6 s."
+  ]
+ },
+ {
+  "version": "0.79-alpha",
+  "date": "2026-10-03",
+  "ru": [
+   "Окно выбора отвечает на щелчок сразу: щелчок по герою — около 30 мс вместо 350."
+  ],
+  "en": [
+   "The picker reacts to clicks at once: selecting a hero takes about 30 ms instead of 350."
+  ]
+ },
+ {
+  "version": "0.78-alpha",
+  "date": "2026-10-03",
+  "ru": [
+   "Портреты в окнах легче, первое открытие окна выбора — около 2,7 с вместо 3,9 с."
+  ],
+  "en": [
+   "Lighter portraits in windows; the first picker open takes about 2.7 s instead of 3.9 s."
+  ]
+ },
+ {
+  "version": "0.77-alpha",
+  "date": "2026-10-03",
+  "ru": [
+   "Внутренняя перестройка окна выбора, для игрока без изменений."
+  ],
+  "en": [
+   "Internal rework of the picker, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.76-alpha",
+  "date": "2026-10-03",
+  "ru": [
+   "Исправлено: двойной щелчок по «Изменить» при первом открытии открывал два окна выбора, и состав мог сохраниться старым."
+  ],
+  "en": [
+   "Fixed: double-clicking Edit on the first open opened two pickers, and the team could be saved with the old picks."
+  ]
+ },
+ {
+  "version": "0.75-alpha",
+  "date": "2026-10-03",
+  "ru": [
+   "Внутренние изменения окон, для игрока без изменений."
+  ],
+  "en": [
+   "Internal changes to windows, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.74-alpha",
+  "date": "2026-10-03",
+  "ru": [
+   "Окно выбора состава выглядит как окно игры «Собери команду»: шрифт, кнопки, пустые места, фон и звёзды как в игре.",
+   "Пустые места в окне настройки — тоже как в игре."
+  ],
+  "en": [
+   "The team picker now looks like the game's own team window: game font, buttons, empty slots, background and stars.",
+   "Empty slots in the setup window also match the game."
+  ]
+ },
+ {
+  "version": "0.73-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Почти одинаковые оттенки в окнах и журнале сведены в один, на вид всё как прежде."
+  ],
+  "en": [
+   "Nearly identical shades in windows and the run log are unified; everything looks the same."
+  ]
+ },
+ {
+  "version": "0.72-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Со старым помощником дополнение не запускается, но пишет «HeroWarsHelper устарел, обновите его». Раньше молча не вставало."
+  ],
+  "en": [
+   "With an outdated helper the add-on does not start but shows \"HeroWarsHelper is outdated, please update it\"; before, it failed silently."
+  ]
+ },
+ {
+  "version": "0.71-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Строка «Тратим лишние монеты» в журнале по окончании траты показывает итог: монеты и бонус, как в окне «Готово»."
+  ],
+  "en": [
+   "The \"Spending extra coins\" run log line shows the result when spending ends: coins and bonus, as in the Done window."
+  ]
+ },
+ {
+  "version": "0.70-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Герой для проигрыша: сначала основная роль «Поддержка», потом она же среди дополнительных, затем так же «Танк», потом любой.",
+   "Внутри каждой ступени — у кого меньше фрагментов."
+  ],
+  "en": [
+   "Throwing hero: main Support role first, then Support as a secondary role, then the same for Tank, then anyone.",
+   "Within each step, the hero with the fewest fragments goes first."
+  ]
+ },
+ {
+  "version": "0.69-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Убран неиспользуемый код. «Старт» больше не требует от помощника таймера обратного отсчёта: у журнала свой отсчёт."
+  ],
+  "en": [
+   "Unused code removed. Start no longer needs the helper's countdown timer: the run log has its own countdown."
+  ]
+ },
+ {
+  "version": "0.68-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "В окне настройки до пяти героев для проигрыша; точку проигрывает один — самый слабый из тех, что на руках (поддержка, затем танк).",
+   "Хватает одного героя из списка: остальных не докупаем и не закрепляем."
+  ],
+  "en": [
+   "Setup window: up to five throwing heroes; one hero throws the point, the weakest one on hand (support first, then tank).",
+   "One hero from the list is enough: the others are not bought or pinned."
+  ]
+ },
+ {
+  "version": "0.67-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Строка закупки в журнале показывает итог — монеты и чего не хватает после последней покупки, а не числа с начала закупки."
+  ],
+  "en": [
+   "The purchase line in the run log now shows the result: coins and what is missing after the last purchase, not the numbers from the start."
+  ]
+ },
+ {
+  "version": "0.66-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Только тесты, для игрока без изменений."
+  ],
+  "en": [
+   "Tests only, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.65-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Сбой кнопок «Изменить» в окне настройки, «Обновить» в окне сборок и возврата в меню теперь пишется в консоль."
+  ],
+  "en": [
+   "Failures of the Edit button in the setup window, Refresh in the ready-made builds window and the return to the menu are now logged to the console."
+  ]
+ },
+ {
+  "version": "0.64-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Форматирование кода, для игрока без изменений."
+  ],
+  "en": [
+   "Code formatting, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.63-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Если окно настройки закрыло другое окно помощника (например, «Ошибка»), это считается «Отменой»: идущий прогон больше не встаёт молча.",
+   "Исправлены зависания прежнего прогона при двух окнах настройки подряд и при сбое нового «Старт»."
+  ],
+  "en": [
+   "If another helper window (e.g. Error) closes the setup window, it counts as Cancel: the auto-run in progress no longer stalls silently.",
+   "Fixed the previous auto-run hanging with two setup windows in a row or when a new Start fails."
+  ]
+ },
+ {
+  "version": "0.62-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Только тесты, для игрока без изменений."
+  ],
+  "en": [
+   "Tests only, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.61-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Только тесты, для игрока без изменений."
+  ],
+  "en": [
+   "Tests only, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.60-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Исправлено: при нескольких запусках подряд прогоны шли одновременно; теперь начинается только последний."
+  ],
+  "en": [
+   "Fixed: several starts in a row ran auto-runs at the same time; now only the last one starts."
+  ]
+ },
+ {
+  "version": "0.59-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "На странице один прогон: новый «Старт» останавливает идущий — тот доводит бой и действие в лавке, затем начинается новый.",
+   "Раньше два прогона шли рядом, а «Стоп» останавливал только второй."
+  ],
+  "en": [
+   "One auto-run per page: a new Start stops the running one; it finishes the battle and the stall action, then the new one begins.",
+   "Before, two auto-runs ran side by side and Stop only stopped the second one."
+  ]
+ },
+ {
+  "version": "0.58-alpha",
+  "date": "2026-10-02",
+  "ru": [
+   "Внутренние исправления после переделки 0.57, для игрока без изменений."
+  ],
+  "en": [
+   "Internal fixes after the 0.57 rework, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.57-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Внутренняя переделка прогона, для игрока без изменений."
+  ],
+  "en": [
+   "Internal rework of the auto-run, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.56-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Внутренняя переделка кода монет лавки и сборок, для игрока без изменений."
+  ],
+  "en": [
+   "Internal rework of the stall coins and ready-made builds code, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.55-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Данные игры читаются в одном месте, для игрока без изменений."
+  ],
+  "en": [
+   "Game data is read in one place, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.54-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Внутренние изменения, для игрока без изменений."
+  ],
+  "en": [
+   "Internal changes, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.53-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Внутренний стенд проверки поведения, для игрока без изменений."
+  ],
+  "en": [
+   "Internal behaviour test bench, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.52-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Уточнены внутренние описания, для игрока без изменений."
+  ],
+  "en": [
+   "Internal descriptions refined, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.51-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Весь код дополнения переведён на TypeScript, для игрока без изменений."
+  ],
+  "en": [
+   "All add-on code is now TypeScript, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.50-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Перевод на TypeScript продолжен, для игрока без изменений."
+  ],
+  "en": [
+   "TypeScript migration continued, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.49-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Перевод на TypeScript продолжен, для игрока без изменений."
+  ],
+  "en": [
+   "TypeScript migration continued, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.48-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Перевод на TypeScript продолжен, для игрока без изменений."
+  ],
+  "en": [
+   "TypeScript migration continued, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.47-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Глава считается платной по цене входа: выбрать можно только бесплатную, а если глава стала платной, прогон останавливается.",
+   "Лавка события находится и там, где у события несколько лавок (например, ещё фестивальная)."
+  ],
+  "en": [
+   "A chapter counts as paid by its entry price: only a free one can be chosen, and if a chapter becomes paid the script stops.",
+   "The event stall is now found in events with several stalls (e.g. an extra festival stall)."
+  ]
+ },
+ {
+  "version": "0.46-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Начат перевод кода на TypeScript, для игрока без изменений."
+  ],
+  "en": [
+   "Started moving the code to TypeScript, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.45-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Внутренняя перестройка кода, для игрока без изменений."
+  ],
+  "en": [
+   "Internal code cleanup, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.44-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Код разложен по папкам, для игрока без изменений."
+  ],
+  "en": [
+   "Code reorganized into folders, nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.43-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Новая сборка скрипта: один несжатый файл. Для игрока без изменений."
+  ],
+  "en": [
+   "New build process: a single uncompressed file. Nothing changes for players."
+  ]
+ },
+ {
+  "version": "0.42-alpha",
+  "date": "2026-10-01",
+  "ru": [
+   "Окно готовых сборок: подписи столбцов больше не наезжают друг на друга."
+  ],
+  "en": [
+   "Ready-made builds window: column headers no longer overlap."
+  ]
+ },
+ {
+  "version": "0.41-alpha",
+  "date": "2026-09-30",
+  "ru": [
+   "Галка «Оставлять лишние монеты» по умолчанию снята: лишнее после финальной лавки тратится до бонуса автора сборки.",
+   "Уже сохранённый выбор не меняется."
+  ],
+  "en": [
+   "“Keep extra coins” is now off by default: extra coins after the final stall are spent up to the build author's bonus.",
+   "An already saved choice stays as it was."
+  ]
+ },
+ {
+  "version": "0.40-alpha",
+  "date": "2026-09-30",
+  "ru": [
+   "Готовые сборки других игроков: кнопка в окне настройки, список и запуск прогона по выбранной сборке одной кнопкой.",
+   "В прогоне под Талисман капитала можно выбрать точку проигрыша: 5 или 7, по умолчанию 7."
+  ],
+  "en": [
+   "Ready-made builds from other players: a button in the setup window, a list and one-click start of the chosen build.",
+   "In a Talisman of Capital run you can choose which point to throw: 5 or 7, default 7."
+  ]
+ },
+ {
+  "version": "0.39-alpha",
+  "date": "2026-09-30",
+  "ru": [
+   "Прогон без Талисмана капитала меньше тратит на обновления лавки; проигрыш точки — сразу новый заход.",
+   "Галка «Остановиться перед Архидемоном» при несобранном составе; пункт в «Разном» не пропадает; за 10 мин до конца события заход не начинается."
+  ],
+  "en": [
+   "Runs without the Talisman of Capital spend less on stall refreshes; losing a point starts a new run right away.",
+   "Option to stop before the Archdemon with an incomplete team; menu item no longer disappears; no new run within 10 min of the event end."
+  ]
+ },
+ {
+  "version": "0.38-alpha",
+  "date": "2026-09-28",
+  "ru": [
+   "Синхронизация после прогона больше не показывает окно обновления игры, меню ArchRank снова открывается.",
+   "Тонкая полоса прокрутки журнала в цветах игры."
+  ],
+  "en": [
+   "Sync after the script ends no longer shows the game's update window, and the ArchRank menu opens again.",
+   "Thin run log scrollbar in game colors."
+  ]
+ },
+ {
+  "version": "0.37-alpha",
+  "date": "2026-09-28",
+  "ru": [
+   "После остановки или сбоя меню ArchRank больше не открывается поверх кнопки обновления игры; остаются итог и синхронизация."
+  ],
+  "en": [
+   "After a stop or failure the ArchRank menu no longer opens over the game's update button; the summary and sync remain."
+  ]
+ },
+ {
+  "version": "0.36-alpha",
+  "date": "2026-09-28",
+  "ru": [
+   "Найденный проигрыш больше не ждёт весь бой: пауза как у игрока, который пропустил бой.",
+   "Строка поиска проигрыша в журнале показывает итог и отсчёт до отправки."
+  ],
+  "en": [
+   "Throwing a point with a found loss no longer waits for the whole battle: the pause is like a player skipping it.",
+   "The loss search line in the run log shows the result and a countdown to sending."
+  ]
+ },
+ {
+  "version": "0.35-alpha",
+  "date": "2026-09-28",
+  "ru": [
+   "При «Старт» проверяется помощник: если чего-то не хватает, прогон не запускается и пишет, чего именно. Нужен HeroWarsHelper 2.459+.",
+   "После «Стоп», сбоя и платной главы игра синхронизируется с сервером."
+  ],
+  "en": [
+   "On Start the script checks the helper: if something is missing, it does not start and lists what. Requires HeroWarsHelper 2.459+.",
+   "After Stop, a failure or a paid chapter the game syncs with the server."
+  ]
+ },
+ {
+  "version": "0.34-alpha",
+  "date": "2026-09-28",
+  "ru": [
+   "Поиск проигрыша: если автобой героем для проигрыша выигрывает точку, скрипт подбирает момент «авто» с проигрышем.",
+   "Проигрывать можно проходным героем, который уже есть, без покупки героя для проигрыша."
+  ],
+  "en": [
+   "Loss search for throwing: if auto-battle with the throwing hero wins the point, the script finds an auto moment that loses.",
+   "A carry hero you already have can throw the point, no need to buy a throwing hero."
+  ]
+ },
+ {
+  "version": "0.33-alpha",
+  "date": "2026-09-28",
+  "ru": [
+   "Закрепы переделаны: пересчитываются по всей лавке и снимаются, когда герой набрал цель; в финальной лавке закрепов нет.",
+   "Нужный питомец за полную цену — только последний недостающий; без Талисмана капитала закрепов нет."
+  ],
+  "en": [
+   "Pins reworked: recalculated over the whole stall and removed once a hero reaches the target; no pins in the final stall.",
+   "A needed pet at full price only as the last missing one; no pins in runs without the Talisman of Capital."
+  ]
+ },
+ {
+  "version": "0.32-alpha",
+  "date": "2026-09-27",
+  "ru": [
+   "Учитываются монеты за обмен жизней на последней точке перед Архидемоном: скрипт больше не перестаёт покупать раньше времени."
+  ],
+  "en": [
+   "Coins from the lives exchange on the last point before the Archdemon are now counted; the script no longer stops buying too early."
+  ]
+ },
+ {
+  "version": "0.31-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Запросы к игре, их порядок и темп как у клиента игры: паузы, время боя, открытие лавки.",
+   "Сервер не принял бой — прогон останавливается; «Стоп» в паузе перед сбросом главы её больше не сбрасывает."
+  ],
+  "en": [
+   "Requests to the game, their order and pace now match the game client: pauses, battle timing, stall opening.",
+   "If the server rejects a battle, the script stops; Stop during the pause before a chapter reset no longer resets it."
+  ]
+ },
+ {
+  "version": "0.30-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "В шапку скрипта добавлена лицензия для публикации на Greasy Fork, код не менялся."
+  ],
+  "en": [
+   "Added a license line to the script header for Greasy Fork publishing; code unchanged."
+  ]
+ },
+ {
+  "version": "0.29-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Вместо бонуса талисмана в % — поле «Монета Лавки: минимум»; перед Архидемоном проверяется, что монет не меньше.",
+   "Нужные питомцы без скидки покупаются, только когда героям не хватает не больше одного фрагмента."
+  ],
+  "en": [
+   "The talisman bonus % field is replaced by “Stall coins: minimum”; before the Archdemon the script checks coins are not below it.",
+   "Needed pets without a discount are bought only when heroes lack at most one fragment."
+  ]
+ },
+ {
+  "version": "0.28-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Прогон под Талисман капитала закрепляет и скупает питомцев со скидкой, потом продаёт лишних.",
+   "Номер версии в окне настройки."
+  ],
+  "en": [
+   "Talisman of Capital runs pin and buy discounted pets, then sell the extra ones.",
+   "Version number in the setup window."
+  ]
+ },
+ {
+  "version": "0.27-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Порядок героев в ряду как в игре; у проходных героев выбирается ранг.",
+   "На точке 1 нужен только фиолетовый ранг, до выбранного проходные докупаются по ходу."
+  ],
+  "en": [
+   "Hero order in rows matches the game; carry heroes now have a rank.",
+   "Point 1 needs only purple rank; carry heroes are topped up to the chosen rank along the way."
+  ]
+ },
+ {
+  "version": "0.26-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Проигрываем последнюю точку перед Архидемоном, а не шестую; герой для проигрыша один и может быть не из проходных.",
+   "Новое поле: число обновлений лавки на последней точке, чтобы найти героя для проигрыша."
+  ],
+  "en": [
+   "The last point before the Archdemon is thrown instead of the sixth; one throwing hero, may be outside the carry heroes.",
+   "New field: number of stall refreshes on the last point to find the throwing hero."
+  ]
+ },
+ {
+  "version": "0.25-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "В окне настройки у проходных героев и героя для проигрыша мест столько, сколько выбрано героев."
+  ],
+  "en": [
+   "The setup window shows as many slots for carry and throwing heroes as are chosen."
+  ]
+ },
+ {
+  "version": "0.24-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Проходные герои и герой для проигрыша выбираются в окне выбора героев, а не вводом номеров.",
+   "Поле «Дополнительный проходной» убрано."
+  ],
+  "en": [
+   "Carry heroes and the throwing hero are picked in a hero selection window instead of typing numbers.",
+   "The “Extra carry hero” field is removed."
+  ]
+ },
+ {
+  "version": "0.23-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Иконки талисманов из игры, выбранные видны в блоке цели; целевой состав — от одного до пяти героев, питомец не обязателен.",
+   "Фон окна выбора неподвижный, экран больше не тормозит."
+  ],
+  "en": [
+   "Talisman icons from the game, chosen ones shown in the target block; the target team is 1 to 5 heroes, pet optional.",
+   "The selection window background is static, so the screen no longer lags."
+  ]
+ },
+ {
+  "version": "0.22-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Рамки героев и питомцев как в окне «Собери команду» события, под портретом анимированная звезда."
+  ],
+  "en": [
+   "Hero and pet frames match the event's team-building window, with an animated star under the portrait."
+  ]
+ },
+ {
+  "version": "0.21-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Окно выбора состава ближе к игровому: текст, вкладки, размытый фон; кнопка «Изменить» выглядит как «Начать».",
+   "Основного питомца можно снять щелчком по нему в нижнем ряду или повторным щелчком в сетке."
+  ],
+  "en": [
+   "The team selection window looks closer to the game: text, tabs and blurred background; the Edit button looks like Start.",
+   "The main pet is removed by clicking it in the bottom row or clicking it again in the grid."
+  ]
+ },
+ {
+  "version": "0.20-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Окно выбора состава собрано из элементов интерфейса самой игры: рамки, вкладки, плашки рангов, кнопки.",
+   "Окно покровителя и блок цели в окне настройки тоже в игровом виде."
+  ],
+  "en": [
+   "The team selection window is built from the game's own interface: frames, tabs, rank badges, buttons.",
+   "The patron window and the target block in the setup window also look like the game."
+  ]
+ },
+ {
+  "version": "0.19-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Кнопка «Изменить» открывает окно выбора целевого состава: герои с рангом 80/100/130, основной питомец, покровители.",
+   "«Сохранить» записывает состав и включает «Начать»; «Отмена» и крестик больше не оставляют под окном подменю."
+  ],
+  "en": [
+   "The Edit button opens the target team window: heroes with rank 80/100/130, the main pet and patrons.",
+   "Save stores the team and enables Start; Cancel and the close button no longer leave the submenu open behind."
+  ]
+ },
+ {
+  "version": "0.18-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "В подменю вместо «Id питомцев» неактивный пункт «ArchRank(auto)», он появится позже; окно «Id питомцев» убрано."
+  ],
+  "en": [
+   "In the submenu, “Pet IDs” is replaced by an inactive “ArchRank(auto)” item, coming later; the Pet IDs window is removed."
+  ]
+ },
+ {
+  "version": "0.17-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Убрана подсказка под вторым талисманом: уже выбранный талисман и так серый."
+  ],
+  "en": [
+   "Removed the hint under the second talisman: an already chosen talisman is greyed out anyway."
+  ]
+ },
+ {
+  "version": "0.16-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Кнопка «Дальше» в окне настройки стала «Начать».",
+   "Без целевого состава «Начать» неактивна, под блоком цели подсказка."
+  ],
+  "en": [
+   "The Next button in the setup window is now Start.",
+   "Start stays inactive until a target team is chosen, with a hint under the target block."
+  ]
+ },
+ {
+  "version": "0.15-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Иконки питомцев, которых нет в кеше игры, подгружаются из файлов игры.",
+   "Рамки в блоке цели чуть толще."
+  ],
+  "en": [
+   "Pet icons missing from the game cache are loaded from the game's files.",
+   "Frames in the target block are slightly thicker."
+  ]
+ },
+ {
+  "version": "0.14-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Промежуточная версия, в игру не ставилась.",
+   "Блок «Цель — собрать этот состав» показывает сохранённый состав; строка ввода состава убрана из окна настройки."
+  ],
+  "en": [
+   "Intermediate version, not meant for installing.",
+   "The “Goal — build this team” block shows the saved team; the team input line is removed from the setup window."
+  ]
+ },
+ {
+  "version": "0.13-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "В блоке основного состава слот без картинки остаётся пустым, без буквы имени."
+  ],
+  "en": [
+   "In the main team block, a slot without a picture stays empty instead of showing a name letter."
+  ]
+ },
+ {
+  "version": "0.12-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Лишние герои из купленных лотов продаются сразу при любом талисмане, а не только при богатстве.",
+   "В окне настройки появился блок «Основной состав», пока только вид: состав по-прежнему задаётся строкой."
+  ],
+  "en": [
+   "Extra heroes from bought lots are sold right away with any talisman, not only with wealth.",
+   "The setup window gets a “Main team” block, appearance only for now: the team is still set by the input line."
+  ]
+ },
+ {
+  "version": "0.11-alpha",
+  "date": "2026-09-26",
+  "ru": [
+   "Журнал захода сдвинут левее, чтобы не закрывать крестики окон игры."
+  ],
+  "en": [
+   "The run log is moved left so it no longer covers the close buttons of game windows."
+  ]
+ },
+ {
+  "version": "0.10-alpha",
+  "date": "2026-09-25",
+  "ru": [
+   "Вместо мигающей строки прогресса — журнал захода справа: шаги по строкам, причина провала, таймер перезапуска, кнопка «Стоп»."
+  ],
+  "en": [
+   "A run log replaces the blinking progress line: steps line by line on the right, failure reason, restart timer, Stop button."
+  ]
+ },
+ {
+  "version": "0.09-alpha",
+  "date": "2026-09-25",
+  "ru": [
+   "Пункт в «Разном» называется «Приключение (Arch)», по имени события в игре."
+  ],
+  "en": [
+   "The item in Others is now called “Adventure (Arch)”, after the event name in the game."
+  ]
+ },
+ {
+  "version": "0.08-alpha",
+  "date": "2026-09-25",
+  "ru": [
+   "Проигрыш шестой точки уходит обычным автобоем: настройка помощника «Исправить» больше не превращает его в победу."
+  ],
+  "en": [
+   "Throwing the sixth point goes as a plain auto-battle: the helper's “Fix it” setting no longer turns it into a win."
+  ]
+ },
+ {
+  "version": "0.07-alpha",
+  "date": "2026-09-25",
+  "ru": [
+   "Обновление лавки на первой точке засчитывают только неизвестные карты дешевле 16; купленные по галке дороже — нет."
+  ],
+  "en": [
+   "On the first point only unknown cards cheaper than 16 count towards the stall refresh; pricier ones bought via the checkbox don't."
+  ]
+ },
+ {
+  "version": "0.06-alpha",
+  "date": "2026-09-25",
+  "ru": [
+   "Известная карта покупается, только если дешевле базовой продажи: пара дешевле 16, одиночка дешевле 8; лишнее продаётся сразу.",
+   "Неизвестные карты — только дешевле 16; галка «Скупать неизвестные карты по любой цене» снимает ограничение."
+  ],
+  "en": [
+   "A known card is bought only below its base sell price: a pair under 16, a single under 8; extras are sold at once.",
+   "Unknown cards are bought only under 16; the “Buy unknown cards at any price” checkbox lifts this limit."
+  ]
+ },
+ {
+  "version": "0.05-alpha",
+  "date": "2026-09-25",
+  "ru": [
+   "Пункт в «Разном» называется «New Hero(Arch)», внутри подменю «ArchRank» и «Id питомцев».",
+   "Пауза между заходами случайная, 1–2 секунды вместо 15."
+  ],
+  "en": [
+   "The item in Others is called “New Hero(Arch)”, with a submenu “ArchRank” and “Pet IDs”.",
+   "The pause between runs is now random, 1–2 seconds instead of 15."
+  ]
+ },
+ {
+  "version": "0.04-alpha",
+  "date": "2026-09-25",
+  "ru": [
+   "Окно настройки компактнее: питомцы и талисманы в два столбика, ширина ограничена.",
+   "Поля стратегии богатства снова скрыты, если на первой точке не богатство."
+  ],
+  "en": [
+   "The setup window is more compact: pets and talismans in two columns, limited width.",
+   "Wealth strategy fields are hidden again when the first point is not wealth."
+  ]
+ },
+ {
+  "version": "0.03-alpha",
+  "date": "2026-09-25",
+  "ru": [
+   "В окне настройки появились иконки питомцев.",
+   "Талисман, выбранный в одном блоке, в другом серый; выбор серого переводит соседний блок на «любой»."
+  ],
+  "en": [
+   "Pet icons appear in the setup window.",
+   "A talisman chosen in one block is greyed out in the other; picking a greyed one switches the other block to “any”."
+  ]
+ },
+ {
+  "version": "0.02-alpha",
+  "date": "2026-09-25",
+  "ru": [
+   "Исправлен запуск в Tampermonkey: раньше дополнение там молча не запускалось."
+  ],
+  "en": [
+   "Fixed startup in Tampermonkey: the add-on used to silently fail to start there."
+  ]
+ },
+ {
+  "version": "0.01alpha",
+  "date": "2026-09-25",
+  "ru": [
+   "Первая версия: отдельное дополнение к HeroWarsHelper с кнопкой ArchRank для прогона Архидемона.",
+   "Умеет: бесплатная Бездна I, два талисмана перед боями 2 и 8, остановка перед Архидемоном, путь богатства и обычный путь."
+  ],
+  "en": [
+   "First release: a separate add-on for HeroWarsHelper with an ArchRank button for the Archdemon auto-run.",
+   "It handles a free Abyss I, two talismans before battles 2 and 8, a stop before the Archdemon, the wealth path and the normal path."
+  ]
+ }
+]

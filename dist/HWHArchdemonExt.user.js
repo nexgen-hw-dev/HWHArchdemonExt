@@ -3,7 +3,7 @@
 // @name:en         HWHArchdemonExt
 // @name:ru         HWHArchdemonExt
 // @namespace       HWHArchdemonExt
-// @version         1.50-beta
+// @version         1.51-beta
 // @author          NexGen
 // @description     Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
 // @description:en  Archdemon add-on for HeroWarsHelper: runs the free Abyss chapter until the setup is collected and stops before the Archdemon
@@ -43,13 +43,15 @@
 		betweenActions: [230, 600],
 		beforeBattle: [530, 1e3],
 		chapterEnter: [400, 530],
-		autoBattle: [1400, 2e3]
+		autoBattle: [1400, 2e3],
+		beforeChapter: [3e3, 3e3]
 	};
 	var NX_SAVE_KEYS = {
 		chapterSettings: "savedChapterSettingsForArchdemonNew",
 		eventChapter: "savedEventChapterForArchdemonNew",
 		logPosition: "savedRunLogPositionForArchdemonNew",
-		logCollapsed: "savedRunLogCollapsedForArchdemonNew"
+		logCollapsed: "savedRunLogCollapsedForArchdemonNew",
+		riskModes: "savedRiskModesForArchdemonNew"
 	};
 	var NX_HELPER_POLL_MS = 200;
 	var NX_HELPER_WAIT_MS = 6e4;
@@ -72,6 +74,8 @@
 	var NX_UPDATE_RETRY_MS = 36e5;
 	var NX_UPDATE_BUST_MS = 3e5;
 	var NX_UPDATE_STORAGE_KEY = "HWHArchdemonExt.update.v1";
+	var NX_CHANGELOG_URLS = ["https://raw.githubusercontent.com/nexgen-hw-dev/HWHArchdemonExt/main/changelog.json", "https://cdn.jsdelivr.net/gh/nexgen-hw-dev/HWHArchdemonExt@main/changelog.json"];
+	var NX_CHANGELOG_STORAGE_KEY = "HWHArchdemonExt.changelog.v1";
 	var NX_GREASYFORK_URL = "https://greasyfork.org/scripts/597541";
 	var NX_AUTO_INSTALL_URL = "https://raw.githubusercontent.com/nexgen-hw-dev/HWHArchdemonExt/main/dist/HWHArchdemonAuto.user.js";
 	var NX_AUTO_PUBLISHED = false;
@@ -254,6 +258,14 @@
 			NX_WEALTH_FINAL: "Selling the carry heroes and collecting the real team",
 			NX_SACRIFICE: "Throwing the point on purpose, <span style=\"color: LimeGreen;\">{number}</span> of {total}",
 			NX_REASON_SACRIFICE_WON: "The throwing lineup won, which breaks the plan",
+			NX_REASON_SACRIFICE_WON_HERO: "Throwing with {name} failed, the battle was won. Next at this point we try {next}",
+			NX_REASON_SACRIFICE_WON_POINT: "Throwing with {name} failed, the battle was won; everyone won at point {point}. The next attempt throws at point {next}",
+			NX_REASON_SACRIFICE_ALL_WON: "Throw rotation: everyone on hand already won at point {point}",
+			NX_SACRIFICE_ROTATE: "Throw rotation at point {point}: {list} already won here, {name} throws now",
+			NX_SACRIFICE_NEXT_POINT: "Throw rotation: everyone on hand won at point {point}, throwing at point {next}",
+			NX_SACRIFICE_POINTS: "at points {from}–{to}",
+			NX_SACRIFICE_POINT_ONE: "at point {point}",
+			NX_SACRIFICE_STUCK: "The point cannot be thrown: {where} everyone we tried to throw with ({list}) won the battle, even when the script looked for a loss.<br><br>With this strategy the run would spin the chapter in vain, so it has stopped. Change the strategy: pick a weaker hero to throw with, choose another build, or check \"Do not throw a point on purpose\".",
 			NX_REASON_NO_HEROES: "No heroes on hand after the point 1 shopping: nobody to attack with",
 			NX_AUTO_START: "No carry heroes set: up to {goal} heroes fight. Runs short of strength so far: {weak}, every {step} adds one more hero",
 			NX_REASON_SERVER_ERROR: "The game server answered with an internal error (E_Internal), the chapter starts over after a pause ({tries} of {max} in a row)",
@@ -386,6 +398,23 @@
 			NX_CARRY_ANY_PRICE_HINT: "Unchecked: carry heroes and their fragments only from discounted lots. Checked: at full price too",
 			NX_NO_SACRIFICE: "Do not throw a point on purpose",
 			NX_NO_SACRIFICE_HINT: "Checked: every point is fought to win, no throwing hero is needed",
+			NX_BLOCK_RISK: "At your own risk",
+			NX_BLOCK_RISK_HINT: "Shared by all chapters and by ready-made builds",
+			NX_SELL_PARTS: "Sell all extra hero parts in every shop",
+			NX_SELL_PARTS_HINT: "A hero keeps as many parts as the build needs, the rest are sold at once, even if the rank drops. The game itself cannot sell like this",
+			NX_SELL_PARTS_TITLE: "Selling extra parts",
+			NX_SELL_PARTS_WARNING: "The script will sell extra hero parts right in every shop, keeping exactly as many as your build needs.<br><br>The game itself cannot do this: its interface sells a hero only as a whole. The server accepts such sales, but a regular player has no way to make them.<br><br>Enable at your own risk.",
+			NX_NO_PACE: "Remove all delays that imitate a real player",
+			NX_NO_PACE_HINT: "No pauses in the shop, before and after battles or between attempts. The main boss battle is still waited for: the game will not accept it earlier",
+			NX_NO_PACE_TITLE: "No delays",
+			NX_NO_PACE_WARNING: "The script will stop pausing like a live player — in the shop, before and after battles, between attempts — and run at full speed.<br><br>Turning this mode on is your own responsibility.",
+			NX_RISK_ENABLE: "Enable",
+			NX_NOTICE_SELL_PARTS: "Extra parts selling is on",
+			NX_NOTICE_NO_PACE: "Player action imitation is off",
+			NX_CHANGELOG_TITLE: "What's new",
+			NX_CHANGELOG_HINT: "What's new: changes by version",
+			NX_CHANGELOG_INSTALLED: "installed",
+			NX_CHANGELOG_NEWER: "not installed yet",
 			NX_BLOCK_RANDOM_ANY_HINT: "Unchecked: only when cheaper than {price}, then resale pays them back. Checked: always, in case needed heroes are inside",
 			NX_LOG_STOP: "Stop",
 			NX_LOG_COLLAPSE: "Collapse the log to two lines",
@@ -523,29 +552,37 @@
 			NX_COOLDOWN: "Перезапуск через {seconds} с",
 			NX_BLOCK_CARRY: "Проходные герои, ими только идём",
 			NX_BLOCK_CARRY_HINT: "До выбранного ранга докупаются по ходу главы. Не указаны — скрипт подберёт их сам",
-			NX_BLOCK_SACRIFICE: "Кем сливаем точку",
-			NX_BLOCK_SACRIFICE_HINT: "Сливает один, самый слабый из них. Не указаны — скрипт выберет сам",
-			NX_BLOCK_SACRIFICE_REFRESH: "Обновлений лавки на точке слива, чтобы найти героя для слива",
-			NX_BLOCK_SACRIFICE_REFRESH_HINT: "Нужно, если никого из них нет среди проходных: тогда одного докупают на точке слива. Ноль — без обновлений, никого не нашлось — заход заново",
-			NX_ERR_SACRIFICE_REFRESH: "Обновлений для героя слива — целое число от 0 до {max}",
+			NX_BLOCK_SACRIFICE: "Кем проигрываем точку",
+			NX_BLOCK_SACRIFICE_HINT: "Проигрывает один, самый слабый из них. Не указаны — скрипт выберет сам",
+			NX_BLOCK_SACRIFICE_REFRESH: "Обновлений лавки на точке проигрыша, чтобы найти героя для проигрыша",
+			NX_BLOCK_SACRIFICE_REFRESH_HINT: "Нужно, если никого из них нет среди проходных: тогда одного докупают на точке проигрыша. Ноль — без обновлений, никого не нашлось — заход заново",
+			NX_ERR_SACRIFICE_REFRESH: "Обновлений для героя проигрыша — целое число от 0 до {max}",
 			NX_SACRIFICE_EDIT_HINT: "Выбрать до пяти героев",
-			NX_SACRIFICE_REFRESH: "Ищем героя для слива, обновление {refreshes} из {max}",
+			NX_SACRIFICE_REFRESH: "Ищем героя для проигрыша, обновление {refreshes} из {max}",
 			NX_ERR_CARRY: "Выберите проходных героев кнопкой «Изменить»",
 			NX_PICK_CARRY_TITLE: "Проходные герои",
-			NX_PICK_SACRIFICE_TITLE: "Кем сливаем точку",
+			NX_PICK_SACRIFICE_TITLE: "Кем проигрываем точку",
 			NX_BLOCK_ASCEND: "Кого возвысить: {name}",
 			NX_BLOCK_ASCEND_HINT: "Когда эмблема взята, прогон перед Архидемоном возвышает этих героев: только собранных полностью, до красного ранга, по {cost} монет за каждого, пока монет не меньше минимума под капитал. Пусто — герои состава",
 			NX_ASCEND_EDIT_HINT: "Выбрать до пяти героев; пусто — состав",
 			NX_PICK_ASCEND_TITLE: "Кого возвысить",
 			NX_LIST_EDIT_HINT: "Выбрать до пяти героев и их ранги",
-			NX_ERR_SACRIFICE: "Героев для слива — не больше {max}, выберите кнопкой «Изменить»",
+			NX_ERR_SACRIFICE: "Героев для проигрыша — не больше {max}, выберите кнопкой «Изменить»",
 			NX_BLOCK_START_REFRESH: "Запас обновлений лавки на первой точке",
 			NX_BLOCK_START_REFRESH_HINT: "Сколько раз можно обновить, если за круг не набралось нужного числа случайных фрагментов. Ноль значит только заработанные",
 			NX_ERR_START_REFRESH: "Запас обновлений это целое число от 0 до {max}",
 			NX_WEALTH_SHOP: "Точка {point}, лавка. Монет: <span style=\"color: LimeGreen;\">{coins}</span>",
 			NX_WEALTH_FINAL: "Продаём проходных и собираем основной состав",
-			NX_SACRIFICE: "Намеренно сливаем точку, <span style=\"color: LimeGreen;\">{number}</span> из {total}",
-			NX_REASON_SACRIFICE_WON: "Сливающий состав выиграл, это ломает план",
+			NX_SACRIFICE: "Проигрываем точку, <span style=\"color: LimeGreen;\">{number}</span> из {total}",
+			NX_REASON_SACRIFICE_WON: "Состав для проигрыша выиграл, это ломает план",
+			NX_REASON_SACRIFICE_WON_HERO: "Проиграть героем {name} не вышло — бой выигран. Дальше на этой точке пробуем {next}",
+			NX_REASON_SACRIFICE_WON_POINT: "Проиграть героем {name} не вышло — бой выигран, на точке {point} выиграли все. Следующий заход проигрывает на точке {next}",
+			NX_REASON_SACRIFICE_ALL_WON: "Перебор героев для проигрыша: на точке {point} уже выигрывали все на руках",
+			NX_SACRIFICE_ROTATE: "Перебор на точке {point}: уже выигрывали {list}, проигрывает {name}",
+			NX_SACRIFICE_NEXT_POINT: "Перебор: на точке {point} выигрывали все на руках, проигрываем на точке {next}",
+			NX_SACRIFICE_POINTS: "на точках {from}–{to}",
+			NX_SACRIFICE_POINT_ONE: "на точке {point}",
+			NX_SACRIFICE_STUCK: "Проиграть точку не выходит: {where} бой выигрывали все, кем пробовали проиграть ({list}), даже когда скрипт искал проигрыш.<br><br>С такой стратегией прогон крутил бы главу впустую, поэтому он остановлен. Поменяйте стратегию: укажите героя для проигрыша послабее, возьмите другую сборку или поставьте галку «Не проигрывать точку».",
 			NX_REASON_NO_HEROES: "После закупки точки 1 на руках ни одного героя: атаковать некем",
 			NX_AUTO_START: "Проходные не указаны: в бой идут до {goal} героев. Заходов, где не хватило сил: {weak}, каждые {step} — ещё один герой",
 			NX_REASON_SERVER_ERROR: "Сервер игры ответил внутренней ошибкой (E_Internal), после паузы заходим заново ({tries} из {max} подряд)",
@@ -554,9 +591,9 @@
 			NX_REASON_POINT_LOST: "Точка {point} не взята",
 			NX_REASON_POINT_LOST_REMEMBERED: "Точка {point} не взята, состав запомнили",
 			NX_EVENT_ENDING: "До конца события меньше {minutes} минут. Новых заходов не начинаем",
-			NX_BLOCK_SACRIFICE_POINT: "На какой точке сливаем",
+			NX_BLOCK_SACRIFICE_POINT: "На какой точке проигрываем",
 			NX_BLOCK_SACRIFICE_POINT_HINT: "Любая обычная точка главы. Не главный босс: дожившие до конца жизни игра и так меняет на монеты. Чем дальше точка, тем сильнее противник, и проиграть нарочно проще",
-			NX_SACRIFICE_POINT_TITLE: "Сливаем точку {point}",
+			NX_SACRIFICE_POINT_TITLE: "Проигрываем точку {point}",
 			NX_SPEND_EXTRA: "Тратим лишние монеты: {coins} ({percent}%) → {from}–{to} ({target}%), как у автора",
 			NX_SPEND_EXTRA_MIN: "Тратим лишние монеты: {coins} ({percent}%) → {from}–{to} ({target}%), как у минимума",
 			NX_MANUAL_KEEP_COINS_HINT: "От минимума зависит бонус Эмблемы капитала. С галкой монеты сверх минимума остаются, бонус выше. Без галки лишнее тратится обновлениями лавки по 3 монеты, пока бонус не станет как у минимума, но не ниже самого минимума: 900 — 270%, останется 900–903",
@@ -583,7 +620,7 @@
 			NX_PRESETS_VIDEO: "Открыть видео",
 			NX_PRESETS_NO_PET: "Без основного питомца",
 			NX_PRESETS_GO: "Поехали",
-			NX_PRESETS_GO_HINT: "Пройти главу {chapter} по этой сборке: проходные {carry}, точку {point} сливает {sacrifice}; случайные фрагменты на точке 1 — {cards}; запас обновлений — {reserve}, обновлений ради героя для слива — {refreshes} ({source})",
+			NX_PRESETS_GO_HINT: "Пройти главу {chapter} по этой сборке: проходные {carry}, точку {point} проигрывает {sacrifice}; случайные фрагменты на точке 1 — {cards}; запас обновлений — {reserve}, обновлений ради героя для проигрыша — {refreshes} ({source})",
 			NX_PRESETS_CARDS_NONE: "не берём",
 			NX_PRESETS_CARDS_CHEAP: "только дешевле своей продажи",
 			NX_PRESETS_CARDS_ANY: "все",
@@ -599,7 +636,7 @@
 			NX_PRESETS_GO_START: "; на точке 1 докупит героев: {count} — пары со скидкой и случайные фрагменты, дальше финальных со скидкой по ходу",
 			NX_PRESETS_WEAKEST: "самый слабый на руках",
 			NX_PRESETS_GO_ANY_PRICE: "; проходных — по любой цене",
-			NX_PRESETS_GO_NO_SACRIFICE: "; специально не сливаем",
+			NX_PRESETS_GO_NO_SACRIFICE: "; точку не проигрываем",
 			NX_PRESETS_GO_BUY_BEFORE: "; перед атакой точки {point} докупит героев: {count}",
 			NX_PRESETS_ASCEND_TEAM: "состав сборки, кто собран полностью",
 			NX_PRESETS_BACK: "Назад",
@@ -612,7 +649,7 @@
 			NX_PRESETS_WAIT_SITES: "Сайты",
 			NX_PRESETS_ERROR: "Для вашего региона невозможно выполнить запрос. Воспользуйтесь дополнительными инструментами",
 			NX_PRESETS_STALE: "Сервер не ответил, показана сохранённая копия",
-			NX_PRESETS_NO_STRATEGY: "Для главы {chapter} стратегии прогона нет: неизвестно, кто проходные и кто сливает. Стратегию дают сборка или общая стратегия события с сервера; пока её нет, настройте прогон в окне настройки",
+			NX_PRESETS_NO_STRATEGY: "Для главы {chapter} стратегии прогона нет: неизвестно, кто проходные и кто проигрывает. Стратегию дают сборка или общая стратегия события с сервера; пока её нет, настройте прогон в окне настройки",
 			NX_PRESETS_REFRESH: "Обновить сборки с сервера, не чаще раза в минуту",
 			NX_PRESETS_REFRESH_WAIT: "Обновить можно через {seconds} с",
 			NX_REASON_POINT_KNOWN_LOSS: "Точка {point}: этот состав её уже не брал, а докупить некого",
@@ -622,7 +659,7 @@
 			NX_INCOMPLETE: `<span style="font-size: 25px;">Состав собран не полностью, заход <span style="color: LimeGreen;">{attempt}</span></span><br>
           Не хватает: <span style="color: #ff6b6b;">{list}</span><br>
           Все точки до Архидемона взяты. Зайдите и атакуйте Архидемона сами`,
-			NX_REASON_NO_SACRIFICE: "Нечем сливать точку, никого из этих героев нет в наличии: {list}",
+			NX_REASON_NO_SACRIFICE: "Нечем проиграть точку, никого из этих героев нет в наличии: {list}",
 			NX_POINT1_REFRESH: "Точка 1, заработанное обновление <span style=\"color: LimeGreen;\">{refreshes}</span>, случайных фрагментов взято {bought}, монет {coins}",
 			NX_BLOCK_PAUSE: "Остановиться прямо перед Архидемоном",
 			NX_BLOCK_PAUSE_HINT: "Покажет монеты и закреплённые лоты до финальной закупки, дальше можно продолжить или остановиться",
@@ -647,7 +684,7 @@
 			NX_BOOK_SALE_PETS: "продажа питомцев",
 			NX_BOOK_CARRY: "проходные",
 			NX_BOOK_CARRY_RANK: "проходные до ранга",
-			NX_BOOK_SACRIFICE: "герой для слива",
+			NX_BOOK_SACRIFICE: "герой для проигрыша",
 			NX_BOOK_RESALE: "перепродажа",
 			NX_BOOK_UNKNOWN: "случайные фрагменты",
 			NX_BOOK_PETS_DISCOUNT: "питомцы со скидкой",
@@ -676,8 +713,25 @@
 			NX_WARN_CARRY_POINT1: "Проходного {list} нет ни среди стартовых героев главы, ни в первой лавке. Прогон купит этого героя, как только он появится в лавке, а пока воюют герои с рук",
 			NX_WARN_CARRY_POINT1_MANY: "Проходных {list} нет ни среди стартовых героев главы, ни в первой лавке. Прогон купит их, как только они появятся в лавке, а пока воюют герои с рук",
 			NX_CARRY_ANY_PRICE_HINT: "Без галки: проходных и их части — только из лотов со скидкой. С галкой: и по полной цене",
-			NX_NO_SACRIFICE: "Не сливать специально",
-			NX_NO_SACRIFICE_HINT: "С галкой: все точки проходим на победу, герой для слива не нужен",
+			NX_NO_SACRIFICE: "Не проигрывать точку",
+			NX_NO_SACRIFICE_HINT: "С галкой: все точки проходим на победу, герой для проигрыша не нужен",
+			NX_BLOCK_RISK: "На свой риск",
+			NX_BLOCK_RISK_HINT: "Общие для всех глав и для готовых сборок",
+			NX_SELL_PARTS: "Продавать все лишние части героев в каждой лавке",
+			NX_SELL_PARTS_HINT: "У героя остаётся столько частей, сколько нужно по сборке, остальные продаются сразу, даже если ранг упадёт. В самой игре так не продать",
+			NX_SELL_PARTS_TITLE: "Продажа лишних частей",
+			NX_SELL_PARTS_WARNING: "Скрипт будет продавать лишние части героев прямо в каждой лавке, оставляя ровно столько, сколько нужно по вашей сборке.<br><br>В самой игре так не продать: её интерфейс продаёт героя только целиком. Сервер такие продажи принимает, но обычному игроку они недоступны.<br><br>Включаете на свой страх и риск.",
+			NX_NO_PACE: "Убрать все задержки, имитирующие действие реального игрока",
+			NX_NO_PACE_HINT: "Без пауз в лавке, до и после боя и между заходами. Бой с главным боссом по-прежнему ждём: раньше игра его не примет",
+			NX_NO_PACE_TITLE: "Без задержек",
+			NX_NO_PACE_WARNING: "Скрипт перестанет выдерживать паузы живого игрока — в лавке, до и после боя, между заходами — и пойдёт на полной скорости.<br><br>Ответственность за включение этого режима лежит на вас.",
+			NX_RISK_ENABLE: "Включить",
+			NX_NOTICE_SELL_PARTS: "Включена продажа лишних частей",
+			NX_NOTICE_NO_PACE: "Имитация действий игрока отключена",
+			NX_CHANGELOG_TITLE: "Что нового",
+			NX_CHANGELOG_HINT: "Что нового: изменения по версиям",
+			NX_CHANGELOG_INSTALLED: "установлена",
+			NX_CHANGELOG_NEWER: "ещё не установлена",
 			NX_BLOCK_RANDOM_ANY_HINT: "Без галки: только дешевле {price}, тогда их окупает продажа. С галкой: всегда, вдруг там нужные герои",
 			NX_LOG_STOP: "Стоп",
 			NX_LOG_COLLAPSE: "Свернуть журнал до двух строк",
@@ -697,7 +751,7 @@
 			NX_START_TEAM: "Старт: героев на руках {have} из {goal}",
 			NX_PROGRESS_TEAM: "Состав",
 			NX_PROGRESS_CARRY: "Проходные",
-			NX_PROGRESS_SACRIFICE: "Для слива",
+			NX_PROGRESS_SACRIFICE: "Для проигрыша",
 			NX_PROGRESS_PETS: "Питомцы",
 			NX_PROGRESS_EXTRA: "Экстра на продажу",
 			NX_EVENT_PIN: "Закрепили за <span style=\"color: #a8a8a8;\">{coins}</span>",
@@ -721,7 +775,7 @@
 			NX_TIMER_SEARCH: "Подбор таймера боя {count} из {max}",
 			NX_WIN_SENT: "Победа отправлена",
 			NX_WIN_NOT_FOUND: "Победа не найдена, уходит обычный автобой",
-			NX_LOSS_SEARCH: "Ищем проигрыш для слива {count} из {max}",
+			NX_LOSS_SEARCH: "Ищем проигрыш {count} из {max}",
 			NX_LOSS_SENT: "Проигрыш отправлен",
 			NX_LOSS_NOT_FOUND: "Проигрыш не найден, уходит обычный автобой",
 			NX_RESEED_STOP: "Сервер включил пересев боя {id} (effects.ultReseed): после первого ульта такой бой заранее не посчитать, и посчитанный конец боя сервер не примет. Прогон остановлен. Бой уже начат — закончите его в игре вручную и сообщите автору дополнения",
@@ -1065,6 +1119,10 @@
 		if (choices.length === 0 || choices.includes(wanted)) return wanted;
 		const earlier = choices.filter((point) => point < wanted);
 		return earlier.length ? Math.max(...earlier) : Math.min(...choices);
+	}
+	function nextSacrificePoint(point, choices) {
+		const later = choices.filter((choice) => choice > point);
+		return later.length ? Math.min(...later) : 0;
 	}
 	function pointCount(chapterId, missionIds) {
 		const index = missionIds.findIndex((id) => isRatingBoss(phaseBoss(chapterId, id)));
@@ -2072,13 +2130,32 @@
 		return candidates.length > 0 && !candidates.some((id) => setup.carryHeroes.includes(id)) && !sacrificeOwned(setup, fragments);
 	}
 	function pickSacrificeHero(setup, fragments) {
-		const listed = pickListedSacrificeHero(setup, fragments);
-		if (listed || !teamSlots(setup)) return listed;
-		const hand = handHeroes(fragments);
-		const bodies = keptBodies(setup, fragments);
-		return weakestBody(bodies.length ? bodies : hand, hand, fragments);
+		return sacrificeQueue(setup, fragments)[0] ?? 0;
 	}
-	function pickListedSacrificeHero(setup, fragments) {
+	function sacrificeQueue(setup, fragments) {
+		const listed = listedSacrificeHeroes(setup, fragments);
+		if (!teamSlots(setup)) return listed;
+		const hand = handHeroes(fragments);
+		const bodies = keptBodies(setup, fragments).filter((id) => !listed.includes(id));
+		const rest = hand.filter((id) => !listed.includes(id) && !bodies.includes(id));
+		return [
+			...listed,
+			...weakestFirst(bodies, hand, fragments),
+			...weakestFirst(rest, hand, fragments)
+		];
+	}
+	function weakestFirst(ids, hand, fragments) {
+		const order = [];
+		let left = [...ids];
+		while (left.length) {
+			const worst = weakestBody(left, hand, fragments);
+			if (!worst) break;
+			order.push(worst);
+			left = left.filter((id) => id !== worst);
+		}
+		return order;
+	}
+	function listedSacrificeHeroes(setup, fragments) {
 		const tier = (id) => {
 			const roles = heroRoles(id);
 			for (const [at, role] of NX_SACRIFICE_ROLES.entries()) {
@@ -2087,13 +2164,8 @@
 			}
 			return NX_SACRIFICE_ROLES.length * 2;
 		};
-		let best = 0;
-		for (const id of setup.sacrificeHeroes ?? []) {
-			const have = Number(fragments[id] ?? 0);
-			if (have <= 0) continue;
-			if (!best || tier(id) < tier(best) || tier(id) === tier(best) && have < Number(fragments[best] ?? 0)) best = id;
-		}
-		return best;
+		const have = (id) => Number(fragments[id] ?? 0);
+		return (setup.sacrificeHeroes ?? []).filter((id, index, all) => have(id) > 0 && all.indexOf(id) === index).sort((a, b) => tier(a) - tier(b) || have(a) - have(b));
 	}
 	function collectedState(setup, fragments) {
 		const heroesLeft = setup.heroes.filter((heroId) => Number(fragments[heroId] ?? 0) < setup.targets[heroId]);
@@ -2187,8 +2259,19 @@
 			const have = Number(count);
 			if (!(have > 0) || heroId >= NX_PET_ID_THRESHOLD) continue;
 			const need = Math.max(startNeed(setup, heroId), teamSlots(setup) > 0 ? 1 : 0);
-			const keep = need > 0 ? Math.max(need, rankFloor(have)) : 0;
+			const keep = need > 0 ? setup.sellParts === true ? need : Math.max(need, rankFloor(have)) : 0;
 			if (have > keep) sales.push([heroId, have - keep]);
+		}
+		return sales;
+	}
+	function extraParts(setup, fragments, final = false, keep = []) {
+		const bodies = final ? [] : keptBodies(setup, fragments);
+		const sales = [];
+		for (const heroId of handHeroes(fragments)) {
+			if (keep.includes(heroId)) continue;
+			const need = final ? Number(setup.targets[heroId] ?? 0) : Math.max(startNeed(setup, heroId), bodies.includes(heroId) ? 1 : 0);
+			const have = Number(fragments[heroId] ?? 0);
+			if (need > 0 && have > need) sales.push([heroId, have - need]);
 		}
 		return sales;
 	}
@@ -2327,10 +2410,6 @@
 			};
 		}
 	};
-	function pause(range) {
-		const [min, max] = range;
-		return sleep(min + Math.random() * (max - min));
-	}
 	function emblemDrops(emblem) {
 		return (emblem.weight == null ? 100 : Number(emblem.weight)) > 0;
 	}
@@ -2410,9 +2489,9 @@
 			const roll = await gameSend("invasion_rollEmblems");
 			const offered = offeredTalismans(roll);
 			if (offered.length > 0) {
-				await pause(NX_PACE.stallAll);
+				await this.session.pace(NX_PACE.stallAll);
 				await gameSend("shopGetAll");
-				await pause(NX_PACE.talismanPick);
+				await this.session.pace(NX_PACE.talismanPick);
 				if (this.session.stopped) return {
 					kind: "retry",
 					reason: I18N("NX_REASON_STOPPED")
@@ -2422,15 +2501,15 @@
 					kind: "retry",
 					reason
 				};
-				await pause(NX_PACE.stallOpen);
+				await this.session.pace(NX_PACE.stallOpen);
 				return {
 					kind: "open",
 					slots: await this.get()
 				};
 			}
-			await pause(NX_PACE.stallOpen);
+			await this.session.pace(NX_PACE.stallOpen);
 			const slots = await this.get();
-			await pause(NX_PACE.stallAll);
+			await this.session.pace(NX_PACE.stallAll);
 			await gameSend("shopGetAll");
 			return {
 				kind: "open",
@@ -2438,7 +2517,7 @@
 			};
 		}
 		async rerollEmblems() {
-			await pause(NX_PACE.talismanPick);
+			await this.session.pace(NX_PACE.talismanPick);
 			const roll = await gameSend("invasion_rollEmblems");
 			return {
 				offered: offeredTalismans(roll),
@@ -2566,7 +2645,7 @@
 		}
 		beforeAction() {
 			this.onChange();
-			return pause(this.actions++ === 0 ? NX_PACE.firstAction : NX_PACE.betweenActions);
+			return this.session.pace(this.actions++ === 0 ? NX_PACE.firstAction : NX_PACE.betweenActions);
 		}
 	};
 	function nonZeroFragments(fragments) {
@@ -3005,7 +3084,8 @@
 			effects: battle?.effects?.defenders ?? null
 		};
 	}
-	async function waitSkip(from) {
+	async function waitSkip(attempt, from) {
+		if (attempt.session.noPace) return;
 		const [min, max] = NX_PACE.autoBattle;
 		const left = from + min + Math.random() * (max - min) - Date.now();
 		if (left > 0) await sleep(left);
@@ -3188,7 +3268,7 @@
 			}
 			let waited = "";
 			if (fullBattle) waited = `, без пропуска — ждали длину боя ${await waitFullBattle(attempt, startedAt, sentTime)} с`;
-			else await waitSkip(skipFrom);
+			else await waitSkip(attempt, skipFrom);
 			const end = await sendBattleEnd(attempt, missionId, outcome, (info) => pointRecord(info, missionId).wins > 0);
 			if (improved) attempt.progress(I18N("NX_WIN_SENT"), "timer", true);
 			else if (fullBattle) attempt.progress(I18N("NX_FULL_BATTLE_SENT"), "timer", true);
@@ -3256,7 +3336,7 @@
 				}
 			}
 			if (fullBattle) await waitFullBattle(attempt, startedAt, sentTime);
-			else await waitSkip(skipFrom);
+			else await waitSkip(attempt, skipFrom);
 			const end = await sendBattleEnd(attempt, missionId, outcome, (info) => livesBefore !== null && Number(info.lives) < livesBefore || pointRecord(info, missionId).wins > 0);
 			if (lossTimer != null) attempt.progress(I18N("NX_LOSS_SENT"), "timer", true);
 			console.log("Слив, расчёт вернул", JSON.stringify(outcome.result));
@@ -3270,6 +3350,10 @@
 			return { failure: e };
 		}
 	}
+	function pause(range) {
+		const [min, max] = range;
+		return sleep(min + Math.random() * (max - min));
+	}
 	var RunSession = class {
 		stopped = false;
 		replaced = false;
@@ -3277,11 +3361,17 @@
 		lossStart = {};
 		pointMemory = {};
 		weakAttempts = 0;
+		sacrificeWins = {};
+		sacrificeAt = 0;
+		noPace = false;
 		reporter;
 		holds = new Set();
 		subscription = null;
 		constructor(reporter) {
 			this.reporter = reporter;
+		}
+		pace(range) {
+			return this.noPace ? Promise.resolve() : pause(range);
 		}
 		subscriptionActive() {
 			this.subscription ??= gameSend("subscriptionGetInfo").then((answer) => {
@@ -3350,6 +3440,33 @@
 			kind: "retry",
 			reason: I18N("NX_REASON_STOPPED")
 		};
+	}
+	var ASCENSION_IDENT = "elevation";
+	var FULL_HERO_FRAGMENTS = 7;
+	function ascensionEmblem() {
+		return allTalismans().find((e) => e.ident === ASCENSION_IDENT);
+	}
+	function ascensionEmblemId() {
+		return Number(ascensionEmblem()?.id ?? 0);
+	}
+	function ascensionCost() {
+		const cost = Number(ascensionEmblem()?.effectConfig?.unlockCost?.coin?.[1080] ?? NaN);
+		return Number.isFinite(cost) && cost > 0 ? cost : null;
+	}
+	function fullHeroFragments() {
+		const counts = allUnitUpgrades().filter((e) => e.type === "hero").map((e) => Number(e.fragmentCount)).filter((n) => Number.isFinite(n) && n > 0);
+		return counts.length ? Math.max(...counts) : FULL_HERO_FRAGMENTS;
+	}
+	function ascensionQueue(setup, fragments, done = []) {
+		const wanted = setup.ascendHeroes?.length ? setup.ascendHeroes : setup.heroes;
+		const full = fullHeroFragments();
+		const queue = [];
+		for (const raw of wanted ?? []) {
+			const id = Number(raw);
+			if (!Number.isInteger(id) || id <= 0 || queue.includes(id) || done.includes(id)) continue;
+			if (Number(fragments[id] ?? 0) >= full) queue.push(id);
+		}
+		return queue;
 	}
 	function fragmentSellPrice(kind) {
 		const settings = currentEvent()?.settings;
@@ -3525,6 +3642,7 @@
 			if (coins.value < NX_MIN_LOT_COST && !petDeposit) break;
 			if (await buySlotsForArchdemonNew(attempt, stall, shopSlots, setup, fragments, discountPets)) {
 				await sellUnneededFragments(attempt, stall, setup, fragments, false);
+				await sellExtraParts(attempt, stall, setup, fragments, true);
 				continue;
 			}
 			if (petDeposit) {
@@ -3666,6 +3784,28 @@
 		attempt.ledger.add("продажа лишних частей", income);
 		console.log(`${NX_LOG_CASH} +${income} лишние части ${all ? "все" : `до минимума ${target}`}, остаток ${coins.value}`);
 		return income;
+	}
+	async function sellExtraParts(attempt, stall, setup, fragments, final = false) {
+		if (setup.sellParts !== true) return 0;
+		const coins = attempt.wallet;
+		let income = 0;
+		for (const [heroId, count] of extraParts(setup, fragments, final, ascensionKeep(attempt, setup, fragments))) {
+			if (attempt.stopped) break;
+			const got = await stall.sell(fragments, heroId, count);
+			coins.value += got;
+			income += got;
+			console.log(`Продали лишние части героя ${heroId}: ${count}, осталось ${fragments[heroId]}`);
+		}
+		if (!income) return 0;
+		attempt.ledger.add("продажа лишних частей", income);
+		console.log(`${NX_LOG_CASH} +${income} лишние части сразу, остаток ${coins.value}`);
+		return income;
+	}
+	function ascensionKeep(attempt, setup, fragments) {
+		const emblemId = ascensionEmblemId();
+		if (!emblemId) return [];
+		if (!(setup.talismanIds ?? []).includes(emblemId) && !attempt.talismans.includes(emblemId)) return [];
+		return ascensionQueue(setup, fragments);
 	}
 	async function sellExtraPets(attempt, stall, setup, fragments) {
 		const coins = attempt.wallet;
@@ -4061,6 +4201,7 @@
 	function pickBuyBeforeSlot(shopSlots, setup, fragments, coins, shopId) {
 		const hand = new Set(handHeroes(fragments));
 		const have = (id) => Number(fragments[id] ?? 0);
+		const keptAfter = (id, amount) => setup.sellParts === true ? Math.min(have(id) + amount, Math.max(have(id), startNeed(setup, id))) : have(id) + amount;
 		const better = (a, b) => (BUY_BEFORE_ORDER[a.kind] - BUY_BEFORE_ORDER[b.kind] || b.strength - a.strength || a.cost - b.cost) < 0;
 		let best = null;
 		for (const slot of shopSlots) {
@@ -4071,7 +4212,7 @@
 			const heroes = Object.entries(slot.reward?.invasionFragmentHero ?? {}).map(([id, amount]) => [Number(id), Number(amount)]);
 			if (!random && !heroes.length) continue;
 			const fresh = heroes.filter(([id]) => !hand.has(id)).map(([id]) => id);
-			const kind = random ? "random" : heroes.some(([id, amount]) => setup.carryHeroes.includes(id) && hand.has(id) && rankStep(have(id) + amount) > rankStep(have(id))) ? "rank" : !fresh.length ? null : fresh.some((id) => setup.carryHeroes.includes(id)) ? "carry" : isDiscountedHeroSlot(slot, shopId) ? "discount" : slot.pinned ? "pinned" : "any";
+			const kind = random ? "random" : heroes.some(([id, amount]) => setup.carryHeroes.includes(id) && hand.has(id) && rankStep(keptAfter(id, amount)) > rankStep(have(id))) ? "rank" : !fresh.length ? null : fresh.some((id) => setup.carryHeroes.includes(id)) ? "carry" : isDiscountedHeroSlot(slot, shopId) ? "discount" : slot.pinned ? "pinned" : "any";
 			if (!kind) continue;
 			const pick = {
 				slot,
@@ -4136,6 +4277,7 @@
 			if (collectedState(setup, fragments).done) break;
 			if (await buySlotsForArchdemonNew(attempt, stall, slots, setup, fragments, false)) {
 				await sellUnneededFragments(attempt, stall, setup, fragments, false);
+				await sellExtraParts(attempt, stall, setup, fragments, true);
 				continue;
 			}
 			const needed = usefulSlots(slots, setup, fragments, false).sort((a, b) => a.cost - b.cost)[0];
@@ -4153,34 +4295,8 @@
 			attempt.ledger.add("обновления лавки", coins.value - beforeRefresh);
 			if (!slots) break;
 		}
+		await sellExtraParts(attempt, stall, setup, fragments, true);
 		return { coins: coins.value };
-	}
-	var ASCENSION_IDENT = "elevation";
-	var FULL_HERO_FRAGMENTS = 7;
-	function ascensionEmblem() {
-		return allTalismans().find((e) => e.ident === ASCENSION_IDENT);
-	}
-	function ascensionEmblemId() {
-		return Number(ascensionEmblem()?.id ?? 0);
-	}
-	function ascensionCost() {
-		const cost = Number(ascensionEmblem()?.effectConfig?.unlockCost?.coin?.[1080] ?? NaN);
-		return Number.isFinite(cost) && cost > 0 ? cost : null;
-	}
-	function fullHeroFragments() {
-		const counts = allUnitUpgrades().filter((e) => e.type === "hero").map((e) => Number(e.fragmentCount)).filter((n) => Number.isFinite(n) && n > 0);
-		return counts.length ? Math.max(...counts) : FULL_HERO_FRAGMENTS;
-	}
-	function ascensionQueue(setup, fragments, done = []) {
-		const wanted = setup.ascendHeroes?.length ? setup.ascendHeroes : setup.heroes;
-		const full = fullHeroFragments();
-		const queue = [];
-		for (const raw of wanted ?? []) {
-			const id = Number(raw);
-			if (!Number.isInteger(id) || id <= 0 || queue.includes(id) || done.includes(id)) continue;
-			if (Number(fragments[id] ?? 0) >= full) queue.push(id);
-		}
-		return queue;
 	}
 	async function ascendHeroes(attempt, setup) {
 		const emblemId = ascensionEmblemId();
@@ -4277,6 +4393,7 @@
 					}
 				}
 			}
+			await sellExtraParts(attempt, stall, setup, fragments);
 			return {
 				kind: "open",
 				stall,
@@ -4292,7 +4409,7 @@
 	}
 	async function runArchdemonNewChapterDefault(attempt, setup) {
 		attempt.progress(I18N("NX_ENTERING", { attempt: attempt.number }));
-		await sleep(3e3);
+		await attempt.session.pace(NX_PACE.beforeChapter);
 		if (attempt.stopped) return stoppedOutcome();
 		let chapterInfo;
 		try {
@@ -4312,7 +4429,7 @@
 		attempt.ledger.reset(attempt.wallet.value);
 		const actions = Object.values(chapterInfo.invasion.actions);
 		const lastPoint = pointCount(setup.chapterId, actions.map((action) => Number(action.payload.id)));
-		await pause(NX_PACE.chapterEnter);
+		await attempt.session.pace(NX_PACE.chapterEnter);
 		for (let point = 1; point <= lastPoint; point++) {
 			attempt.point = point;
 			if (attempt.stopped) return stoppedOutcome();
@@ -4321,7 +4438,7 @@
 				kind: "retry",
 				reason: I18N("NX_REASON_NO_MISSIONS")
 			};
-			if (point > 1) await pause(NX_PACE.afterBattle);
+			if (point > 1) await attempt.session.pace(NX_PACE.afterBattle);
 			const visit = await defaultShopPhase(attempt, setup, point, missionId);
 			if (visit.kind === "fatal") return {
 				kind: "fatal",
@@ -4342,6 +4459,7 @@
 						reason: I18N("NX_REASON_POINT_KNOWN_LOSS", { point })
 					};
 				}
+				await sellExtraParts(attempt, visit.stall, setup, team.fragments);
 				team = await buildDefaultTeam(attempt, setup);
 				key = pointMemoryKey(missionId, team);
 			}
@@ -4350,7 +4468,7 @@
 				attempt: attempt.number,
 				missionNumber: point
 			}), null, true);
-			await pause(NX_PACE.beforeBattle);
+			await attempt.session.pace(NX_PACE.beforeBattle);
 			const fight = await fightPoint(attempt, missionId, setup.chapterId, team.heroes, team.pet, team.favor, point);
 			if (fight.error) return {
 				kind: "fatal",
@@ -4377,7 +4495,7 @@
 			attempt.progress(I18N("NX_POINT_TAKEN", { point }), null, true);
 			if (attempt.stopped) return stoppedOutcome();
 		}
-		await pause(NX_PACE.afterBattle);
+		await attempt.session.pace(NX_PACE.afterBattle);
 		if (attempt.stopped) return stoppedOutcome();
 		attempt.point = lastPoint + 1;
 		const stall = attempt.stall;
@@ -4428,6 +4546,11 @@
 			const coins = attempt.wallet;
 			const coinsOnEntry = coins.value;
 			const fragments = (await attempt.units()).fragments;
+			const won = sacrificePoint ? attempt.session.sacrificeWins[sacrificePoint] ?? [] : [];
+			const sacrificeSetup = won.length ? {
+				...setup,
+				sacrificeHeroes: setup.sacrificeHeroes.filter((id) => !won.includes(id))
+			} : setup;
 			attempt.progress(I18N("NX_WEALTH_SHOP", {
 				attempt: attempt.number,
 				point,
@@ -4439,9 +4562,10 @@
 				await buyStartAlong(attempt, stall, shopSlots, setup, fragments);
 				await buyCheapLots(attempt, stall, shopSlots, setup, fragments);
 				await sellUnneededFragments(attempt, stall, setup, fragments, true);
-				await applyStallPins(attempt, stall, shopSlots, setup, fragments);
+				await sellExtraParts(attempt, stall, setup, fragments);
+				await applyStallPins(attempt, stall, shopSlots, sacrificeSetup, fragments);
 				if (point === sacrificePoint) {
-					const found = await ensureSacrificeHero(attempt, stall, setup, shopSlots, fragments);
+					const found = await ensureSacrificeHero(attempt, stall, setup, sacrificeSetup, shopSlots, fragments);
 					if (found.kind !== "done") return found;
 				}
 				return {
@@ -4475,7 +4599,8 @@
 					cheap: 0
 				} : await buyAllRandomLots(attempt, stall, shopSlots, fragments, setup.buyAnyRandomLots === true);
 				await sellUnneededFragments(attempt, stall, setup, fragments, true);
-				await applyStallPins(attempt, stall, shopSlots, setup, fragments);
+				await sellExtraParts(attempt, stall, setup, fragments);
+				await applyStallPins(attempt, stall, shopSlots, sacrificeSetup, fragments);
 				console.log(`${NX_LOG_CASH} ИТОГ круга ${refreshes + 1}: было ${passStartCoins}, стало ${coins.value}, разница ${coins.value - passStartCoins}, неизвестных взято ${random.bought}, из них дешевле ${randomLotResale()}: ${random.cheap}`);
 				if (carryPackReady(setup, fragments) && startShort() <= 0) break;
 				let fromBudget = false;
@@ -4528,7 +4653,7 @@
 				}), null, true);
 			}
 			if (sacrificePoint === 1) {
-				const found = await ensureSacrificeHero(attempt, stall, setup, shopSlots, fragments);
+				const found = await ensureSacrificeHero(attempt, stall, setup, sacrificeSetup, shopSlots, fragments);
 				if (found.kind !== "done") return found;
 			}
 			return {
@@ -4544,17 +4669,18 @@
 			};
 		}
 	}
-	async function ensureSacrificeHero(attempt, stall, setup, visibleSlots, fragments) {
+	async function ensureSacrificeHero(attempt, stall, setup, wanted, visibleSlots, fragments) {
 		const coins = attempt.wallet;
-		if (setup.sacrificeHeroes.length === 0 || sacrificeOwned(setup, fragments)) return { kind: "done" };
+		if (wanted.sacrificeHeroes.length === 0 || sacrificeOwned(wanted, fragments)) return { kind: "done" };
 		let shopSlots = visibleSlots;
 		try {
 			const limit = Number(setup.sacrificeRefreshes ?? 0);
 			let refreshes = 0;
 			for (;;) {
 				if (attempt.stopped) return { kind: "done" };
-				if (await buySacrificeHero(attempt, stall, shopSlots, setup, fragments)) {
+				if (await buySacrificeHero(attempt, stall, shopSlots, wanted, fragments)) {
 					await sellUnneededFragments(attempt, stall, setup, fragments, true);
+					await sellExtraParts(attempt, stall, setup, fragments);
 					console.log(`Герой для слива куплен, обновлений потрачено ${refreshes}`);
 					return { kind: "done" };
 				}
@@ -4565,14 +4691,14 @@
 					refreshes,
 					max: limit
 				}), null, true);
-				await applyStallPins(attempt, stall, shopSlots, setup, fragments);
+				await applyStallPins(attempt, stall, shopSlots, wanted, fragments);
 				const beforeRefresh = coins.value;
 				const refreshed = await stall.refresh();
 				attempt.ledger.add("обновления лавки", coins.value - beforeRefresh);
 				if (!refreshed) break;
 				shopSlots = refreshed;
 			}
-			console.log(`Героя для слива ${setup.sacrificeHeroes.join(", ")} нет в лавке, обновлений потрачено ${refreshes} из ${limit}`);
+			console.log(`Героя для слива ${wanted.sacrificeHeroes.join(", ")} нет в лавке, обновлений потрачено ${refreshes} из ${limit}`);
 			const fallback = pickSacrificeHero(setup, fragments);
 			if (fallback) {
 				console.log(`Сливает самый слабый на руках: ${fallback}`);
@@ -4580,7 +4706,7 @@
 			}
 			return {
 				kind: "retry",
-				reason: I18N("NX_REASON_NO_SACRIFICE", { list: setup.sacrificeHeroes.map(unitName).join(", ") })
+				reason: I18N("NX_REASON_NO_SACRIFICE", { list: wanted.sacrificeHeroes.map(unitName).join(", ") })
 			};
 		} catch (e) {
 			console.error(e);
@@ -4607,6 +4733,7 @@
 				reason: shopping.reason
 			};
 			await sellUnneededFragments(attempt, stall, setup, fragments, false);
+			await sellExtraParts(attempt, stall, setup, fragments, true);
 			await sellExtraPets(attempt, stall, setup, fragments);
 			await sellSurplusParts(attempt, stall, setup, fragments);
 			console.log(`Финальная закупка закончена, монет осталось ${attempt.wallet.value}`);
@@ -4739,9 +4866,53 @@
 		if (setup.noSacrifice === true) return 0;
 		return nearestSacrificePoint(Math.min(lastPoint, Math.max(1, Number(setup.sacrificePoint ?? lastPoint) || lastPoint)), choices.filter((point) => point <= lastPoint));
 	}
+	async function sacrificeWon(attempt, setup, point, hero, choices) {
+		const session = attempt.session;
+		const won = session.sacrificeWins[point] ??= [];
+		if (!won.includes(hero)) won.push(hero);
+		const left = sacrificeQueue(setup, (await attempt.units()).fragments).filter((id) => !won.includes(id));
+		console.log(`Перебор слива: на точке ${point} бой выиграл ${hero}; выигрывали ${won.join(", ")}, не пробовали ${left.join(", ") || "никто"}`);
+		if (left.length) return {
+			kind: "retry",
+			reason: I18N("NX_REASON_SACRIFICE_WON_HERO", {
+				name: unitName(hero),
+				next: unitName(left[0])
+			})
+		};
+		const next = nextSacrificePoint(point, choices);
+		if (!next) return sacrificeGiveUp(attempt, point, I18N("NX_REASON_SACRIFICE_WON"));
+		session.sacrificeAt = Math.max(session.sacrificeAt, next);
+		return {
+			kind: "retry",
+			reason: I18N("NX_REASON_SACRIFICE_WON_POINT", {
+				name: unitName(hero),
+				point,
+				next
+			})
+		};
+	}
+	function sacrificeGiveUp(attempt, point, reason) {
+		const wins = attempt.session.sacrificeWins;
+		const tried = Object.keys(wins).map(Number).filter((at) => (wins[at] ?? []).length > 0);
+		const from = Math.min(point, ...tried);
+		const heroes = [...new Set(Object.values(wins).flat())];
+		const where = from < point ? I18N("NX_SACRIFICE_POINTS", {
+			from,
+			to: point
+		}) : I18N("NX_SACRIFICE_POINT_ONE", { point });
+		console.log(`Перебор слива: ${from}–${point}, выигрывали все (${heroes.join(", ")}), прогон встаёт`);
+		return {
+			kind: "retry",
+			reason,
+			giveUp: I18N("NX_SACRIFICE_STUCK", {
+				where,
+				list: heroes.map(unitName).join(", ")
+			})
+		};
+	}
 	async function runArchdemonNewChapterWealth(attempt, setup) {
 		attempt.progress(I18N("NX_ENTERING", { attempt: attempt.number }));
-		await sleep(3e3);
+		await attempt.session.pace(NX_PACE.beforeChapter);
 		if (attempt.stopped) return stoppedOutcome();
 		let chapterInfo;
 		try {
@@ -4763,8 +4934,11 @@
 		attempt.ledger.reset(attempt.wallet.value);
 		console.log(`${NX_LOG_CASH} СТАРТ захода ${attempt.number}: ${attempt.ledger.startCoins} монет, жизней ${lives}, сборка расширения ${GM_info.script.version}`);
 		const lastPoint = pointCount(setup.chapterId, actions.map((action) => Number(action.payload.id)));
-		const sacrificePoint = currentSacrificePoint(setup, lastPoint, sacrificePointChoices(setup.chapterId));
-		await pause(NX_PACE.chapterEnter);
+		const sacrificeChoices = sacrificePointChoices(setup.chapterId).filter((point) => point <= lastPoint);
+		let sacrificePoint = currentSacrificePoint(setup, lastPoint, sacrificeChoices);
+		const shifted = attempt.session.sacrificeAt;
+		if (sacrificePoint > 0 && shifted > sacrificePoint && sacrificeChoices.includes(shifted)) sacrificePoint = shifted;
+		await attempt.session.pace(NX_PACE.chapterEnter);
 		let visit = await wealthShopPhase(attempt, setup, 1, sacrificePoint);
 		if (visit.kind === "fatal") return {
 			kind: "fatal",
@@ -4786,11 +4960,33 @@
 			const missionId = action.payload.id;
 			if (point === sacrificePoint) for (let number = 1; number <= NX_SACRIFICE_LOSSES; number++) {
 				if (attempt.stopped) return stoppedOutcome();
-				const sacrificeHero = pickSacrificeHero(setup, (await attempt.units()).fragments);
+				const queue = sacrificeQueue(setup, (await attempt.units()).fragments);
+				const won = attempt.session.sacrificeWins[point] ?? [];
+				let sacrificeHero = queue.find((id) => !won.includes(id)) ?? 0;
+				if (!sacrificeHero && queue.length) {
+					if (number > 1) sacrificeHero = queue[0];
+					else {
+						const next = nextSacrificePoint(point, sacrificeChoices);
+						if (!next) return sacrificeGiveUp(attempt, point, I18N("NX_REASON_SACRIFICE_ALL_WON", { point }));
+						console.log(`Перебор слива: на точке ${point} выигрывали все на руках (${queue.join(", ")}), сливаем на ${next}`);
+						attempt.progress(I18N("NX_SACRIFICE_NEXT_POINT", {
+							point,
+							next
+						}), null, true);
+						attempt.session.sacrificeAt = Math.max(attempt.session.sacrificeAt, next);
+						sacrificePoint = next;
+						break;
+					}
+				}
 				if (!sacrificeHero) return {
 					kind: "retry",
 					reason: I18N("NX_REASON_NO_SACRIFICE", { list: setup.sacrificeHeroes.map(unitName).join(", ") })
 				};
+				if (number === 1 && won.length) attempt.progress(I18N("NX_SACRIFICE_ROTATE", {
+					point,
+					name: unitName(sacrificeHero),
+					list: won.map(unitName).join(", ")
+				}), null, true);
 				const sacrificeTeam = [sacrificeHero];
 				console.log(`Слив ${number}: сливаем точку составом ${sacrificeTeam.join(", ")}`);
 				attempt.progress(I18N("NX_SACRIFICE", {
@@ -4798,7 +4994,7 @@
 					number,
 					total: NX_SACRIFICE_LOSSES
 				}), null, true);
-				await pause(NX_PACE.beforeBattle);
+				await attempt.session.pace(NX_PACE.beforeBattle);
 				const coinsBeforeLoss = visit.coins;
 				const teamKey = sacrificeTeam.join("+");
 				const loss = await loseBattleOnPurpose(attempt, missionId, setup.chapterId, sacrificeTeam, attempt.session.lossStart[teamKey], lives);
@@ -4817,15 +5013,12 @@
 				const pointState = Object.values(afterLoss.actions).find((e) => e.payload.id === missionId);
 				const pointTaken = pointState ? Number(pointState.payload.wins ?? 0) > 0 : false;
 				console.log(`Слив ${number} из ${NX_SACRIFICE_LOSSES}: расчёт ${calcSaysWin ? "победа" : "поражение"}, точка ${pointTaken ? "ВЗЯТА" : "не взята"}, жизней ${lives}`);
-				if (pointTaken) return {
-					kind: "retry",
-					reason: I18N("NX_REASON_SACRIFICE_WON")
-				};
+				if (pointTaken) return await sacrificeWon(attempt, setup, point, sacrificeHero, sacrificeChoices);
 				if (lives === 0) return {
 					kind: "retry",
 					reason: I18N("NX_REASON_NO_LIVES")
 				};
-				await pause(NX_PACE.afterBattle);
+				await attempt.session.pace(NX_PACE.afterBattle);
 				visit = await wealthShopPhase(attempt, setup, point, sacrificePoint);
 				if (visit.kind === "fatal") return {
 					kind: "fatal",
@@ -4862,6 +5055,7 @@
 					});
 					attempt.progress(line, null, true);
 					await sellUnneededFragments(attempt, stall, setup, fragments, true);
+					await sellExtraParts(attempt, stall, setup, fragments);
 				} catch (e) {
 					console.error(e);
 					return {
@@ -4879,7 +5073,7 @@
 				attempt: attempt.number,
 				missionNumber: point
 			}), null, true);
-			await pause(NX_PACE.beforeBattle);
+			await attempt.session.pace(NX_PACE.beforeBattle);
 			const team = await buildCarryTeam(attempt, setup);
 			attempt.lastTeam = [...team.heroes];
 			attempt.lastTeamOwned = { ...(await attempt.units()).fragments };
@@ -4918,7 +5112,7 @@
 			};
 			if (attempt.stopped) return stoppedOutcome();
 			if (point < lastPoint) {
-				await pause(NX_PACE.afterBattle);
+				await attempt.session.pace(NX_PACE.afterBattle);
 				visit = await wealthShopPhase(attempt, setup, point + 1, sacrificePoint);
 				if (visit.kind === "fatal") return {
 					kind: "fatal",
@@ -4932,7 +5126,7 @@
 				console.log(`${NX_LOG_CASH} точка ${point}: было ${coinsBeforePoint}, на входе в лавку ${visit.coinsOnEntry}, прирост ${visit.coinsOnEntry - coinsBeforePoint}`);
 			}
 		}
-		await pause(NX_PACE.afterBattle);
+		await attempt.session.pace(NX_PACE.afterBattle);
 		if (attempt.stopped) return stoppedOutcome();
 		attempt.point = lastPoint + 1;
 		const stall = attempt.stall;
@@ -4997,6 +5191,7 @@
 	}
 	async function runArchdemonNewLoop(session, setup) {
 		const reporter = session.reporter;
+		session.noPace = setup.noPace === true;
 		reporter.open(() => session.stop());
 		reporter.plan?.(progressPlan(setup));
 		reporter.target?.(coinTarget(setup));
@@ -5064,10 +5259,19 @@
 				attempt,
 				reason
 			};
-			await sleep(serverErrors ? NX_SERVER_ERROR_PAUSE_SECONDS * 1e3 : 2500);
+			if (serverErrors) await sleep(NX_SERVER_ERROR_PAUSE_SECONDS * 1e3);
+			else if (!session.noPace) await sleep(2500);
 			if (session.stopped) break;
 			try {
 				await gameSend("invasion_resetChapter");
+				if (outcome.kind === "retry" && outcome.giveUp) {
+					if (await session.notice(outcome.giveUp)) syncGame();
+					return;
+				}
+				if (session.noPace) {
+					if (session.stopped) break;
+					continue;
+				}
 				const pause = NX_RUN_PAUSE_MIN_SECONDS + Math.random() * (NX_RUN_PAUSE_MAX_SECONDS - NX_RUN_PAUSE_MIN_SECONDS);
 				if (!await reporter.countdown(pause, () => session.stopped)) break;
 			} catch (e) {
@@ -5478,6 +5682,7 @@
 	var WIDTH_WITH_PROGRESS = CHROME + PROGRESS_WIDTH + BODY_GAP + 320;
 	var BRIEF_HEIGHT = 24;
 	var EDGE = 4;
+	var BOTTOM_SLACK = 2;
 	function clampToViewport(position, width, height, viewWidth, viewHeight) {
 		const fit = (value, size, view) => {
 			const max = Math.max(EDGE, (Number.isFinite(view) ? view : 0) - (Number.isFinite(size) ? size : 0) - EDGE);
@@ -5716,7 +5921,9 @@
 			if (liveKey) {
 				const live = this.live;
 				if (live && live.key === liveKey && live.element.isConnected) {
-					live.element.innerHTML = html;
+					this.keepBottom(box, () => {
+						live.element.innerHTML = html;
+					});
 					return;
 				}
 				this.live = {
@@ -5727,6 +5934,12 @@
 			}
 			this.live = null;
 			this.addLine(box, html);
+		}
+		keepBottom(box, change) {
+			const list = box.list;
+			const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight <= BOTTOM_SLACK;
+			change();
+			if (atBottom) list.scrollTop = list.scrollHeight;
 		}
 		fail(html) {
 			const box = this.box;
@@ -7553,10 +7766,10 @@
 		return !needle || name.toLocaleLowerCase().includes(needle);
 	}
 	var PICKER_Z = 10050;
-	var STAGE_W$1 = 940;
-	var STAGE_H$1 = 680;
+	var STAGE_W$3 = 940;
+	var STAGE_H$3 = 680;
 	var OX = 140;
-	var MAX_SCALE$1 = 1.4;
+	var MAX_SCALE$3 = 1.4;
 	var GRID = {
 		x: 46,
 		y: 104,
@@ -7662,9 +7875,9 @@
 		const win = openGameWindow({
 			id: windowId,
 			zIndex: PICKER_Z,
-			stageW: STAGE_W$1,
-			stageH: STAGE_H$1,
-			maxScale: MAX_SCALE$1,
+			stageW: STAGE_W$3,
+			stageH: STAGE_H$3,
+			maxScale: MAX_SCALE$3,
 			library
 		});
 		const { stage, pic, piece, anim, label } = win;
@@ -7889,7 +8102,7 @@
 			const ids = rowTeam();
 			const slot = TEAM_SIZE - ids.length + Math.max(0, ids.indexOf(heroId));
 			const heroCenter = OX + ROW.heroX + slot * ROW.step + CARD / 2;
-			const px = Math.round(Math.min(Math.max(heroCenter - W / 2, 8), STAGE_W$1 - W - 8));
+			const px = Math.round(Math.min(Math.max(heroCenter - W / 2, 8), STAGE_W$3 - W - 8));
 			const py = Math.round(ROW.y - 18 - H);
 			let items = "";
 			fitting.forEach((petId, k) => {
@@ -8468,7 +8681,7 @@
 		};
 	}
 	var petId = (n) => n > 0 && n < 100 ? 6e3 + n : n;
-	function readCache$1(storage) {
+	function readCache$2(storage) {
 		try {
 			const cached = JSON.parse(storage.getItem(NX_PRESETS_STORAGE_KEY) ?? "null");
 			return cached && Array.isArray(cached.data) ? cached : null;
@@ -8476,7 +8689,7 @@
 			return null;
 		}
 	}
-	function writeCache$1(storage, data, now) {
+	function writeCache$2(storage, data, now) {
 		try {
 			storage.setItem(NX_PRESETS_STORAGE_KEY, JSON.stringify({
 				exp: now + NX_PRESETS_TTL_MS,
@@ -8494,7 +8707,7 @@
 		async loadRows({ force = false } = {}) {
 			const { storage = globalThis.localStorage, clock = Date.now, fetchImpl = globalThis.fetch, urls = NX_PRESETS_URLS } = this.options;
 			const now = clock();
-			const cached = storage ? readCache$1(storage) : null;
+			const cached = storage ? readCache$2(storage) : null;
 			if (cached && cached.exp > now && !force) return {
 				rows: cached.data,
 				source: "cache"
@@ -8503,7 +8716,7 @@
 			for (const url of mirrorOrder(storage, urls)) try {
 				const data = await fetchRows(fetchImpl, url);
 				if (storage) {
-					writeCache$1(storage, data, now);
+					writeCache$2(storage, data, now);
 					rememberMirror(storage, url);
 				}
 				return {
@@ -8881,7 +9094,7 @@
 	function versionFromHeader(text) {
 		return /\/\/\s*@version\s+(\S+)/.exec(text)?.[1] ?? null;
 	}
-	function readCache(storage) {
+	function readCache$1(storage) {
 		try {
 			const cached = JSON.parse(storage?.getItem(NX_UPDATE_STORAGE_KEY) ?? "null");
 			return cached && Number.isFinite(cached.exp) ? cached : null;
@@ -8889,7 +9102,7 @@
 			return null;
 		}
 	}
-	function writeCache(storage, cache) {
+	function writeCache$1(storage, cache) {
 		try {
 			storage?.setItem(NX_UPDATE_STORAGE_KEY, JSON.stringify(cache));
 		} catch (e) {
@@ -8919,11 +9132,11 @@
 	async function checkForUpdate(options = {}) {
 		const { storage = globalThis.localStorage, clock = Date.now, fetchImpl = globalThis.fetch, urls = NX_UPDATE_URLS } = options;
 		const now = clock();
-		const cached = readCache(storage);
+		const cached = readCache$1(storage);
 		if (cached && cached.exp > now && cached.exp - now <= Math.max(NX_UPDATE_TTL_MS, NX_UPDATE_RETRY_MS)) return cached.version;
 		for (const url of urls) try {
 			const version = await fetchVersion(fetchImpl, cacheBustedUrl(url, now));
-			writeCache(storage, {
+			writeCache$1(storage, {
 				exp: now + NX_UPDATE_TTL_MS,
 				version
 			});
@@ -8931,14 +9144,14 @@
 		} catch (e) {
 			console.log(`Проверка версии: ${new URL(url).hostname} не ответил`, e);
 		}
-		writeCache(storage, {
+		writeCache$1(storage, {
 			exp: now + NX_UPDATE_RETRY_MS,
 			version: null
 		});
 		return null;
 	}
 	function availableUpdate(current, storage = globalThis.localStorage) {
-		const version = readCache(storage)?.version ?? null;
+		const version = readCache$1(storage)?.version ?? null;
 		return isNewer(version, current) ? version : null;
 	}
 	function onGamePage() {
@@ -9301,41 +9514,46 @@
 	}
 	var SETUP_WINDOW_ID = "nxSetupWindow";
 	var SETUP_Z = 10040;
-	var STAGE_W = 800;
+	var STAGE_W$2 = 800;
 	var WIDE_STAGE_W = 1e3;
-	var STAGE_H = 816;
-	var MIN_STAGE_H = 560;
-	var MAX_SCALE = 1;
-	var SCREEN_MARGIN = 32;
-	var FRAME_X = 7;
-	var FRAME_Y = 41;
+	var STAGE_H$2 = 816;
+	var MIN_STAGE_H$1 = 560;
+	var MAX_SCALE$2 = 1;
+	var SCREEN_MARGIN$1 = 32;
+	var FRAME_X$1 = 7;
+	var FRAME_Y$1 = 41;
 	var frameWidth = (stageW) => stageW - 14;
-	var HEADER_W = 360;
+	var HEADER_W$2 = 360;
 	var TOP_ROW = 75;
 	var CONTENT_TOP = 121;
 	var CONTENT_X = 33;
 	var contentWidth = (stageW) => stageW - 66;
-	var C = {
+	var C$2 = {
 		title: "#ffcf84",
 		hint: "#fce5b7"
 	};
+	var NOTICE_H = 26;
+	var NOTICE_ABOVE_BUTTONS = 8;
+	var NOTICE_BELOW_FORM = 6;
 	async function runSetupDialog(options, build) {
-		const stageH = Math.max(MIN_STAGE_H, Math.min(STAGE_H, window.innerHeight - SCREEN_MARGIN));
-		const frameH = stageH - FRAME_Y - 7;
-		const buttonsY = FRAME_Y + frameH - 66;
+		const stageH = Math.max(MIN_STAGE_H$1, Math.min(STAGE_H$2, window.innerHeight - SCREEN_MARGIN$1));
+		const frameH = stageH - FRAME_Y$1 - 7;
+		const buttonsY = FRAME_Y$1 + frameH - 66;
 		const contentH = buttonsY - 12 - CONTENT_TOP;
+		const noticeTop = buttonsY - NOTICE_ABOVE_BUTTONS - NOTICE_H;
+		const contentWithNoticeH = noticeTop - NOTICE_BELOW_FORM - CONTENT_TOP;
 		const win = openGameWindow({
 			id: SETUP_WINDOW_ID,
 			zIndex: SETUP_Z,
-			stageW: STAGE_W,
+			stageW: STAGE_W$2,
 			stageH,
-			maxScale: MAX_SCALE,
+			maxScale: MAX_SCALE$2,
 			library: options.library
 		});
 		const { piece, label } = win;
 		const frameHtml = (stageW) => {
 			const frameW = frameWidth(stageW);
-			const headerX = FRAME_X + frameW / 2 - HEADER_W / 2;
+			const headerX = FRAME_X$1 + frameW / 2 - HEADER_W$2 / 2;
 			return piece("PopupBG_12_12_12_12", 20, 55, {
 				render: {
 					width: frameW - 26,
@@ -9343,7 +9561,7 @@
 				},
 				size: [frameW - 26, frameH - 22],
 				fallback: "background: #190e08; border-radius: 10px;"
-			}) + piece("mainframeSep_64_64_2_2", FRAME_X, FRAME_Y, {
+			}) + piece("mainframeSep_64_64_2_2", FRAME_X$1, FRAME_Y$1, {
 				render: {
 					width: frameW,
 					height: frameH
@@ -9352,11 +9570,11 @@
 				fallback: "border: 3px solid #ce9767; border-radius: 12px;",
 				cls: "nxNoHit"
 			}) + piece("header_178_178_2", headerX, 14, {
-				render: { width: HEADER_W },
-				size: [HEADER_W, 56],
+				render: { width: HEADER_W$2 },
+				size: [HEADER_W$2, 56],
 				fallback: "background: linear-gradient(180deg, #8a5a2a, #4a2a10); border-radius: 10px;",
 				cls: "nxNoHit"
-			}) + label(options.title, headerX + 60, 14, 240, 56, 24, C.title) + label(options.hint, 157, TOP_ROW, frameW - 300, 24, 16, C.hint) + piece("closeButton_32", FRAME_X + frameW - 43, 26, {
+			}) + label(options.title, headerX + 60, 14, 240, 56, 24, C$2.title) + label(options.hint, 157, TOP_ROW, frameW - 300, 24, 16, C$2.hint) + piece("closeButton_32", FRAME_X$1 + frameW - 43, 26, {
 				size: [46, 46],
 				fallback: "background: #8a1c12; border: 2px solid #ce9767; border-radius: 50%; color: #fff; font: 700 20px/42px sans-serif; text-align: center;",
 				inner: "✕",
@@ -9364,10 +9582,16 @@
 				cls: "nxBox"
 			});
 		};
-		win.render(win.part("data-part=\"frame\"", frameHtml(STAGE_W)) + `<div data-slot="version" style="position: absolute; left: 37px; top: 78px; font-family: sans-serif; font-weight: 600; font-stretch: condensed; letter-spacing: 1px; color: #FDE5B6;"></div><div data-slot="auto" style="position: absolute; right: 67px; top: 71px;"></div><div class="nxList" data-slot="content" style="left: ${CONTENT_X}px; top: ${CONTENT_TOP}px; width: ${contentWidth(STAGE_W)}px; height: ${contentH}px; user-select: text; padding-top: 6px; mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);"></div>` + win.part("data-part=\"start\"", mediumButton(win, "green", 250, buttonsY, options.startText, "data-start=\"1\"")) + win.part("data-part=\"cancel\"", mediumButton(win, "boring", 410, buttonsY, options.cancelText, "data-cancel=\"1\"")));
+		win.render(win.part("data-part=\"frame\"", frameHtml(STAGE_W$2)) + `<div data-slot="version" style="position: absolute; left: 37px; top: 78px; font-family: sans-serif; font-weight: 600; font-stretch: condensed; letter-spacing: 1px; color: #FDE5B6;"></div><div data-slot="auto" style="position: absolute; right: 67px; top: 71px;"></div><div data-slot="notice" style="position: absolute; left: 50%; transform: translateX(-50%); top: ${noticeTop}px; height: ${NOTICE_H}px; width: max-content; display: none; align-items: center; justify-content: center; gap: 26px; white-space: nowrap; font-family: sans-serif; font-size: 17px; font-weight: 700; line-height: 22px;"></div><div class="nxList" data-slot="content" style="left: ${CONTENT_X}px; top: ${CONTENT_TOP}px; width: ${contentWidth(STAGE_W$2)}px; height: ${contentH}px; user-select: text; padding-top: 6px; mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);"></div>` + win.part("data-part=\"start\"", mediumButton(win, "green", 250, buttonsY, options.startText, "data-start=\"1\"")) + win.part("data-part=\"cancel\"", mediumButton(win, "boring", 410, buttonsY, options.cancelText, "data-cancel=\"1\"")));
 		win.paintTexts();
 		const slot = (name) => win.stage.querySelector(`[data-slot="${name}"]`);
 		const part = (name) => win.stage.querySelector(`[data-part="${name}"]`);
+		const applyNotice = (notice) => {
+			const box = slot("notice");
+			box.innerHTML = notice;
+			box.style.display = notice ? "flex" : "none";
+			slot("content").style.height = `${notice ? contentWithNoticeH : contentH}px`;
+		};
 		return await new Promise((resolve) => {
 			let done = false;
 			const onKey = (event) => {
@@ -9405,13 +9629,14 @@
 					}
 				},
 				setWide: (wide) => {
-					const stageW = wide ? WIDE_STAGE_W : STAGE_W;
+					const stageW = wide ? WIDE_STAGE_W : STAGE_W$2;
 					if (win.stage.offsetWidth === stageW) return;
 					const frame = part("frame");
 					if (frame) win.render(frameHtml(stageW), frame);
 					slot("content").style.width = `${contentWidth(stageW)}px`;
 					win.resize(stageW, stageH);
-				}
+				},
+				setNotice: (html) => applyNotice(html)
 			}, answer);
 			window.addEventListener("keydown", onKey, true);
 			window.addEventListener("keyup", onKey, true);
@@ -9434,8 +9659,317 @@
 		return [...document.body.children].some((el) => el !== own && !el.classList.contains("nxHidden") && el.querySelector(":scope > div > .nxStage") !== null);
 	}
 	var setupDialog = { run: runSetupDialog };
+	var WIN_ID$1 = "nxConfirmWindow";
+	var Z$1 = 10060;
+	var STAGE_W$1 = 640;
+	var STAGE_H$1 = 360;
+	var MAX_SCALE$1 = 1;
+	var FRAME = {
+		x: 7,
+		y: 41,
+		w: 626,
+		h: 312
+	};
+	var HEADER_W$1 = 360;
+	var C$1 = {
+		title: "#ffcf84",
+		text: "#f8e8c1"
+	};
+	var CLICK_GUARD_MS = 400;
+	async function confirmWindow(options) {
+		const win = openGameWindow({
+			id: WIN_ID$1,
+			zIndex: Z$1,
+			stageW: STAGE_W$1,
+			stageH: STAGE_H$1,
+			maxScale: MAX_SCALE$1,
+			library: options.library
+		});
+		const { piece, label } = win;
+		const headerX = FRAME.x + FRAME.w / 2 - HEADER_W$1 / 2;
+		const buttonsY = FRAME.y + FRAME.h - 72;
+		win.render(piece("PopupBG_12_12_12_12", FRAME.x + 13, FRAME.y + 14, {
+			render: {
+				width: FRAME.w - 26,
+				height: FRAME.h - 22
+			},
+			size: [FRAME.w - 26, FRAME.h - 22],
+			fallback: "background: #190e08; border-radius: 10px;"
+		}) + piece("mainframeSep_64_64_2_2", FRAME.x, FRAME.y, {
+			render: {
+				width: FRAME.w,
+				height: FRAME.h
+			},
+			size: [FRAME.w, FRAME.h],
+			fallback: "border: 3px solid #ce9767; border-radius: 12px;",
+			cls: "nxNoHit"
+		}) + piece("header_178_178_2", headerX, 14, {
+			render: { width: HEADER_W$1 },
+			size: [HEADER_W$1, 56],
+			fallback: "background: linear-gradient(180deg, #8a5a2a, #4a2a10); border-radius: 10px;",
+			cls: "nxNoHit"
+		}) + label(options.title, headerX + 50, 14, 260, 56, 22, C$1.title) + piece("closeButton_32", FRAME.x + FRAME.w - 43, 26, {
+			size: [46, 46],
+			fallback: "background: #8a1c12; border: 2px solid #ce9767; border-radius: 50%; color: #fff; font: 700 20px/42px sans-serif; text-align: center;",
+			inner: "✕",
+			attrs: "data-cancel=\"1\"",
+			cls: "nxBox"
+		}) + `<div data-slot="text" style="position: absolute; left: ${FRAME.x + 40}px; top: ${FRAME.y + 44}px; width: ${FRAME.w - 80}px; height: ${buttonsY - FRAME.y - 56}px; display: flex; align-items: center; justify-content: center; text-align: center; font: 16px/1.45 sans-serif; color: ${C$1.text}; user-select: text;"><div>${options.text}</div></div>` + mediumButton(win, "green", STAGE_W$1 / 2 - 150, buttonsY, options.okText, "data-ok=\"1\"") + mediumButton(win, "boring", 330, buttonsY, options.cancelText, "data-cancel=\"1\""));
+		win.paintTexts();
+		return await new Promise((resolve) => {
+			let done = false;
+			const answer = (value) => {
+				if (done) return;
+				done = true;
+				window.removeEventListener("keydown", onKey, true);
+				window.removeEventListener("keyup", onKey, true);
+				win.close();
+				resolve(value);
+			};
+			const onKey = (event) => {
+				if (event.key !== "Escape") return;
+				event.stopPropagation();
+				event.preventDefault();
+				if (event.type === "keyup") answer(false);
+			};
+			window.addEventListener("keydown", onKey, true);
+			window.addEventListener("keyup", onKey, true);
+			const openedAt = performance.now();
+			win.root.addEventListener("click", (event) => {
+				if (event.detail > 1 || performance.now() - openedAt < CLICK_GUARD_MS) return;
+				const at = (selector) => event.target.closest(selector);
+				if (at("[data-ok]")) answer(true);
+				else if (at("[data-cancel]")) answer(false);
+			});
+			win.onClose(() => answer(false));
+		});
+	}
+	var confirmDialog = { run: confirmWindow };
+	var changelog_default = JSON.parse("[{\"version\":\"1.51-beta\",\"date\":\"2026-11-25\",\"ru\":[\"Новый блок «На свой риск» внизу окна настройки: две галки, общие для всех глав, для ручной настройки и для готовых сборок. Включить их можно только через окно подтверждения, снять — сразу.\",\"«Продавать все лишние части героев в каждой лавке»: у героя остаётся ровно столько частей, сколько нужно по сборке, остальное продаётся сразу — со старта главы и после каждой покупки, даже если ранг героя падает. В самой игре так продать нельзя. Героев, которых прогон возвысит, галка не трогает.\",\"«Убрать все задержки, имитирующие действие реального игрока»: прогон идёт без пауз в лавке, перед боем и после, без паузы пропуска боя и без пауз между заходами. Ожидание главного босса и паузы после сбоев сервера остаются.\",\"Перебор героев для проигрыша: если герой для проигрыша выиграл точку, следующий заход проигрывает следующим по слабости героем. Выиграли все — проигрыш переходит на следующую точку, до последней точки проигрыша в главе. Если и там не проиграл никто, прогон сбрасывает главу и останавливается с окном «стратегия не работает» вместо многочасового кружения. Так же и при указанном герое для проигрыша.\",\"Исправлены мелкие ошибки интерфейса и неточности в описаниях.\"],\"en\":[\"New \\\"At your own risk\\\" block at the bottom of the setup window: two checkboxes shared by all chapters, by manual setup and by ready-made builds. They can be turned on only through a confirmation window; turning them off is instant.\",\"\\\"Sell all extra hero parts in every shop\\\": a hero keeps exactly as many parts as the build needs, the rest is sold at once — at the chapter start and after every purchase, even if the hero's rank drops. The game itself can't sell that way. Heroes the script will ascend are left alone.\",\"\\\"Remove all delays that imitate a real player\\\": the script runs with no pauses in the stall, before and after battles, no battle-skip pause and no pauses between runs. The main boss wait and the pauses after server errors stay.\",\"Throw rotation: if the throwing hero wins the point, the next run throws with the next weakest hero. Once all of them have won, throwing moves to the next point, up to the chapter's last throw point. If nobody loses there either, the script resets the chapter and stops with a \\\"strategy does not work\\\" window instead of spinning for hours. The same applies when a throwing hero is set.\",\"Fixed minor interface bugs and inaccuracies in descriptions.\"]},{\"version\":\"1.50-beta\",\"date\":\"2026-11-22\",\"ru\":[\"Докупка перед атакой больше не ограничена скидками. Порядок: часть проходного, если поднимет его ранг; проходной, которого нет на руках; новый герой со скидкой; закреплённый лот по любой цене; сильнейший новый герой по полной цене; случайная карта — последней.\",\"Лот берётся только ради героя, которого нет на руках: часть уже имеющегося героя лишнего бойца в бой не добавит.\",\"Слоты в бою сначала получают проходные, герои сборки и герой для проигрыша. Лишние герои сверх слотов не воюют и продаются в ближайшей лавке, самый слабый первым. Героев сборки прогон не продаёт: купил четвёртым героя сборки — идёт вчетвером.\",\"Журнал вместо «докупить не на что» пишет точнее: «в лавке нет подходящего героя» или «на героя не хватает монет».\"],\"en\":[\"Buying before an attack is no longer limited to discounts. Order: a carry hero's part if it raises the rank; a carry hero not on hand; a new hero at a discount; a pinned lot at any price; the strongest new hero at full price; a random card last.\",\"A lot is bought only for a hero who is not on hand: a part of a hero you already have adds no extra fighter.\",\"Battle slots go first to carry heroes, build heroes and the throwing hero. Extra heroes beyond the slots don't fight and are sold at the next stall, weakest first. Build heroes are never sold: if the fourth hero bought is from the build, the script fights with four.\",\"The run log says more precisely what went wrong instead of \\\"nothing to buy\\\": \\\"no suitable hero in the stall\\\" or \\\"not enough coins for a hero\\\".\"]},{\"version\":\"1.49-beta\",\"date\":\"2026-11-22\",\"ru\":[\"Герой, докупленный перед атакой, теперь действительно идёт в бой: с точки докупки и до конца главы мест в бою больше на число докупленных. В 1.48 купленный мог остаться в запасе, и точку били вдвоём.\",\"Пустой ответ сервера на конец боя больше не останавливает прогон: через несколько секунд он проверяет состояние главы и, если точка засчитана, идёт дальше, иначе начинает заход заново. Конец боя второй раз не отправляется.\"],\"en\":[\"A hero bought before an attack now really goes into battle: from the buying point to the end of the chapter there are as many extra battle slots as heroes bought. In 1.48 the bought hero could stay in reserve, and the point was fought by two heroes.\",\"An empty server answer to a battle end no longer stops the script: a few seconds later it checks the chapter state and goes on if the point was counted, otherwise it starts the run again. The battle end is never sent twice.\"]},{\"version\":\"1.48-beta\",\"date\":\"2026-11-22\",\"ru\":[\"Окно готовых сборок: над списком выбор главы — «Все» или I…VI, при открытии отмечена глава из окна настройки. На время сборок окно шире, таблица и «Поехали» больше не обрезаются. Строка про автора сборки в шапке убрана.\",\"«Поехали» запускает прогон в той главе, под которую сделана сборка. Не хватает Амулета на эту главу — кнопка серая, подсказка говорит, какой уровень нужен.\",\"Стратегия прогона теперь зависит только от главы, а не от усиления: сборки главы I при любом усилении больше не говорят «стратегии прогона нет».\",\"Стратегия сборки может просить докупку перед атакой на нужной точке: часть проходного, если поднимет ранг; проходной не на руках; любой герой со скидкой.\",\"Окно выбора героев: заголовок больше не наезжает на поле поиска, набранный текст выглядит как в игре.\",\"В окне сбоя первой строкой «Подробнее» — версии дополнения и помощника. Пустой ответ сервера при начале боя — заход заново вместо остановки прогона.\"],\"en\":[\"Ready-made builds window: a chapter choice above the list — \\\"All\\\" or I…VI, with the setup window's chapter marked on opening. The window is wider while builds are shown, so the table and \\\"Let's go\\\" are no longer cut off. The line about the build author in the header is gone.\",\"\\\"Let's go\\\" starts the script in the chapter the build was made for. If your Amulet is too low for that chapter, the button is grey and its hint says which level is needed.\",\"The run strategy now depends only on the chapter, not on the buff: chapter I builds no longer say \\\"no run strategy\\\" at any buff.\",\"A build's strategy can ask to buy heroes before an attack at a given point: a carry hero's part if it raises the rank; a carry hero not on hand; any hero at a discount.\",\"Hero selection window: the title no longer overlaps the search field, and the typed text looks like in the game.\",\"The failure window's \\\"Details\\\" now start with the add-on and helper versions. An empty server answer at a battle start restarts the run instead of stopping the script.\"]},{\"version\":\"1.47-beta\",\"date\":\"2026-11-21\",\"ru\":[\"Внутренняя переработка: расчёт боя ищет нужные поля в клиенте игры по одной общей карте и стал устойчивее к новым сборкам клиента. Для игрока ничего не меняется.\"],\"en\":[\"Internal rework: the battle calculation finds the game client fields through one shared map and copes better with new client builds. Nothing changes for players.\"]},{\"version\":\"1.46-beta\",\"date\":\"2026-11-20\",\"ru\":[\"Поддержка Приключения 23–30 ноября после его переделки игрой: 6 глав, две эмблемы — перед боями 2 и 8, новая лавка события, со старта в каждой главе К'арх и Водрин по 3 части, множители урона по Архидемону ×1…×1,9.\",\"Глава VI, где после главного босса два Архидемона, в окне показывается правильно: 8 точек и все точки проигрыша.\",\"Бирну к точке 1 в этом событии взять нельзя — её нет в новой лавке; Марту можно.\"],\"en\":[\"Support for the November 23–30 Adventure after the game reworked it: 6 chapters, two emblems — before battles 2 and 8, a new event stall, K'arkh and Wodryn with 3 parts each at the start of every chapter, Archdemon damage multipliers ×1…×1.9.\",\"Chapter VI, which has two Archdemons after the main boss, now shows correctly in the window: 8 points and all throw points.\",\"Birna can't be taken to point 1 in this event — she is not in the new stall; Martha can.\"]},{\"version\":\"1.45-beta\",\"date\":\"2026-11-20\",\"ru\":[\"Если сервер включит пересев боя (новое зерно на ультах), заранее посчитанный бой он не примет. На таком бою прогон останавливается с понятной причиной и не отправляет конец боя — бой нужно закончить в игре вручную. Пока сервер так не делает, для игрока ничего не меняется.\"],\"en\":[\"If the server turns on battle reseeding (a new seed on ultimates), it will not accept a battle computed in advance. On such a battle the script stops with a clear reason and does not send the battle end — finish that battle in the game by hand. Until the server does this, nothing changes for players.\"]},{\"version\":\"1.44-beta\",\"date\":\"2026-11-20\",\"ru\":[\"Расчёт боя снова работает на сборке клиента игры от 20 ноября: игра сдвинула внутреннее поле, и расчёт падал с ошибкой «нет сигнала конца боя». Теперь нужные поля ищутся по их смыслу, а не по номеру.\",\"Английские тексты приведены к английской игре: ранги Violet, Orange, Red; части героев — fragments, как в лавке; buff вместо boost; смена эмблем — Emblem refresh.\"],\"en\":[\"The battle calculation works again on the November 20 game client build: the game moved an internal field and the calculation failed with \\\"no battle end signal\\\". The needed fields are now found by what they do, not by their position.\",\"English texts now match the English game: ranks Violet, Orange, Red; hero parts are fragments, as in the stall; buff instead of boost; emblem change is Emblem refresh.\"]},{\"version\":\"1.43-beta\",\"date\":\"2026-11-19\",\"ru\":[\"Окна выбора проходных, героев для проигрыша и «Кого возвысить» снова сохраняют пустой список: проходных скрипт подберёт сам, проигрывает самый слабый на руках, возвышается основной состав. Окно целевого состава по-прежнему просит хотя бы одного героя.\"],\"en\":[\"The carry heroes, throwing heroes and \\\"Whom to ascend\\\" windows can save an empty list again: the script picks carry heroes itself, the weakest hero on hand throws, and the main team is ascended. The target team window still needs at least one hero.\"]},{\"version\":\"1.42-beta\",\"date\":\"2026-11-19\",\"ru\":[\"Короткие подсказки в окне настройки. У проходных: «До выбранного ранга докупаются по ходу главы. Не указаны — скрипт подберёт их сам». У героев для проигрыша: «Проигрывает один, самый слабый из них. Не указаны — скрипт выберет сам».\"],\"en\":[\"Short hints in the setup window. Carry heroes: \\\"Topped up to the chosen rank along the chapter. Not set — the script picks them itself\\\". Throwing: \\\"One of them throws, the weakest on hand. Not set — the script picks one itself\\\".\"]},{\"version\":\"1.41-beta\",\"date\":\"2026-11-19\",\"ru\":[\"Проходных можно не указывать: скрипт берёт героев с рук и каждые 5 заходов, где не хватило сил, добавляет в бой ещё одного, до пяти.\",\"Кнопка в меню помощника теперь «ArchRank» с картинкой; имена героев в журнале без номеров; Escape в окне сборок — «Назад».\"],\"en\":[\"Carry heroes are now optional: the script uses heroes at hand and adds one more to battle every 5 runs where the team was too weak, up to five.\",\"The helper menu button is now \\\"ArchRank\\\" with a picture; hero names in the run log have no numbers; Escape in ready-made builds goes Back.\"]},{\"version\":\"1.40-beta\",\"date\":\"2026-11-19\",\"ru\":[\"Внутренняя ошибка сервера игры (E_Internal) больше не останавливает прогон: запрос повторяется или заход начинается заново.\",\"Переводчик Chrome больше не портит номера глав; исправлены пустые портреты в окне выбора героев.\"],\"en\":[\"The game server's internal error (E_Internal) no longer stops the script: the request is retried or the run restarts.\",\"Chrome's translator no longer mangles chapter numbers; fixed empty portraits in the hero selection window.\"]},{\"version\":\"1.39-beta\",\"date\":\"2026-11-19\",\"ru\":[\"Не все проходные обязательны: в бой идут те, кого удалось взять, недостающих скрипт докупает по ходу главы.\",\"Новые галки: «Покупать проходных за любую цену» (без неё — только со скидкой) и «Не проигрывать точку».\"],\"en\":[\"Not all carry heroes are required: the script attacks with those it got and buys the missing ones later in the chapter.\",\"New options: \\\"Buy carry heroes at any price\\\" (otherwise only at a discount) and \\\"Do not throw on purpose\\\".\"]},{\"version\":\"1.38-beta\",\"date\":\"2026-11-18\",\"ru\":[\"Готовые сборки могут задавать «старт»: на точке 1 скрипт докупает героев со скидкой, чтобы в бой шли до пяти.\",\"По ходу главы докупаются герои основной пачки со скидкой, самый слабый лишний герой продаётся.\"],\"en\":[\"Ready-made builds can set a \\\"start\\\": at point 1 the script buys discounted heroes so that up to five go into battle.\",\"During the chapter, discounted main-team heroes are bought and the weakest extra hero is sold.\"]},{\"version\":\"1.37-beta\",\"date\":\"2026-11-18\",\"ru\":[\"Русские тексты сверены с игрой: «случайные фрагменты», «Оранжевый, 100», «Обновление эмблем», «фрагменты героев», «лоты».\"],\"en\":[\"Russian texts now use the game's own terms (random fragments, rank names, emblem refresh, lots).\"]},{\"version\":\"1.36-beta\",\"date\":\"2026-11-18\",\"ru\":[\"Галка «Оставлять лишние монеты» появилась и в ручной настройке, своя у каждой главы, по умолчанию включена.\",\"Если её снять, лишние монеты после сбора пака тратятся на обновления лавки до заданного минимума.\"],\"en\":[\"The \\\"Keep extra coins\\\" option is now in manual setup too, separate for each chapter and on by default.\",\"With it off, extra coins after the team is complete are spent on stall refreshes down to the set minimum.\"]},{\"version\":\"1.35-beta\",\"date\":\"2026-11-18\",\"ru\":[\"В шапке журнала видна цель по монетам (например, «→ 860–863»), если монеты заданы в настройке или в сборке.\"],\"en\":[\"The run log header shows the coin target (e.g. \\\"→ 860–863\\\") when coins are set in the setup or in the build.\"]},{\"version\":\"1.34-beta\",\"date\":\"2026-11-18\",\"ru\":[\"Иконки эмблем в окне готовых сборок и в окне настройки больше не наезжают друг на друга.\"],\"en\":[\"Emblem icons in the ready-made builds and setup windows no longer overlap.\"]},{\"version\":\"1.33-beta\",\"date\":\"2026-11-18\",\"ru\":[\"Журнал: проходные всегда в своей группе колонки прогресса и не тускнеют от закрепов.\",\"Окно сборок: столбец «Глава» (I–VI или «любая»), усиление 0 показывается как «0».\"],\"en\":[\"Run log: carry heroes always stay in their own group in the progress column and no longer dim because of pins.\",\"Ready-made builds window: a \\\"Chapter\\\" column (I–VI or \\\"any\\\"); buff 0 is shown as \\\"0\\\".\"]},{\"version\":\"1.32-beta\",\"date\":\"2026-11-18\",\"ru\":[\"В начале главы под капитал ненужные фрагменты стартовых героев продаются сразу, до первой покупки на точке 1.\"],\"en\":[\"At the start of a chapter played for capital, unneeded fragments of starting heroes are sold before the first purchase at point 1.\"]},{\"version\":\"1.31-beta\",\"date\":\"2026-11-18\",\"ru\":[\"Окно настройки шире, каждая глава в одну строку с множителем урона по Архидемону.\",\"Главы, закрытые по Амулету, неактивны и показывают уровень Амулета красным (например, «Амулет 1/5»).\"],\"en\":[\"The setup window is wider; each chapter fits on one line with its Archdemon damage multiplier.\",\"Chapters locked by Amulet are greyed out and show the Amulet level in red (e.g. \\\"Amulet 1/5\\\").\"]},{\"version\":\"1.30-beta\",\"date\":\"2026-11-16\",\"ru\":[\"Подбор победы на точке: выключен режим, не давший ни одной победы; все расчёты идут на способ, который выигрывает.\"],\"en\":[\"Win search at a point: the mode that gave no wins is turned off; all attempts now go to the method that does win.\"]},{\"version\":\"1.29-beta\",\"date\":\"2026-11-16\",\"ru\":[\"Подбор победы на точке сначала пробует способ «Улучшить» помощника: короткие бои Приключения больше не проигрываются заход за заходом.\"],\"en\":[\"Win search at a point first tries the helper's \\\"Improve\\\" method: short Adventure battles are no longer lost run after run.\"]},{\"version\":\"1.28-beta\",\"date\":\"2026-11-14\",\"ru\":[\"Если нужной эмблемы нет, скрипт использует бесплатные перебросы эмблем главы, а не сбрасывает главу.\"],\"en\":[\"If the needed emblem is not offered, the script uses the chapter's free emblem rerolls instead of resetting the chapter.\"]},{\"version\":\"1.27-beta\",\"date\":\"2026-11-14\",\"ru\":[\"Эмблема возвышения: скрипт возвышает полностью собранных героев перед Архидемоном (30 монет, +20% ко всем характеристикам).\",\"В окне настройки — блок «Кого возвысить», в стратегии готовой сборки — список героев для возвышения.\"],\"en\":[\"Emblem of Ascension: the script ascends fully collected heroes before the Archdemon (30 coins, +20% to all stats).\",\"The setup window has a \\\"Who to ascend\\\" block; ready-made build strategies can list heroes to ascend.\"]},{\"version\":\"1.26-beta\",\"date\":\"2026-11-11\",\"ru\":[\"Готовые сборки привязаны к событию: окно показывает сборки идущего события и сборки без события.\",\"Сборка под капитал без стратегии для главы и усиления больше не запускается — «Поехали» объясняет почему.\"],\"en\":[\"Ready-made builds are tied to an event: the window shows builds for the current event and builds with no event.\",\"A capital build with no strategy for the chapter and buff no longer starts; \\\"Let's go\\\" explains why.\"]},{\"version\":\"1.25-beta\",\"date\":\"2026-11-06\",\"ru\":[\"Готовые сборки по главам: окно показывает сборки выбранной главы и сборки без главы.\",\"Стратегия сборки может задавать случайные фрагменты на точке 1, запас обновлений лавки и обновления ради героя для проигрыша.\"],\"en\":[\"Ready-made builds by chapter: the window shows builds for the selected chapter and builds with no chapter.\",\"A build strategy can set random fragments at point 1, a stall refresh reserve and refreshes to find the throwing hero.\"]},{\"version\":\"1.24-beta\",\"date\":\"2026-11-06\",\"ru\":[\"Настройки окна сохраняются отдельно для каждой главы и только в рамках события; новое событие начинается с пустых.\",\"Окно открывается на главе, выбранной в этом событии раньше; любое изменение сохраняется сразу.\"],\"en\":[\"Setup window settings are saved per chapter and per event; a new event starts with empty settings.\",\"The window opens on the chapter chosen earlier in this event; every change is saved immediately.\"]},{\"version\":\"1.23-beta\",\"date\":\"2026-11-06\",\"ru\":[\"Поддержка Приключений, где Архидемон снова в конце каждой главы: 8 точек, 8-я — главный босс, затем Архидемон.\",\"В окне у глав — множитель урона по Архидемону; проигрывать можно на любой обычной точке главы.\"],\"en\":[\"Support for Adventures with the Archdemon at the end of every chapter again: 8 points, the 8th is the main boss, then the Archdemon.\",\"The window shows each chapter's Archdemon damage multiplier; you can throw at any regular point of the chapter.\"]},{\"version\":\"1.22-beta\",\"date\":\"2026-11-03\",\"ru\":[\"Полоса прокрутки в окне настройки и окне выбора героев и поле поиска героев — как в игре.\"],\"en\":[\"The scrollbar in the setup and hero selection windows and the hero search field now look like the game's.\"]},{\"version\":\"1.21-beta\",\"date\":\"2026-11-03\",\"ru\":[\"Скрытый режим разработки для просмотра окна настройки без идущего события; для игрока без изменений.\"],\"en\":[\"Hidden developer mode to view the setup window without a running event; nothing changes for players.\"]},{\"version\":\"1.20-beta\",\"date\":\"2026-11-03\",\"ru\":[\"Окно настройки ArchRank — в рамке игры, с кнопками «Начать» и «Отмена» и номером версии в шапке.\",\"Окна помощника больше не закрывают окно настройки; крестик и Escape работают как «Отмена».\"],\"en\":[\"The ArchRank setup window now uses the game's frame, with Start and Cancel buttons and the version number in the header.\",\"Helper windows no longer close the setup window; the close button and Escape act as Cancel.\"]},{\"version\":\"1.19-beta\",\"date\":\"2026-11-03\",\"ru\":[\"Окно перед Архидемоном в английской игре теперь полностью по-английски.\",\"Подбор сборки эмуляцией боёв (ArchRank auto) вынесен в отдельный скрипт; пока не выпущен.\"],\"en\":[\"The window before the Archdemon is now fully in English in the English game.\",\"Build search by battle simulation (ArchRank auto) moved to a separate script; not released yet.\"]},{\"version\":\"1.18-beta\",\"date\":\"2026-11-02\",\"ru\":[\"Готовые сборки несут стратегию прогона: проходные, кем и на какой точке проигрывать — для своего диапазона усиления.\",\"Бой рассчитывается самим скриптом на движке игры; подбор победы на точке переписан.\"],\"en\":[\"Ready-made builds carry a run strategy: carry heroes, who throws and at which point, for their buff range.\",\"Battles are calculated by the script itself on the game engine; the win search at a point was rewritten.\"]},{\"version\":\"1.17-beta\",\"date\":\"2026-11-01\",\"ru\":[\"Без заданного минимума монет финальная закупка продаёт все лишние части героев; монеты в шапке журнала меняются сразу после покупки.\",\"У закрепа в журнале — цена и причина снятия; новая версия проверяется раз в час, готовые сборки обновляются каждые 15 минут.\"],\"en\":[\"Without a set coin minimum, the final purchase sells all surplus hero parts; coins in the run log header update right after each purchase.\",\"Pin lines show the price and why a pin was removed; update check once an hour, ready-made builds refresh every 15 minutes.\"]},{\"version\":\"1.16-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Новая версия замечается за 5 минут, а «Обновить» появляется, когда обновление уже можно установить с Greasy Fork.\"],\"en\":[\"A new version is noticed within 5 minutes, and Update appears only once the update can be installed from Greasy Fork.\"]},{\"version\":\"1.15-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Если в конце финальной закупки монет чуть меньше минимума, лишние части героев продаются по одной, пока не хватит; иначе не продаётся ничего.\"],\"en\":[\"If coins are just below the minimum at the end of the final purchase, surplus hero parts are sold one by one to reach it; otherwise none are sold.\"]},{\"version\":\"1.14-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Бой на точке отправляется так же, как с «Исправить» помощника; «Стоп» сразу прерывает подбор победы и поиск проигрыша.\",\"Прогон не начинает бой с главным боссом или без пропуска и встаёт с окном сбоя.\"],\"en\":[\"Point battles are sent the same way as with the helper's Fix; Stop now interrupts the win search and the loss search at once.\",\"The script will not start a main boss battle or a battle without skip; it stops with an error window instead.\"]},{\"version\":\"1.13-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Подбор победы на точке ищет по всей длине боя, а не только до 25-й секунды: меньше проигранных точек и лишних заходов.\"],\"en\":[\"The win search on a point now covers the whole battle, not just the first 25 seconds: fewer lost points and repeated runs.\"]},{\"version\":\"1.12-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Улучшенная победа на точке и найденный проигрыш отправляются через 1–2 с; раньше победа ждала длину боя, 40–60 с.\"],\"en\":[\"An improved win on a point and a found throw loss are sent after 1–2 s; before, the win waited 40–60 s for the battle length.\"]},{\"version\":\"1.11-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Таблица готовых сборок без пустот: колонки по ширине содержимого, ники авторов помещаются, длинный переносится, а не обрезается.\"],\"en\":[\"The ready-made builds table has no empty gaps: columns fit their content, author names fit, long ones wrap instead of being cut.\"]},{\"version\":\"1.10-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Ссылки в окне готовых сборок ведут на страницы текущего события.\",\"Сборка без Эмблемы капитала первой идёт без проходных и без проигрыша точки.\"],\"en\":[\"Links in the ready-made builds window lead to the current event's pages.\",\"A build whose first emblem is not Emblem of Capital runs without carry heroes and without a throw.\"]},{\"version\":\"1.09-beta\",\"date\":\"2026-10-31\",\"ru\":[\"О новой версии дополнение узнаёт за полчаса, а окно настройки показывает «Обновить», не закрываясь.\",\"Колонка прогресса в журнале больше не прокручивается вбок, булавка закрепа — внутри иконки.\"],\"en\":[\"A new version is noticed within half an hour, and the setup window shows Update without being reopened.\",\"The progress column in the run log no longer scrolls sideways; the pin icon stays inside the tile.\"]},{\"version\":\"1.08-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Окно «Остановлено» и другие итоговые окна помощника больше не прячутся под журналом.\",\"В колонке прогресса — группа лишних питомцев на продажу; журнал уже, монеты в шапке крупнее и зелёные.\"],\"en\":[\"The Stopped window and other result windows of the helper no longer hide under the run log.\",\"The progress column shows a group of extra pets to sell; the run log is narrower, header coins are larger and green.\"]},{\"version\":\"1.07-beta\",\"date\":\"2026-10-31\",\"ru\":[\"В окне выбора героев — поиск по части имени на языке игры.\",\"Кнопка «Обновить» теперь выглядит как зелёная кнопка помощника.\"],\"en\":[\"The hero picker has a search field: type part of a name in the game's language.\",\"The Update button now looks like the helper's green button.\"]},{\"version\":\"1.06-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Окно настройки по умолчанию без проходных и героя для проигрыша, точка проигрыша — 5; сохранённый выбор не меняется.\",\"Готовые сборки подбирают проходных и героя для проигрыша по усилению игрока; подсказка на «Поехали» их называет.\"],\"en\":[\"The setup window defaults to no carry heroes and no throwing hero, throw point 5; saved choices are kept.\",\"Ready-made builds pick carry heroes and the throwing hero by your buff; the Let's go tooltip names them.\"]},{\"version\":\"1.05-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Подменю убрано: пункт «Приключение (Arch)» в «Разном» сразу открывает окно настройки.\",\"Номер версии и кнопка «Обновить» — в левом верхнем углу окна настройки; после прогона ничего само не открывается.\"],\"en\":[\"No submenu: the Adventure (Arch) item in the helper's Others menu opens the setup window directly.\",\"The version number and the Update button are in the top left of the setup window; nothing opens by itself after a run.\"]},{\"version\":\"1.04-beta\",\"date\":\"2026-10-31\",\"ru\":[\"При загрузке игры дополнение проверяет новую версию; если она вышла — меню показывает её номер и кнопку «Обновить».\"],\"en\":[\"On game load the add-on checks for a new version; if there is one, the menu shows its number and an Update button.\"]},{\"version\":\"1.03-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Колонка прогресса в журнале — по пять иконок в ряд, состав из пяти героев помещается одним рядом.\"],\"en\":[\"The progress column in the run log shows five icons per row, so a five-hero team fits in one row.\"]},{\"version\":\"1.02-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Журнал пишет действия в лавке — закреп, снятие закрепа, покупку и продажу — с иконками героев и питомцев; у покупки и продажи — цена.\"],\"en\":[\"The run log shows stall actions (pin, unpin, buy, sell) with hero and pet icons; buys and sells show the price.\"]},{\"version\":\"1.01-beta\",\"date\":\"2026-10-31\",\"ru\":[\"В журнале слева — колонка прогресса: иконки героев и питомцев сборки, под каждой «есть/нужно», закреплённые — с булавкой.\",\"Исправлен журнал: свёрнутая строка не переносится, после разворачивания видны последние строки, бой на точке виден свёрнутым.\"],\"en\":[\"The run log has a progress column on the left: build heroes and pets with have/need under each icon; pinned ones show a pin.\",\"Run log fixes: the collapsed line no longer wraps, expanding shows the latest lines, point battles are visible when collapsed.\"]},{\"version\":\"1.00-beta\",\"date\":\"2026-10-31\",\"ru\":[\"Журнал можно таскать за шапку и сворачивать до двух строк; место и свёрнутость запоминаются.\",\"Новая строка «Точка N взята» после подтверждённой победы; номера версий теперь с 1.00 и пометкой beta.\"],\"en\":[\"The run log can be dragged by its header and collapsed to two lines; its position and state are remembered.\",\"New run log line \\\"Point N taken\\\" after a confirmed win; versions are now numbered from 1.00 with a beta tag.\"]},{\"version\":\"0.99-alpha\",\"date\":\"2026-10-27\",\"ru\":[\"Окна сбоя показывают версию дополнения и свёрнутое «Подробнее» с текстом ошибки, который можно скопировать.\",\"Журнал пишет, найдена ли улучшенная победа и когда она уйдёт; после каждого боя на точке — строка в консоли.\"],\"en\":[\"Error windows show the add-on version and a collapsible Details section with the error text you can copy.\",\"The run log says whether an improved win was found and when it will be sent; each point battle adds a console line.\"]},{\"version\":\"0.98-alpha\",\"date\":\"2026-10-26\",\"ru\":[\"С Эмблемой капитала окно настройки не даёт выбрать проходных, которых не взять к точке 1, и говорит, кого дают на старте.\",\"Если проходного 60 заходов подряд нет ни на руках, ни в лавке на точке 1, прогон встаёт, а не сбрасывает главу без конца.\"],\"en\":[\"With Emblem of Capital, the setup window rejects carry heroes that cannot be obtained by point 1 and lists the starting heroes.\",\"If a carry hero is neither owned nor in the stall at point 1 for 60 runs in a row, the script stops instead of resetting the chapter.\"]},{\"version\":\"0.97-alpha\",\"date\":\"2026-10-26\",\"ru\":[\"Дополнение снова работает: в игре талисманы стали эмблемами, окно настройки больше не срывается.\",\"Эмблемы, которые в игре не выпадают, в окне настройки не показываются; в текстах — «эмблема» и «Эмблема капитала».\"],\"en\":[\"The add-on works again: the game renamed talismans to emblems, and the setup window no longer fails to open.\",\"Emblems the game never offers are hidden in the setup window; texts now say emblem and Emblem of Capital.\"]},{\"version\":\"0.96-alpha\",\"date\":\"2026-10-19\",\"ru\":[\"В Приключении без Бездны пункт меню сообщает, что дополнение работает только с Бездной, и ничего не грузит заранее.\"],\"en\":[\"In an Adventure without the Abyss, the menu item says the add-on only works with the Abyss and preloads nothing.\"]},{\"version\":\"0.95-alpha\",\"date\":\"2026-10-19\",\"ru\":[\"Пока готовых сборок нет, окно показывает, когда они появятся, и ссылки на группы Telegram, каналы YouTube и сайты.\",\"Пустой список сборок не хранится: новые сборки видны сразу при следующем открытии окна.\"],\"en\":[\"While there are no ready-made builds, the window says when they will appear and links Telegram groups, YouTube channels and sites.\",\"An empty builds list is not cached: new builds show up the next time the window is opened.\"]},{\"version\":\"0.94-alpha\",\"date\":\"2026-10-06\",\"ru\":[\"Внутренние изменения, для игрока без изменений.\"],\"en\":[\"Internal changes, nothing changes for players.\"]},{\"version\":\"0.93-alpha\",\"date\":\"2026-10-06\",\"ru\":[\"Для игроков без изменений. У окна выбора героев отдельным файлом — лицензия MIT и примеры в описании.\"],\"en\":[\"Nothing changes for players. The standalone hero picker file gets an MIT license and usage examples.\"]},{\"version\":\"0.92-alpha\",\"date\":\"2026-10-06\",\"ru\":[\"Для игроков без изменений. Окно выбора отдельным файлом умеет открываться с героями и питомцами события и рангами 80/100/130.\"],\"en\":[\"Nothing changes for players. The standalone picker file can open with the event's heroes, pets and ranks 80/100/130.\"]},{\"version\":\"0.91-alpha\",\"date\":\"2026-10-06\",\"ru\":[\"Для игроков без изменений. Окно выбора героев и питомцев собрано и отдельным файлом, чтобы его мог взять помощник.\"],\"en\":[\"Nothing changes for players. The hero and pet picker is also built as a standalone file the helper can use.\"]},{\"version\":\"0.90-alpha\",\"date\":\"2026-10-06\",\"ru\":[\"Для игроков без изменений. Проверена работа с новой сборкой игры и помощником 2.463.\"],\"en\":[\"Nothing changes for players. Checked against the new game build and helper 2.463.\"]},{\"version\":\"0.89-alpha\",\"date\":\"2026-10-04\",\"ru\":[\"Внутренние описания запросов к серверу дополнены, для игрока без изменений.\"],\"en\":[\"Internal descriptions of server requests extended, nothing changes for players.\"]},{\"version\":\"0.88-alpha\",\"date\":\"2026-10-04\",\"ru\":[\"Внутреннее описание запросов игры к серверу, для игрока без изменений.\"],\"en\":[\"Internal description of the game's server requests, nothing changes for players.\"]},{\"version\":\"0.87-alpha\",\"date\":\"2026-10-04\",\"ru\":[\"Внутреннее описание данных игры, для игрока без изменений.\"],\"en\":[\"Internal description of the game data, nothing changes for players.\"]},{\"version\":\"0.86-alpha\",\"date\":\"2026-10-04\",\"ru\":[\"Окно настройки готовится заранее в фоне: первое открытие — около 0,2 с вместо 0,5–1,1 с, игра не замирает.\"],\"en\":[\"The setup window is prepared in the background: the first open takes about 0.2 s instead of 0.5–1.1 s, the game does not stall.\"]},{\"version\":\"0.85-alpha\",\"date\":\"2026-10-04\",\"ru\":[\"Первое за сессию открытие окна больше не подвешивает игру на 0,4 с.\"],\"en\":[\"The first window opened in a session no longer freezes the game for 0.4 s.\"]},{\"version\":\"0.84-alpha\",\"date\":\"2026-10-04\",\"ru\":[\"Окно настройки больше не меняет ширину при выборе талисмана.\"],\"en\":[\"The setup window no longer changes width when you pick a talisman.\"]},{\"version\":\"0.83-alpha\",\"date\":\"2026-10-03\",\"ru\":[\"Повторное «Изменить» открывает окно выбора сразу: около 18 мс вместо 140.\"],\"en\":[\"Pressing Edit again opens the picker at once: about 18 ms instead of 140.\"]},{\"version\":\"0.82-alpha\",\"date\":\"2026-10-03\",\"ru\":[\"Окна открываются быстрее: надписи рисуются разом, окно выбора — около 0,14 с вместо 0,2 с.\"],\"en\":[\"Windows open faster: texts are drawn in one pass, the picker opens in about 0.14 s instead of 0.2 s.\"]},{\"version\":\"0.81-alpha\",\"date\":\"2026-10-03\",\"ru\":[\"Прокрутка списка героев в окне выбора плавная, вкладки переключаются сразу.\",\"Список героев помнит прокрутку после перехода на вкладку питомцев.\"],\"en\":[\"Scrolling the hero list in the picker is smooth, tabs switch instantly.\",\"The hero list keeps its scroll position after visiting the pets tab.\"]},{\"version\":\"0.80-alpha\",\"date\":\"2026-10-03\",\"ru\":[\"Во время события окна загружают нужное заранее: первое открытие окна выбора — около 0,75 с вместо 2,2–2,6 с.\"],\"en\":[\"During an event, windows preload what they need: the first picker open takes about 0.75 s instead of 2.2–2.6 s.\"]},{\"version\":\"0.79-alpha\",\"date\":\"2026-10-03\",\"ru\":[\"Окно выбора отвечает на щелчок сразу: щелчок по герою — около 30 мс вместо 350.\"],\"en\":[\"The picker reacts to clicks at once: selecting a hero takes about 30 ms instead of 350.\"]},{\"version\":\"0.78-alpha\",\"date\":\"2026-10-03\",\"ru\":[\"Портреты в окнах легче, первое открытие окна выбора — около 2,7 с вместо 3,9 с.\"],\"en\":[\"Lighter portraits in windows; the first picker open takes about 2.7 s instead of 3.9 s.\"]},{\"version\":\"0.77-alpha\",\"date\":\"2026-10-03\",\"ru\":[\"Внутренняя перестройка окна выбора, для игрока без изменений.\"],\"en\":[\"Internal rework of the picker, nothing changes for players.\"]},{\"version\":\"0.76-alpha\",\"date\":\"2026-10-03\",\"ru\":[\"Исправлено: двойной щелчок по «Изменить» при первом открытии открывал два окна выбора, и состав мог сохраниться старым.\"],\"en\":[\"Fixed: double-clicking Edit on the first open opened two pickers, and the team could be saved with the old picks.\"]},{\"version\":\"0.75-alpha\",\"date\":\"2026-10-03\",\"ru\":[\"Внутренние изменения окон, для игрока без изменений.\"],\"en\":[\"Internal changes to windows, nothing changes for players.\"]},{\"version\":\"0.74-alpha\",\"date\":\"2026-10-03\",\"ru\":[\"Окно выбора состава выглядит как окно игры «Собери команду»: шрифт, кнопки, пустые места, фон и звёзды как в игре.\",\"Пустые места в окне настройки — тоже как в игре.\"],\"en\":[\"The team picker now looks like the game's own team window: game font, buttons, empty slots, background and stars.\",\"Empty slots in the setup window also match the game.\"]},{\"version\":\"0.73-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Почти одинаковые оттенки в окнах и журнале сведены в один, на вид всё как прежде.\"],\"en\":[\"Nearly identical shades in windows and the run log are unified; everything looks the same.\"]},{\"version\":\"0.72-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Со старым помощником дополнение не запускается, но пишет «HeroWarsHelper устарел, обновите его». Раньше молча не вставало.\"],\"en\":[\"With an outdated helper the add-on does not start but shows \\\"HeroWarsHelper is outdated, please update it\\\"; before, it failed silently.\"]},{\"version\":\"0.71-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Строка «Тратим лишние монеты» в журнале по окончании траты показывает итог: монеты и бонус, как в окне «Готово».\"],\"en\":[\"The \\\"Spending extra coins\\\" run log line shows the result when spending ends: coins and bonus, as in the Done window.\"]},{\"version\":\"0.70-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Герой для проигрыша: сначала основная роль «Поддержка», потом она же среди дополнительных, затем так же «Танк», потом любой.\",\"Внутри каждой ступени — у кого меньше фрагментов.\"],\"en\":[\"Throwing hero: main Support role first, then Support as a secondary role, then the same for Tank, then anyone.\",\"Within each step, the hero with the fewest fragments goes first.\"]},{\"version\":\"0.69-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Убран неиспользуемый код. «Старт» больше не требует от помощника таймера обратного отсчёта: у журнала свой отсчёт.\"],\"en\":[\"Unused code removed. Start no longer needs the helper's countdown timer: the run log has its own countdown.\"]},{\"version\":\"0.68-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"В окне настройки до пяти героев для проигрыша; точку проигрывает один — самый слабый из тех, что на руках (поддержка, затем танк).\",\"Хватает одного героя из списка: остальных не докупаем и не закрепляем.\"],\"en\":[\"Setup window: up to five throwing heroes; one hero throws the point, the weakest one on hand (support first, then tank).\",\"One hero from the list is enough: the others are not bought or pinned.\"]},{\"version\":\"0.67-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Строка закупки в журнале показывает итог — монеты и чего не хватает после последней покупки, а не числа с начала закупки.\"],\"en\":[\"The purchase line in the run log now shows the result: coins and what is missing after the last purchase, not the numbers from the start.\"]},{\"version\":\"0.66-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Только тесты, для игрока без изменений.\"],\"en\":[\"Tests only, nothing changes for players.\"]},{\"version\":\"0.65-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Сбой кнопок «Изменить» в окне настройки, «Обновить» в окне сборок и возврата в меню теперь пишется в консоль.\"],\"en\":[\"Failures of the Edit button in the setup window, Refresh in the ready-made builds window and the return to the menu are now logged to the console.\"]},{\"version\":\"0.64-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Форматирование кода, для игрока без изменений.\"],\"en\":[\"Code formatting, nothing changes for players.\"]},{\"version\":\"0.63-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Если окно настройки закрыло другое окно помощника (например, «Ошибка»), это считается «Отменой»: идущий прогон больше не встаёт молча.\",\"Исправлены зависания прежнего прогона при двух окнах настройки подряд и при сбое нового «Старт».\"],\"en\":[\"If another helper window (e.g. Error) closes the setup window, it counts as Cancel: the auto-run in progress no longer stalls silently.\",\"Fixed the previous auto-run hanging with two setup windows in a row or when a new Start fails.\"]},{\"version\":\"0.62-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Только тесты, для игрока без изменений.\"],\"en\":[\"Tests only, nothing changes for players.\"]},{\"version\":\"0.61-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Только тесты, для игрока без изменений.\"],\"en\":[\"Tests only, nothing changes for players.\"]},{\"version\":\"0.60-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Исправлено: при нескольких запусках подряд прогоны шли одновременно; теперь начинается только последний.\"],\"en\":[\"Fixed: several starts in a row ran auto-runs at the same time; now only the last one starts.\"]},{\"version\":\"0.59-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"На странице один прогон: новый «Старт» останавливает идущий — тот доводит бой и действие в лавке, затем начинается новый.\",\"Раньше два прогона шли рядом, а «Стоп» останавливал только второй.\"],\"en\":[\"One auto-run per page: a new Start stops the running one; it finishes the battle and the stall action, then the new one begins.\",\"Before, two auto-runs ran side by side and Stop only stopped the second one.\"]},{\"version\":\"0.58-alpha\",\"date\":\"2026-10-02\",\"ru\":[\"Внутренние исправления после переделки 0.57, для игрока без изменений.\"],\"en\":[\"Internal fixes after the 0.57 rework, nothing changes for players.\"]},{\"version\":\"0.57-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Внутренняя переделка прогона, для игрока без изменений.\"],\"en\":[\"Internal rework of the auto-run, nothing changes for players.\"]},{\"version\":\"0.56-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Внутренняя переделка кода монет лавки и сборок, для игрока без изменений.\"],\"en\":[\"Internal rework of the stall coins and ready-made builds code, nothing changes for players.\"]},{\"version\":\"0.55-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Данные игры читаются в одном месте, для игрока без изменений.\"],\"en\":[\"Game data is read in one place, nothing changes for players.\"]},{\"version\":\"0.54-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Внутренние изменения, для игрока без изменений.\"],\"en\":[\"Internal changes, nothing changes for players.\"]},{\"version\":\"0.53-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Внутренний стенд проверки поведения, для игрока без изменений.\"],\"en\":[\"Internal behaviour test bench, nothing changes for players.\"]},{\"version\":\"0.52-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Уточнены внутренние описания, для игрока без изменений.\"],\"en\":[\"Internal descriptions refined, nothing changes for players.\"]},{\"version\":\"0.51-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Весь код дополнения переведён на TypeScript, для игрока без изменений.\"],\"en\":[\"All add-on code is now TypeScript, nothing changes for players.\"]},{\"version\":\"0.50-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Перевод на TypeScript продолжен, для игрока без изменений.\"],\"en\":[\"TypeScript migration continued, nothing changes for players.\"]},{\"version\":\"0.49-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Перевод на TypeScript продолжен, для игрока без изменений.\"],\"en\":[\"TypeScript migration continued, nothing changes for players.\"]},{\"version\":\"0.48-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Перевод на TypeScript продолжен, для игрока без изменений.\"],\"en\":[\"TypeScript migration continued, nothing changes for players.\"]},{\"version\":\"0.47-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Глава считается платной по цене входа: выбрать можно только бесплатную, а если глава стала платной, прогон останавливается.\",\"Лавка события находится и там, где у события несколько лавок (например, ещё фестивальная).\"],\"en\":[\"A chapter counts as paid by its entry price: only a free one can be chosen, and if a chapter becomes paid the script stops.\",\"The event stall is now found in events with several stalls (e.g. an extra festival stall).\"]},{\"version\":\"0.46-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Начат перевод кода на TypeScript, для игрока без изменений.\"],\"en\":[\"Started moving the code to TypeScript, nothing changes for players.\"]},{\"version\":\"0.45-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Внутренняя перестройка кода, для игрока без изменений.\"],\"en\":[\"Internal code cleanup, nothing changes for players.\"]},{\"version\":\"0.44-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Код разложен по папкам, для игрока без изменений.\"],\"en\":[\"Code reorganized into folders, nothing changes for players.\"]},{\"version\":\"0.43-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Новая сборка скрипта: один несжатый файл. Для игрока без изменений.\"],\"en\":[\"New build process: a single uncompressed file. Nothing changes for players.\"]},{\"version\":\"0.42-alpha\",\"date\":\"2026-10-01\",\"ru\":[\"Окно готовых сборок: подписи столбцов больше не наезжают друг на друга.\"],\"en\":[\"Ready-made builds window: column headers no longer overlap.\"]},{\"version\":\"0.41-alpha\",\"date\":\"2026-09-30\",\"ru\":[\"Галка «Оставлять лишние монеты» по умолчанию снята: лишнее после финальной лавки тратится до бонуса автора сборки.\",\"Уже сохранённый выбор не меняется.\"],\"en\":[\"“Keep extra coins” is now off by default: extra coins after the final stall are spent up to the build author's bonus.\",\"An already saved choice stays as it was.\"]},{\"version\":\"0.40-alpha\",\"date\":\"2026-09-30\",\"ru\":[\"Готовые сборки других игроков: кнопка в окне настройки, список и запуск прогона по выбранной сборке одной кнопкой.\",\"В прогоне под Талисман капитала можно выбрать точку проигрыша: 5 или 7, по умолчанию 7.\"],\"en\":[\"Ready-made builds from other players: a button in the setup window, a list and one-click start of the chosen build.\",\"In a Talisman of Capital run you can choose which point to throw: 5 or 7, default 7.\"]},{\"version\":\"0.39-alpha\",\"date\":\"2026-09-30\",\"ru\":[\"Прогон без Талисмана капитала меньше тратит на обновления лавки; проигрыш точки — сразу новый заход.\",\"Галка «Остановиться перед Архидемоном» при несобранном составе; пункт в «Разном» не пропадает; за 10 мин до конца события заход не начинается.\"],\"en\":[\"Runs without the Talisman of Capital spend less on stall refreshes; losing a point starts a new run right away.\",\"Option to stop before the Archdemon with an incomplete team; menu item no longer disappears; no new run within 10 min of the event end.\"]},{\"version\":\"0.38-alpha\",\"date\":\"2026-09-28\",\"ru\":[\"Синхронизация после прогона больше не показывает окно обновления игры, меню ArchRank снова открывается.\",\"Тонкая полоса прокрутки журнала в цветах игры.\"],\"en\":[\"Sync after the script ends no longer shows the game's update window, and the ArchRank menu opens again.\",\"Thin run log scrollbar in game colors.\"]},{\"version\":\"0.37-alpha\",\"date\":\"2026-09-28\",\"ru\":[\"После остановки или сбоя меню ArchRank больше не открывается поверх кнопки обновления игры; остаются итог и синхронизация.\"],\"en\":[\"After a stop or failure the ArchRank menu no longer opens over the game's update button; the summary and sync remain.\"]},{\"version\":\"0.36-alpha\",\"date\":\"2026-09-28\",\"ru\":[\"Найденный проигрыш больше не ждёт весь бой: пауза как у игрока, который пропустил бой.\",\"Строка поиска проигрыша в журнале показывает итог и отсчёт до отправки.\"],\"en\":[\"Throwing a point with a found loss no longer waits for the whole battle: the pause is like a player skipping it.\",\"The loss search line in the run log shows the result and a countdown to sending.\"]},{\"version\":\"0.35-alpha\",\"date\":\"2026-09-28\",\"ru\":[\"При «Старт» проверяется помощник: если чего-то не хватает, прогон не запускается и пишет, чего именно. Нужен HeroWarsHelper 2.459+.\",\"После «Стоп», сбоя и платной главы игра синхронизируется с сервером.\"],\"en\":[\"On Start the script checks the helper: if something is missing, it does not start and lists what. Requires HeroWarsHelper 2.459+.\",\"After Stop, a failure or a paid chapter the game syncs with the server.\"]},{\"version\":\"0.34-alpha\",\"date\":\"2026-09-28\",\"ru\":[\"Поиск проигрыша: если автобой героем для проигрыша выигрывает точку, скрипт подбирает момент «авто» с проигрышем.\",\"Проигрывать можно проходным героем, который уже есть, без покупки героя для проигрыша.\"],\"en\":[\"Loss search for throwing: if auto-battle with the throwing hero wins the point, the script finds an auto moment that loses.\",\"A carry hero you already have can throw the point, no need to buy a throwing hero.\"]},{\"version\":\"0.33-alpha\",\"date\":\"2026-09-28\",\"ru\":[\"Закрепы переделаны: пересчитываются по всей лавке и снимаются, когда герой набрал цель; в финальной лавке закрепов нет.\",\"Нужный питомец за полную цену — только последний недостающий; без Талисмана капитала закрепов нет.\"],\"en\":[\"Pins reworked: recalculated over the whole stall and removed once a hero reaches the target; no pins in the final stall.\",\"A needed pet at full price only as the last missing one; no pins in runs without the Talisman of Capital.\"]},{\"version\":\"0.32-alpha\",\"date\":\"2026-09-27\",\"ru\":[\"Учитываются монеты за обмен жизней на последней точке перед Архидемоном: скрипт больше не перестаёт покупать раньше времени.\"],\"en\":[\"Coins from the lives exchange on the last point before the Archdemon are now counted; the script no longer stops buying too early.\"]},{\"version\":\"0.31-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Запросы к игре, их порядок и темп как у клиента игры: паузы, время боя, открытие лавки.\",\"Сервер не принял бой — прогон останавливается; «Стоп» в паузе перед сбросом главы её больше не сбрасывает.\"],\"en\":[\"Requests to the game, their order and pace now match the game client: pauses, battle timing, stall opening.\",\"If the server rejects a battle, the script stops; Stop during the pause before a chapter reset no longer resets it.\"]},{\"version\":\"0.30-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"В шапку скрипта добавлена лицензия для публикации на Greasy Fork, код не менялся.\"],\"en\":[\"Added a license line to the script header for Greasy Fork publishing; code unchanged.\"]},{\"version\":\"0.29-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Вместо бонуса талисмана в % — поле «Монета Лавки: минимум»; перед Архидемоном проверяется, что монет не меньше.\",\"Нужные питомцы без скидки покупаются, только когда героям не хватает не больше одного фрагмента.\"],\"en\":[\"The talisman bonus % field is replaced by “Stall coins: minimum”; before the Archdemon the script checks coins are not below it.\",\"Needed pets without a discount are bought only when heroes lack at most one fragment.\"]},{\"version\":\"0.28-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Прогон под Талисман капитала закрепляет и скупает питомцев со скидкой, потом продаёт лишних.\",\"Номер версии в окне настройки.\"],\"en\":[\"Talisman of Capital runs pin and buy discounted pets, then sell the extra ones.\",\"Version number in the setup window.\"]},{\"version\":\"0.27-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Порядок героев в ряду как в игре; у проходных героев выбирается ранг.\",\"На точке 1 нужен только фиолетовый ранг, до выбранного проходные докупаются по ходу.\"],\"en\":[\"Hero order in rows matches the game; carry heroes now have a rank.\",\"Point 1 needs only purple rank; carry heroes are topped up to the chosen rank along the way.\"]},{\"version\":\"0.26-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Проигрываем последнюю точку перед Архидемоном, а не шестую; герой для проигрыша один и может быть не из проходных.\",\"Новое поле: число обновлений лавки на последней точке, чтобы найти героя для проигрыша.\"],\"en\":[\"The last point before the Archdemon is thrown instead of the sixth; one throwing hero, may be outside the carry heroes.\",\"New field: number of stall refreshes on the last point to find the throwing hero.\"]},{\"version\":\"0.25-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"В окне настройки у проходных героев и героя для проигрыша мест столько, сколько выбрано героев.\"],\"en\":[\"The setup window shows as many slots for carry and throwing heroes as are chosen.\"]},{\"version\":\"0.24-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Проходные герои и герой для проигрыша выбираются в окне выбора героев, а не вводом номеров.\",\"Поле «Дополнительный проходной» убрано.\"],\"en\":[\"Carry heroes and the throwing hero are picked in a hero selection window instead of typing numbers.\",\"The “Extra carry hero” field is removed.\"]},{\"version\":\"0.23-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Иконки талисманов из игры, выбранные видны в блоке цели; целевой состав — от одного до пяти героев, питомец не обязателен.\",\"Фон окна выбора неподвижный, экран больше не тормозит.\"],\"en\":[\"Talisman icons from the game, chosen ones shown in the target block; the target team is 1 to 5 heroes, pet optional.\",\"The selection window background is static, so the screen no longer lags.\"]},{\"version\":\"0.22-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Рамки героев и питомцев как в окне «Собери команду» события, под портретом анимированная звезда.\"],\"en\":[\"Hero and pet frames match the event's team-building window, with an animated star under the portrait.\"]},{\"version\":\"0.21-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Окно выбора состава ближе к игровому: текст, вкладки, размытый фон; кнопка «Изменить» выглядит как «Начать».\",\"Основного питомца можно снять щелчком по нему в нижнем ряду или повторным щелчком в сетке.\"],\"en\":[\"The team selection window looks closer to the game: text, tabs and blurred background; the Edit button looks like Start.\",\"The main pet is removed by clicking it in the bottom row or clicking it again in the grid.\"]},{\"version\":\"0.20-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Окно выбора состава собрано из элементов интерфейса самой игры: рамки, вкладки, плашки рангов, кнопки.\",\"Окно покровителя и блок цели в окне настройки тоже в игровом виде.\"],\"en\":[\"The team selection window is built from the game's own interface: frames, tabs, rank badges, buttons.\",\"The patron window and the target block in the setup window also look like the game.\"]},{\"version\":\"0.19-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Кнопка «Изменить» открывает окно выбора целевого состава: герои с рангом 80/100/130, основной питомец, покровители.\",\"«Сохранить» записывает состав и включает «Начать»; «Отмена» и крестик больше не оставляют под окном подменю.\"],\"en\":[\"The Edit button opens the target team window: heroes with rank 80/100/130, the main pet and patrons.\",\"Save stores the team and enables Start; Cancel and the close button no longer leave the submenu open behind.\"]},{\"version\":\"0.18-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"В подменю вместо «Id питомцев» неактивный пункт «ArchRank(auto)», он появится позже; окно «Id питомцев» убрано.\"],\"en\":[\"In the submenu, “Pet IDs” is replaced by an inactive “ArchRank(auto)” item, coming later; the Pet IDs window is removed.\"]},{\"version\":\"0.17-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Убрана подсказка под вторым талисманом: уже выбранный талисман и так серый.\"],\"en\":[\"Removed the hint under the second talisman: an already chosen talisman is greyed out anyway.\"]},{\"version\":\"0.16-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Кнопка «Дальше» в окне настройки стала «Начать».\",\"Без целевого состава «Начать» неактивна, под блоком цели подсказка.\"],\"en\":[\"The Next button in the setup window is now Start.\",\"Start stays inactive until a target team is chosen, with a hint under the target block.\"]},{\"version\":\"0.15-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Иконки питомцев, которых нет в кеше игры, подгружаются из файлов игры.\",\"Рамки в блоке цели чуть толще.\"],\"en\":[\"Pet icons missing from the game cache are loaded from the game's files.\",\"Frames in the target block are slightly thicker.\"]},{\"version\":\"0.14-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Промежуточная версия, в игру не ставилась.\",\"Блок «Цель — собрать этот состав» показывает сохранённый состав; строка ввода состава убрана из окна настройки.\"],\"en\":[\"Intermediate version, not meant for installing.\",\"The “Goal — build this team” block shows the saved team; the team input line is removed from the setup window.\"]},{\"version\":\"0.13-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"В блоке основного состава слот без картинки остаётся пустым, без буквы имени.\"],\"en\":[\"In the main team block, a slot without a picture stays empty instead of showing a name letter.\"]},{\"version\":\"0.12-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Лишние герои из купленных лотов продаются сразу при любом талисмане, а не только при богатстве.\",\"В окне настройки появился блок «Основной состав», пока только вид: состав по-прежнему задаётся строкой.\"],\"en\":[\"Extra heroes from bought lots are sold right away with any talisman, not only with wealth.\",\"The setup window gets a “Main team” block, appearance only for now: the team is still set by the input line.\"]},{\"version\":\"0.11-alpha\",\"date\":\"2026-09-26\",\"ru\":[\"Журнал захода сдвинут левее, чтобы не закрывать крестики окон игры.\"],\"en\":[\"The run log is moved left so it no longer covers the close buttons of game windows.\"]},{\"version\":\"0.10-alpha\",\"date\":\"2026-09-25\",\"ru\":[\"Вместо мигающей строки прогресса — журнал захода справа: шаги по строкам, причина провала, таймер перезапуска, кнопка «Стоп».\"],\"en\":[\"A run log replaces the blinking progress line: steps line by line on the right, failure reason, restart timer, Stop button.\"]},{\"version\":\"0.09-alpha\",\"date\":\"2026-09-25\",\"ru\":[\"Пункт в «Разном» называется «Приключение (Arch)», по имени события в игре.\"],\"en\":[\"The item in Others is now called “Adventure (Arch)”, after the event name in the game.\"]},{\"version\":\"0.08-alpha\",\"date\":\"2026-09-25\",\"ru\":[\"Проигрыш шестой точки уходит обычным автобоем: настройка помощника «Исправить» больше не превращает его в победу.\"],\"en\":[\"Throwing the sixth point goes as a plain auto-battle: the helper's “Fix it” setting no longer turns it into a win.\"]},{\"version\":\"0.07-alpha\",\"date\":\"2026-09-25\",\"ru\":[\"Обновление лавки на первой точке засчитывают только неизвестные карты дешевле 16; купленные по галке дороже — нет.\"],\"en\":[\"On the first point only unknown cards cheaper than 16 count towards the stall refresh; pricier ones bought via the checkbox don't.\"]},{\"version\":\"0.06-alpha\",\"date\":\"2026-09-25\",\"ru\":[\"Известная карта покупается, только если дешевле базовой продажи: пара дешевле 16, одиночка дешевле 8; лишнее продаётся сразу.\",\"Неизвестные карты — только дешевле 16; галка «Скупать неизвестные карты по любой цене» снимает ограничение.\"],\"en\":[\"A known card is bought only below its base sell price: a pair under 16, a single under 8; extras are sold at once.\",\"Unknown cards are bought only under 16; the “Buy unknown cards at any price” checkbox lifts this limit.\"]},{\"version\":\"0.05-alpha\",\"date\":\"2026-09-25\",\"ru\":[\"Пункт в «Разном» называется «New Hero(Arch)», внутри подменю «ArchRank» и «Id питомцев».\",\"Пауза между заходами случайная, 1–2 секунды вместо 15.\"],\"en\":[\"The item in Others is called “New Hero(Arch)”, with a submenu “ArchRank” and “Pet IDs”.\",\"The pause between runs is now random, 1–2 seconds instead of 15.\"]},{\"version\":\"0.04-alpha\",\"date\":\"2026-09-25\",\"ru\":[\"Окно настройки компактнее: питомцы и талисманы в два столбика, ширина ограничена.\",\"Поля стратегии богатства снова скрыты, если на первой точке не богатство.\"],\"en\":[\"The setup window is more compact: pets and talismans in two columns, limited width.\",\"Wealth strategy fields are hidden again when the first point is not wealth.\"]},{\"version\":\"0.03-alpha\",\"date\":\"2026-09-25\",\"ru\":[\"В окне настройки появились иконки питомцев.\",\"Талисман, выбранный в одном блоке, в другом серый; выбор серого переводит соседний блок на «любой».\"],\"en\":[\"Pet icons appear in the setup window.\",\"A talisman chosen in one block is greyed out in the other; picking a greyed one switches the other block to “any”.\"]},{\"version\":\"0.02-alpha\",\"date\":\"2026-09-25\",\"ru\":[\"Исправлен запуск в Tampermonkey: раньше дополнение там молча не запускалось.\"],\"en\":[\"Fixed startup in Tampermonkey: the add-on used to silently fail to start there.\"]},{\"version\":\"0.01alpha\",\"date\":\"2026-09-25\",\"ru\":[\"Первая версия: отдельное дополнение к HeroWarsHelper с кнопкой ArchRank для прогона Архидемона.\",\"Умеет: бесплатная Бездна I, два талисмана перед боями 2 и 8, остановка перед Архидемоном, путь богатства и обычный путь.\"],\"en\":[\"First release: a separate add-on for HeroWarsHelper with an ArchRank button for the Archdemon auto-run.\",\"It handles a free Abyss I, two talismans before battles 2 and 8, a stop before the Archdemon, the wealth path and the normal path.\"]}]");
+	var isLines = (value) => Array.isArray(value) && value.length > 0 && value.every((line) => typeof line === "string" && line.trim() !== "");
+	function isChangeEntry(value) {
+		const entry = value;
+		return !!entry && typeof entry === "object" && typeof entry.version === "string" && parseVersion(entry.version) !== null && typeof entry.date === "string" && isLines(entry.ru) && isLines(entry.en);
+	}
+	function bundledChanges() {
+		return changelog_default.filter(isChangeEntry);
+	}
+	function mergeChanges(own, remote) {
+		const byVersion = new Map();
+		for (const entry of own) byVersion.set(entry.version, entry);
+		for (const entry of remote ?? []) if (isChangeEntry(entry)) byVersion.set(entry.version, entry);
+		return [...byVersion.values()].sort((a, b) => isNewer(a.version, b.version) ? -1 : isNewer(b.version, a.version) ? 1 : 0);
+	}
+	function readCache(storage) {
+		try {
+			const cached = JSON.parse(storage?.getItem(NX_CHANGELOG_STORAGE_KEY) ?? "null");
+			return cached && Number.isFinite(cached.exp) ? cached : null;
+		} catch {
+			return null;
+		}
+	}
+	function writeCache(storage, cache) {
+		try {
+			storage?.setItem(NX_CHANGELOG_STORAGE_KEY, JSON.stringify(cache));
+		} catch (e) {
+			console.error(e);
+		}
+	}
+	async function fetchChanges(fetchImpl, url) {
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), NX_PRESETS_TIMEOUT_MS);
+		try {
+			const response = await fetchImpl(url, {
+				cache: "no-store",
+				signal: controller.signal
+			});
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			const data = await response.json();
+			const entries = Array.isArray(data) ? data.filter(isChangeEntry) : [];
+			if (!entries.length) throw new Error("в журнале нет записей");
+			return entries;
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+	async function loadRemoteChanges(options = {}) {
+		const { storage = globalThis.localStorage, clock = Date.now, fetchImpl = globalThis.fetch, urls = NX_CHANGELOG_URLS } = options;
+		const now = clock();
+		const cached = readCache(storage);
+		if (cached && cached.exp > now && cached.exp - now <= Math.max(NX_UPDATE_TTL_MS, NX_UPDATE_RETRY_MS)) return cached.entries;
+		for (const url of urls) try {
+			const entries = await fetchChanges(fetchImpl, cacheBustedUrl(url, now));
+			writeCache(storage, {
+				exp: now + NX_UPDATE_TTL_MS,
+				entries
+			});
+			return entries;
+		} catch (e) {
+			console.log(`Журнал изменений: ${new URL(url).hostname} не ответил`, e);
+		}
+		writeCache(storage, {
+			exp: now + NX_UPDATE_RETRY_MS,
+			entries: null
+		});
+		return null;
+	}
+	var WIN_ID = "nxChangelogWindow";
+	var Z = 10050;
+	var STAGE_W = 720;
+	var STAGE_H = 760;
+	var MIN_STAGE_H = 480;
+	var MAX_SCALE = 1;
+	var SCREEN_MARGIN = 32;
+	var FRAME_X = 7;
+	var FRAME_Y = 41;
+	var HEADER_W = 360;
+	var LIST_X = 33;
+	var LIST_TOP = 81;
+	var C = {
+		title: "#ffcf84",
+		version: "#ffcf84",
+		date: "#c9a57a",
+		text: "#f8e8c1",
+		installed: "LimeGreen",
+		newer: "#ffa63d"
+	};
+	var MONTHS_EN = [
+		"Jan",
+		"Feb",
+		"Mar",
+		"Apr",
+		"May",
+		"Jun",
+		"Jul",
+		"Aug",
+		"Sep",
+		"Oct",
+		"Nov",
+		"Dec"
+	];
+	function changeDate(date, lang) {
+		const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+		if (!m) return date;
+		return lang === "ru" ? `${m[3]}.${m[2]}.${m[1]}` : `${MONTHS_EN[Number(m[2]) - 1] ?? m[2]} ${Number(m[3])}, ${m[1]}`;
+	}
+	function changelogLang() {
+		return I18N("NX_LANG") === "ru" ? "ru" : "en";
+	}
+	function changesHtml(entries, lang, installed) {
+		const badge = (text, color) => `<span style="font: 700 12px sans-serif; color: ${color}; border: 1px solid ${color}; border-radius: 4px; padding: 0 5px;">${escapeAttr(text)}</span>`;
+		return entries.map((entry) => {
+			const mark = entry.version === installed ? badge(I18N("NX_CHANGELOG_INSTALLED"), C.installed) : isNewer(entry.version, installed) ? badge(I18N("NX_CHANGELOG_NEWER"), C.newer) : "";
+			const lines = (lang === "ru" ? entry.ru : entry.en).map((line) => `<li style="margin: 3px 0;">${escapeAttr(line)}</li>`).join("");
+			return `<div data-version="${escapeAttr(entry.version)}" style="margin: 0 0 14px;"><div style="display: flex; align-items: baseline; gap: 8px; font: 700 16px/20px sans-serif; color: ${C.version};">v${escapeAttr(entry.version)}<span style="font: 600 12px sans-serif; color: ${C.date};">${escapeAttr(changeDate(entry.date, lang))}</span>${mark}</div><ul style="margin: 4px 0 0; padding-left: 20px; font: 14px/1.45 sans-serif; color: ${C.text};">${lines}</ul></div>`;
+		}).join("");
+	}
+	async function changelogWindow(library, installed) {
+		const stageH = Math.max(MIN_STAGE_H, Math.min(STAGE_H, window.innerHeight - SCREEN_MARGIN));
+		const frameW = 706;
+		const frameH = stageH - FRAME_Y - 7;
+		const listH = FRAME_Y + frameH - 26 - LIST_TOP;
+		const headerX = 360 - HEADER_W / 2;
+		const lang = changelogLang();
+		const own = bundledChanges();
+		let shown = changesHtml(own, lang, installed);
+		const win = openGameWindow({
+			id: WIN_ID,
+			zIndex: Z,
+			stageW: STAGE_W,
+			stageH,
+			maxScale: MAX_SCALE,
+			library
+		});
+		const { piece, label } = win;
+		win.render(piece("PopupBG_12_12_12_12", 20, 55, {
+			render: {
+				width: 680,
+				height: frameH - 22
+			},
+			size: [680, frameH - 22],
+			fallback: "background: #190e08; border-radius: 10px;"
+		}) + piece("mainframeSep_64_64_2_2", FRAME_X, FRAME_Y, {
+			render: {
+				width: frameW,
+				height: frameH
+			},
+			size: [frameW, frameH],
+			fallback: "border: 3px solid #ce9767; border-radius: 12px;",
+			cls: "nxNoHit"
+		}) + piece("header_178_178_2", headerX, 14, {
+			render: { width: HEADER_W },
+			size: [HEADER_W, 56],
+			fallback: "background: linear-gradient(180deg, #8a5a2a, #4a2a10); border-radius: 10px;",
+			cls: "nxNoHit"
+		}) + label(I18N("NX_CHANGELOG_TITLE"), 230, 14, 260, 56, 22, C.title) + piece("closeButton_32", 670, 26, {
+			size: [46, 46],
+			fallback: "background: #8a1c12; border: 2px solid #ce9767; border-radius: 50%; color: #fff; font: 700 20px/42px sans-serif; text-align: center;",
+			inner: "✕",
+			attrs: "data-close=\"1\"",
+			cls: "nxBox"
+		}) + `<div class="nxList" data-slot="list" style="left: ${LIST_X}px; top: ${LIST_TOP}px; width: 654px; height: ${listH}px; padding: 8px 16px 8px 0; user-select: text; mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%);">${shown}</div>`);
+		win.paintTexts();
+		let closed = false;
+		const onKey = (event) => {
+			if (event.key !== "Escape") return;
+			event.stopPropagation();
+			event.preventDefault();
+			if (event.type === "keyup") win.close();
+		};
+		window.addEventListener("keydown", onKey, true);
+		window.addEventListener("keyup", onKey, true);
+		win.onClose(() => {
+			closed = true;
+			window.removeEventListener("keydown", onKey, true);
+			window.removeEventListener("keyup", onKey, true);
+		});
+		win.root.addEventListener("click", (event) => {
+			if (event.target.closest("[data-close]")) win.close();
+		});
+		if (!onGamePage()) return;
+		const remote = await loadRemoteChanges().catch(() => null);
+		if (closed || !remote) return;
+		const fresh = changesHtml(mergeChanges(own, remote), lang, installed);
+		const list = win.stage.querySelector("[data-slot=\"list\"]");
+		if (!list || fresh === shown) return;
+		const top = list.scrollTop;
+		shown = fresh;
+		win.render(fresh, list);
+		list.scrollTop = top;
+	}
+	var changelogDialog = { run: changelogWindow };
+	function loadRiskModes() {
+		const raw = getSaveVal(NX_SAVE_KEYS.riskModes, null);
+		const saved = raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
+		return {
+			sellParts: saved.sellParts === true,
+			noPace: saved.noPace === true
+		};
+	}
+	function saveRiskModes(modes) {
+		setSaveVal(NX_SAVE_KEYS.riskModes, {
+			sellParts: modes.sellParts === true,
+			noPace: modes.noPace === true
+		});
+	}
+	function withRiskModes(setup, modes = loadRiskModes()) {
+		return {
+			...setup,
+			sellParts: modes.sellParts,
+			noPace: modes.noPace
+		};
+	}
 	var SETUP_GUI_FILES = [PET_HEAD_FILE, "emblem_icons"];
 	var NO_PACE = () => Promise.resolve();
+	var RISK_COLORS = {
+		noPace: "#ff5b4f",
+		sellParts: "#ffa63d"
+	};
+	var WARNING_TRIANGLE = "<svg width=\"21\" height=\"19\" viewBox=\"0 0 18 16\" aria-hidden=\"true\" style=\"flex: none;\"><path d=\"M9 1.2 L17 15 H1 Z\" fill=\"#ff9f1a\" stroke=\"#5a2a00\" stroke-width=\"1.2\" stroke-linejoin=\"round\"/><path d=\"M9 5.6 V10\" stroke=\"#2a1200\" stroke-width=\"2\" stroke-linecap=\"round\"/><circle cx=\"9\" cy=\"12.5\" r=\"1.1\" fill=\"#2a1200\"/></svg>";
+	function riskNoticeHtml(modes) {
+		const line = (text, color) => `<div style="display: flex; align-items: center; gap: 7px; color: ${color};">${WARNING_TRIANGLE}<span>${text}</span></div>`;
+		return (modes.sellParts ? line(I18N("NX_NOTICE_SELL_PARTS"), RISK_COLORS.sellParts) : "") + (modes.noPace ? line(I18N("NX_NOTICE_NO_PACE"), RISK_COLORS.noPace) : "");
+	}
 	function section(title, hint) {
 		return `<div style="text-align: left; margin: 14px 0 4px; font-size: 19px; color: #ffcf84;">${title}` + (hint ? `<div style="font-size: 13px; color: #d8cbb8; opacity: 0.85;">${hint}</div>` : "") + "</div>";
 	}
@@ -9501,8 +10035,9 @@
 		}).join("");
 	}
 	var VERSION_LABEL_ID = "nxVersionLabel";
+	var INFO_ICON = "<svg width=\"18\" height=\"18\" viewBox=\"0 0 20 20\" aria-hidden=\"true\"><defs><radialGradient id=\"nxInfoGold\" cx=\"38%\" cy=\"32%\" r=\"72%\"><stop offset=\"0\" stop-color=\"#fff4c8\"/><stop offset=\"0.55\" stop-color=\"#eab450\"/><stop offset=\"1\" stop-color=\"#8e5a1a\"/></radialGradient></defs><circle cx=\"10\" cy=\"10\" r=\"8.8\" fill=\"url(#nxInfoGold)\" stroke=\"#3a1c06\" stroke-width=\"1.4\"/><circle cx=\"10\" cy=\"10\" r=\"6.9\" fill=\"none\" stroke=\"#fff0c0\" stroke-opacity=\"0.45\" stroke-width=\"0.8\"/><circle cx=\"10\" cy=\"5.9\" r=\"1.45\" fill=\"#3a1c06\"/><rect x=\"8.65\" y=\"8.3\" width=\"2.7\" height=\"6.9\" rx=\"1.1\" fill=\"#3a1c06\"/></svg>";
 	function versionLabelHtml(version, update) {
-		const current = `<span style="opacity: 0.6;">v${escapeAttr(version)}</span>`;
+		const current = `<span style="display: flex; align-items: center; gap: 6px;"><span style="opacity: 0.6;">v${escapeAttr(version)}</span><span data-changelog="1" role="button" title="${escapeAttr(I18N("NX_CHANGELOG_HINT"))}" style="display: inline-flex; cursor: pointer; filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.8));">${INFO_ICON}</span></span>`;
 		const button = `<a href="${NX_GREASYFORK_URL}" target="_blank" rel="noopener" title="${escapeAttr(I18N("NX_UPDATE_HINT"))}" style="display: inline-flex; padding: 0 1px 3px; border-radius: 4px; text-decoration: none; cursor: pointer; background: hsl(120, 60%, 10%); box-shadow: 0 0 2px 0 hsl(36, 88%, 7%), 0 -1px 2px 0 hsl(36, 88%, 7%), 0 1px 1px 0 hsl(120, 60%, 12%);"><span style="display: flex; align-items: center; justify-content: center; height: 16px; padding: 0 9px; border-radius: 3px; background: hsl(120, 60%, 50%); color: hsl(120, 60%, 90%); font: 700 11px Arial, sans-serif; letter-spacing: 0.3px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.92);">${escapeAttr(I18N("NX_UPDATE_BUTTON"))}</span></a>`;
 		return `<span id="${VERSION_LABEL_ID}" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 11px; line-height: 14px; white-space: nowrap;">${current}${update ? `<span style="display: flex; align-items: center; gap: 6px;"><span style="color: LimeGreen;">${escapeAttr(I18N("NX_UPDATE_SHORT", { version: update }))}</span>${button}</span>` : ""}</span>`;
 	}
@@ -9640,6 +10175,11 @@
 		html += `<div class="PopUp_ContCheckbox" style="margin-top: 6px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewRandomAnyInput"${state.buyAnyRandomLots ? " checked" : ""}><label for="hwhNewRandomAnyInput" title="${escapeAttr(I18N("NX_BLOCK_RANDOM_ANY_HINT", { price: randomLotResale() }))}">${I18N("NX_BLOCK_RANDOM_ANY")}</label></div>`;
 		html += `<div class="PopUp_ContCheckbox" style="margin-top: 6px;"><input type="checkbox" class="PopUp_checkbox" id="hwhNewPauseInput"${state.pauseAfterBoss ? " checked" : ""}><label for="hwhNewPauseInput" title="${escapeAttr(I18N("NX_BLOCK_PAUSE_HINT"))}">${I18N("NX_BLOCK_PAUSE")}</label></div>`;
 		html += "</div>";
+		const risk = loadRiskModes();
+		const riskRow = (id, checked, text, hint, color) => `<div class="PopUp_ContCheckbox" style="margin-top: 6px;"><input type="checkbox" class="PopUp_checkbox" id="${id}"${checked ? " checked" : ""}><label for="${id}" title="${escapeAttr(hint)}"${checked ? ` style="color: ${color};"` : ""}>${text}</label></div>`;
+		html += section(I18N("NX_BLOCK_RISK"), I18N("NX_BLOCK_RISK_HINT"));
+		html += riskRow("nxSellParts", risk.sellParts, I18N("NX_SELL_PARTS"), I18N("NX_SELL_PARTS_HINT"), RISK_COLORS.sellParts);
+		html += riskRow("nxNoPace", risk.noPace, I18N("NX_NO_PACE"), I18N("NX_NO_PACE_HINT"), RISK_COLORS.noPace);
 		html += "<div id=\"hwhNewError\" style=\"color: #ff6b6b; text-align: left; margin-top: 12px; min-height: 1px;\"></div>";
 		html += "</div>";
 		let root;
@@ -9834,6 +10374,10 @@
 			const version = GM_info.script.version;
 			const update = availableUpdate(version);
 			host.version.innerHTML = versionLabelHtml(version, update);
+			host.version.addEventListener("click", (event) => {
+				if (!event.target?.closest?.("[data-changelog]")) return;
+				changelogDialog.run(library, version).catch((e) => console.error(e));
+			});
 			host.auto.innerHTML = autoButtonHtml(findAutoScript() !== null);
 			wireAutoButton();
 			refreshVersionLabel(version, update);
@@ -9903,6 +10447,42 @@
 				showError("");
 				persist();
 			});
+			let riskModes = loadRiskModes();
+			const showRiskNotice = () => host.setNotice?.(riskNoticeHtml(riskModes));
+			const wireRisk = (id, mode, ask, color) => {
+				const input = root.querySelector(`#${id}`);
+				if (!input) return;
+				input.addEventListener("change", handleAsync(async () => {
+					if (input.checked) {
+						input.checked = false;
+						if (!await confirmDialog.run({
+							library,
+							title: ask.title,
+							text: ask.text,
+							okText: I18N("NX_RISK_ENABLE"),
+							cancelText: I18N("NX_CANCEL")
+						})) return;
+						input.checked = true;
+					}
+					riskModes = {
+						...riskModes,
+						[mode]: input.checked
+					};
+					saveRiskModes(riskModes);
+					const label = input.nextElementSibling;
+					if (label) label.style.color = input.checked ? color : "";
+					showRiskNotice();
+				}));
+			};
+			wireRisk("nxSellParts", "sellParts", {
+				title: I18N("NX_SELL_PARTS_TITLE"),
+				text: I18N("NX_SELL_PARTS_WARNING")
+			}, RISK_COLORS.sellParts);
+			wireRisk("nxNoPace", "noPace", {
+				title: I18N("NX_NO_PACE_TITLE"),
+				text: I18N("NX_NO_PACE_WARNING")
+			}, RISK_COLORS.noPace);
+			showRiskNotice();
 			const onStart = () => {
 				const result = validate();
 				if (result.kind === "error") {
@@ -10278,8 +10858,9 @@
 			await popup.confirm(I18N("NX_ERR_NO_FREE_CHAPTER"));
 			return;
 		}
-		const setup = await archdemonNewSetup(chapters, buffAmount, relicLevel);
-		if (setup === "cancel" || !setup) return;
+		const answer = await archdemonNewSetup(chapters, buffAmount, relicLevel);
+		if (answer === "cancel" || !answer) return;
+		const setup = withRiskModes(answer);
 		console.log("archdemonNewSetup ", JSON.stringify(setup));
 		if (dryRun) {
 			confShow(I18N("NX_DEV_NO_RUN"));
